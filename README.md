@@ -1,2 +1,2 @@
 # y3management_web
-with codex
+y3gym management with codex
