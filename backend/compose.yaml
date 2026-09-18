@@ -1,0 +1,25 @@
+name: y3management-foundation
+services:
+  postgres-dev:
+    image: postgres:17.11
+    environment:
+      POSTGRES_USER: y3management_dev
+      POSTGRES_PASSWORD: local-example-only
+      POSTGRES_DB: y3management_dev
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - y3management-dev-data:/var/lib/postgresql/data
+  postgres-test:
+    image: postgres:17.11
+    environment:
+      POSTGRES_USER: y3management_test
+      POSTGRES_PASSWORD: local-test-example-only
+      POSTGRES_DB: y3management_test
+    ports:
+      - "127.0.0.1:55433:5432"
+    volumes:
+      - y3management-test-data:/var/lib/postgresql/data
+volumes:
+  y3management-dev-data:
+  y3management-test-data:
