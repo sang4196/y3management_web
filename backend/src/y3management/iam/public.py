@@ -32,7 +32,7 @@ class Account:
     version: int
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, repr=False)
 class LoginProof:
     account_id: UUID
     security_version: int
@@ -51,10 +51,12 @@ class Preparation:
     csrf: str
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, repr=False)
 class Reservation:
     key: bytes
     id: UUID
+    account_id: UUID | None
+    security_version: int | None
 
 
 # Module ports expose immutable facts and commands, not persistence adapters.
@@ -66,9 +68,16 @@ class IAMPort(Protocol):
     def bootstrap(self, organization_id: UUID, identifier: str) -> Account: ...
     def preparation(self, token: str | None, nonce: str | None, consume: bool = False) -> None: ...
     def login_subject(self, identifier: str) -> Account | None: ...
-    def verify_login(self, identifier: str, password: str) -> LoginProof | None: ...
+    def verify_login(
+        self, identifier: str, password: str, reservation: Reservation
+    ) -> LoginProof | None: ...
     def login(
-        self, proof: LoginProof, sid: UUID, preauth: str | None, nonce: str | None
+        self,
+        proof: LoginProof,
+        sid: UUID,
+        preauth: str | None,
+        nonce: str | None,
+        reservation: Reservation,
     ) -> tuple[str, Account]: ...
     def authenticate(
         self,
@@ -91,6 +100,7 @@ class IAMPort(Protocol):
     ) -> Account: ...
     def lock_credentials(self, ident: UUID) -> None: ...
     def change(self, account: Account, branch: UUID | None, disable: bool) -> Account: ...
+    def change_login_id(self, account: Account, identifier: str) -> Account: ...
     def prepare_password_change(
         self, ident: UUID, current_password: str, new_password: str
     ) -> LoginProof: ...

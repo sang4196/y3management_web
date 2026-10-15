@@ -135,7 +135,22 @@ class Security:
 
     def reserve(self, login_id: str) -> Reservation:
         now = self._guard()
-        key = hmac.digest(self.key, login_id.encode(), "sha256")
+        # One MVCC snapshot: a rename cannot fall between current and reserved lookups.
+        subject = self.s.execute(
+            text(
+                "SELECT a.id,a.security_version,a.login_budget_key,r.account_id AS owner "
+                "FROM (SELECT CAST(:login AS varchar) AS login_id) i "
+                "LEFT JOIN iam_accounts a ON a.login_id=i.login_id "
+                "LEFT JOIN iam_login_ids r ON r.login_id=i.login_id"
+            ),
+            {"login": login_id},
+        ).one()
+        domain = "reserved:" + login_id if subject.id is None and subject.owner else login_id
+        key = (
+            bytes(subject.login_budget_key)
+            if subject.login_budget_key is not None
+            else hmac.digest(self.key, domain.encode(), "sha256")
+        )
         row = self.s.execute(
             text("SELECT state_id,cooldown FROM iam_budgets WHERE key=:k FOR UPDATE"), {"k": key}
         ).first()
@@ -195,7 +210,7 @@ class Security:
             text("UPDATE iam_security_states SET expires_at=GREATEST(expires_at,:e) WHERE id=:id"),
             {"id": state_id, "e": expires},
         )
-        return Reservation(key, ident)
+        return Reservation(key, ident, subject.id, subject.security_version)
 
     def finish(self, reservation: Reservation, success: bool) -> None:
         now = self._guard()

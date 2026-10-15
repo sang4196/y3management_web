@@ -96,6 +96,10 @@ class Access(Version):
     branch_id: UUID
 
 
+class LoginIDChange(Version):
+    login_id: str = Field(min_length=3, max_length=64, strict=True)
+
+
 class Disable(Version):
     status: Literal["DISABLED"]
 
@@ -299,6 +303,15 @@ def attach(app: FastAPI, settings: Settings) -> None:
     def reissue(request: Request, ident: UUID, body: Version) -> dict[str, object]:
         auth, nonce = write(request)
         return issued(service(request).reissue(auth, nonce, ident, body.expected_version))
+
+    @router.patch("/admin/accounts/{ident}/login-id")
+    def change_login_id(request: Request, ident: UUID, body: LoginIDChange) -> dict[str, object]:
+        auth, nonce = write(request)
+        return account_json(
+            service(request).change_login_id(
+                auth, nonce, ident, body.expected_version, body.login_id
+            )
+        )
 
     @router.patch("/admin/accounts/{ident}/access")
     def access(request: Request, ident: UUID, body: Access) -> dict[str, object]:

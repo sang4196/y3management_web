@@ -106,3 +106,92 @@ def test_startup_failure_releases_canonical_guard(settings: Settings) -> None:
         guard = ProcessGuard(cfg)
         guard.close()
     assert Path("/tmp/y3management-runtime").is_dir()
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"expected_version": True, "login_id": "valid.name"},
+        {"expected_version": "2", "login_id": "valid.name"},
+        {"expected_version": 2, "login_id": 123},
+        {"expected_version": 2, "login_id": "valid.name", "role": "MASTER"},
+        {"expected_version": 0, "login_id": "valid.name"},
+    ],
+)
+def test_login_id_change_strict_contract(body: dict[str, object]) -> None:
+    from pydantic import ValidationError
+
+    from y3management.http import LoginIDChange
+
+    with pytest.raises(ValidationError):
+        LoginIDChange.model_validate(body)
+
+
+@pytest.mark.parametrize(
+    "identifier", [" abcd", "abcd ", "ab", "a" * 65, "reserved:name", "한글아이디"]
+)
+def test_login_id_normalization_rejects_ambiguous_names(identifier: str) -> None:
+    from y3management.use_cases import normalize_login
+
+    with pytest.raises(Rejected) as error:
+        normalize_login(identifier)
+    assert error.value.status == 422
+
+
+def test_failure_locals_keep_synthetic_secrets_private(tmp_path: Path) -> None:
+    import os
+    import secrets
+    import subprocess
+    import sys
+
+    from tests.test_iam import SyntheticSecret
+
+    canaries = {
+        name: SyntheticSecret(secrets.token_hex(16))
+        for name in ("PASSWORD", "COOKIE", "NONCE", "HASH", "ANCHOR")
+    }
+    probe = tmp_path / "test_private_failure.py"
+    probe.write_text("""import os
+from uuid import uuid4
+from tests.test_iam import SyntheticSecret
+from tests.test_iam_s2 import fingerprint_rows
+from y3management.iam.public import LoginProof, Reservation
+
+def test_deliberate_failure():
+    password = SyntheticSecret(os.environ['PASSWORD'])
+    cookie = SyntheticSecret(os.environ['COOKIE'])
+    nonce = SyntheticSecret(os.environ['NONCE'])
+    encoded = SyntheticSecret(os.environ['HASH'])
+    reservation = Reservation(bytes.fromhex(os.environ['ANCHOR']), uuid4(), uuid4(), 2)
+    proof = LoginProof(uuid4(), 2, bytes.fromhex(os.environ['HASH']))
+    fingerprint = fingerprint_rows([(encoded, reservation.key)])
+    safe_boolean = False
+    assert safe_boolean, 'EXPECTED_PRIVATE_FAILURE'
+""")
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            str(probe),
+            "--confcutdir",
+            str(tmp_path),
+            "--showlocals",
+            "-q",
+            "-o",
+            "addopts=",
+        ],
+        env={**os.environ, **canaries},
+        capture_output=True,
+        timeout=30,
+    )
+    code = result.returncode
+    output = SyntheticSecret((result.stdout + result.stderr).decode())
+    del result
+    expected_failure = code == 1 and "EXPECTED_PRIVATE_FAILURE" in output
+    leaked = any(
+        value in output or repr(bytes.fromhex(value)) in output for value in canaries.values()
+    )
+    repr_hidden = "<synthetic-secret>" in output
+    assert expected_failure and repr_hidden
+    assert not leaked

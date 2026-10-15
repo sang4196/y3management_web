@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from y3management.contracts import Rejected
 from y3management.iam.passwords import Passwords
-from y3management.iam.public import Account, Authentication, Caller, LoginProof, Setup
+from y3management.iam.public import Account, Authentication, Caller, LoginProof, Reservation, Setup
 
 
 def login_id(value: str) -> str:
@@ -126,7 +126,9 @@ class IAM:
         ).first()
         return self._account(row.id) if row else None
 
-    def verify_login(self, identifier: str, password: str) -> LoginProof | None:
+    def verify_login(
+        self, identifier: str, password: str, reservation: Reservation
+    ) -> LoginProof | None:
         row = (
             self.s.execute(
                 text(
@@ -138,6 +140,11 @@ class IAM:
             .mappings()
             .first()
         )
+        if (row["id"] if row else None) != reservation.account_id or (
+            row["security_version"] if row else None
+        ) != reservation.security_version:
+            # Never verify a credential against a principal not admitted by this reservation.
+            raise Rejected(503, "unavailable")
         encoded = str(row["password_hash"]) if row and row["state"] == "ACTIVE" else None
         valid, upgrade = self.passwords.verify(password, encoded)
         if not valid or row is None or encoded is None:
@@ -149,7 +156,12 @@ class IAM:
         )
 
     def login(
-        self, proof: LoginProof, sid: UUID, preauth: str | None, nonce: str | None
+        self,
+        proof: LoginProof,
+        sid: UUID,
+        preauth: str | None,
+        nonce: str | None,
+        reservation: Reservation,
     ) -> tuple[str, Account]:
         lock = "UPDATE" if proof.account_id in self._upgrades else "SHARE"
         row = (
@@ -167,6 +179,17 @@ class IAM:
             or not hmac.compare_digest(marker, proof.credential_marker)
         ):
             raise Rejected(401, "invalid_credentials")
+        budget_key = (
+            bytes(row["login_budget_key"])
+            if row["login_budget_key"] is not None
+            else hmac.digest(self.key, row["login_id"].encode(), "sha256")
+        )
+        if (
+            reservation.account_id != proof.account_id
+            or reservation.security_version != proof.security_version
+            or not hmac.compare_digest(reservation.key, budget_key)
+        ):
+            raise Rejected(503, "unavailable")
         if proof.account_id in self._upgrades:
             self.s.execute(
                 text("UPDATE iam_accounts SET password_hash=:h WHERE id=:a"),
@@ -427,6 +450,42 @@ class IAM:
                 text("UPDATE iam_admin_grants SET branch_id=:b WHERE account_id=:a"),
                 {"a": account.id, "b": branch},
             )
+        self.s.execute(
+            text("UPDATE iam_sessions SET revoked=true WHERE account_id=:a"), {"a": account.id}
+        )
+        self.s.execute(
+            text("UPDATE iam_credentials SET consumed=true WHERE account_id=:a"), {"a": account.id}
+        )
+        return self._account(account.id)
+
+    def change_login_id(self, account: Account, identifier: str) -> Account:
+        if account.state != "ACTIVE":
+            raise Rejected(409, "conflict")
+        if account.login_id == identifier:
+            return account
+        self.lock_credentials(account.id)
+        owner = self.s.execute(
+            text("SELECT account_id FROM iam_login_ids WHERE login_id=:l"), {"l": identifier}
+        ).scalar_one_or_none()
+        if owner is not None and owner != account.id:
+            raise Rejected(409, "conflict")
+        if owner is None:
+            self.s.execute(
+                text("INSERT INTO iam_login_ids VALUES(:l,:a)"),
+                {"l": identifier, "a": account.id},
+            )
+        self.s.execute(
+            text(
+                "UPDATE iam_accounts SET login_id=:l,"
+                "login_budget_key=COALESCE(login_budget_key,:k),"
+                "row_version=row_version+1,security_version=security_version+1 WHERE id=:a"
+            ),
+            {
+                "l": identifier,
+                "k": hmac.digest(self.key, account.login_id.encode(), "sha256"),
+                "a": account.id,
+            },
+        )
         self.s.execute(
             text("UPDATE iam_sessions SET revoked=true WHERE account_id=:a"), {"a": account.id}
         )

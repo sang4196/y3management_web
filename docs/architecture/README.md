@@ -1,5 +1,18 @@
 # Architecture 및 현재 개발 단계
 
+2026-10-15 최신 인수: **IAM S2c Login ID 변경의 제한된 로컬 개발 인수 PASS**.
+현재 Master가 같은 Organization의 ACTIVE Branch Admin ID를 변경하며 이전 ID는 원계정에 예약한다.
+기존 암호/Scope를 보존하고 대상 모든 로그인을 종료하며 실패 제한을 새 ID에도 유지한다.
+실제 변경은 현재 Master의 활동만 갱신하고 동일 ID no-op·거부/최종 만료·감사 실패는 원자성을 유지한다.
+[구현·검증 결과](iam-004-login-id-results.md), [인수 요약](iam-004-login-id-review.json), [기술 계약](iam-004-login-id-design.md)을 따른다.
+최종 독립 검사 fast **81개**, 실제 PostgreSQL 전체 **97개** 및 그 안의 신뢰 HTTPS **58항목**을 확인했다.
+초기 테스트 실패·소스 인계 중단·활동 누락 보완/이전 소스 검증은 최종 통과와 구분해 기록했다.
+S2b는 `0a947f9bccc615140b4a3ea24809790aa452172e`로 origin/codex/iam-s2b-password-change에 푸시했다.
+이번 S2c는 `codex/iam-s2c-login-id`에서 완료했고 전담 커밋 담당자의 최종 검토·한글 커밋·일반 push를 따른다.
+Product/ADR/OPEN 상태는 유지한다. Master/다른 상태·역할의 ID 변경, 관리자 reset/추가 Master/Workforce,
+운영 MFA/비상 복구/배포·전체 IAM은 후속 범위다. Passkey 등록·분실 복구의 미결정 권한을 임의 구현하지 않는다.
+아래 이전 완료/미완료 설명은 해당 시점 이력이다.
+
 2026-10-15 최신 인수: **IAM S2b 본인 비밀번호 변경의 제한된 로컬 개발 인수 PASS**.
 현재 비밀번호 확인 후 본인 자격을 바꾸고 현재 장치 포함 모든 기존 로그인을 종료한다.
 현재 비밀번호를 아는 마지막 Master도 허용하며 Scope·기존 로그인 실패 대기시간을 유지한다.

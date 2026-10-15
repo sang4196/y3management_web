@@ -41,6 +41,8 @@ def event(
         after_version=after.version if after else None,
         branch_code=branch.code if branch else None,
         branch_name=branch.name if branch else None,
+        before_login_id=before.login_id if before and action == "login_id_change" else None,
+        after_login_id=after.login_id if after and action == "login_id_change" else None,
     )
 
 
@@ -115,13 +117,15 @@ class Service:
         try:
             with self.uow.open() as w:
                 subject = w.iam.login_subject(identifier)
-                proof = w.iam.verify_login(identifier, password)
+                if subject is not None and subject.id != reservation.account_id:
+                    subject = None
+                proof = w.iam.verify_login(identifier, password, reservation)
                 if proof is None:
                     raise Rejected(401, "invalid_credentials")
                 # Only unlocked read snapshots exist here; security locks end before business locks.
                 with self.uow.open() as security:
                     sid = security.security.allocate("session_slot")
-                token, account = w.iam.login(proof, sid, preauth, nonce)
+                token, account = w.iam.login(proof, sid, preauth, nonce, reservation)
                 caller = Caller(
                     account.id, account.organization_id, account.branch_id, account.master
                 )
@@ -321,6 +325,23 @@ class Service:
                         after,
                     )
                 )
+            return after
+
+    def change_login_id(
+        self, auth: str | None, nonce: str | None, ident: UUID, version: int, identifier: str
+    ) -> Account:
+        identifier = normalize_login(identifier)
+        with self.uow.open() as w:
+            a = w.iam.authenticate(auth, management=True, target=ident, touch=False)
+            w.iam.csrf(a, nonce)
+            before = w.iam.scoped_account(a.caller, ident)
+            if before.version != version:
+                raise Rejected(409, "conflict")
+            after = w.iam.change_login_id(before, identifier)
+            if after.version != before.version:
+                final = w.iam.authenticate(auth, management=True, target=ident, touch=True)
+                w.iam.csrf(final, nonce)
+                w.audit.append(event("login_id_change", final.caller, ident, before, after))
             return after
 
     def change_password(

@@ -22,10 +22,11 @@ class Audit:
                 text("""INSERT INTO audit_events
               (id,organization_id,actor_id,target_id,action,success,before_state,after_state,
                before_branch,after_branch,actor_role,actor_scope,actor_branch,before_version,
-               after_version,branch_code,branch_name,request_id)
+               after_version,branch_code,branch_name,request_id,before_login_id,after_login_id)
               VALUES (:id,:organization_id,:actor_id,:target_id,:action,:success,:before_state,
                       :after_state,:before_branch,:after_branch,:actor_role,:actor_scope,:actor_branch,
-                      :before_version,:after_version,:branch_code,:branch_name,:request_id)"""),
+                      :before_version,:after_version,:branch_code,:branch_name,:request_id,
+                      :before_login_id,:after_login_id)"""),
                 {"id": uuid4(), "request_id": self.request_id, **asdict(event)},
             )
         except SQLAlchemyError:

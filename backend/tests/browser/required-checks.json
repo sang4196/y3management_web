@@ -46,5 +46,15 @@
   "password_old_master_rejected",
   "password_new_master_login",
   "password_master_same_scope",
-  "password_other_branch_kept"
+  "password_other_branch_kept",
+  "login_id_two_live",
+  "login_id_missing_csrf",
+  "login_id_branch_denied",
+  "login_id_noop",
+  "login_id_changed",
+  "login_id_two_revoked",
+  "login_id_old_denied",
+  "login_id_new_password_preserved",
+  "login_id_master_preserved",
+  "login_id_owner_reuse"
 ]

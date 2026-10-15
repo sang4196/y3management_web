@@ -13,6 +13,8 @@ from uuid import UUID
 
 import httpx
 import pytest
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from fastapi.testclient import TestClient
 from sqlalchemy import event as sql_event
 from sqlalchemy import text
@@ -30,7 +32,7 @@ from y3management.contracts import Rejected
 from y3management.database import Database
 from y3management.iam.infrastructure import IAM
 from y3management.iam.passwords import Passwords
-from y3management.iam.public import LoginProof
+from y3management.iam.public import LoginProof, Reservation
 from y3management.use_cases import Service
 
 pytestmark = pytest.mark.postgres
@@ -522,8 +524,10 @@ def test_login_snapshot_loses_to_password_change(
     n, pre = world.service.csrf(None, None)
     n, pre = SyntheticSecret(n), SyntheticSecret(pre) if pre else None
 
-    def verify(adapter: IAM, identifier: str, value: str) -> LoginProof | None:
-        proof = original(adapter, identifier, value)
+    def verify(
+        adapter: IAM, identifier: str, value: str, reservation: Reservation
+    ) -> LoginProof | None:
+        proof = original(adapter, identifier, value, reservation)
         verified.set()
         assert release.wait(10)
         return proof
@@ -568,7 +572,7 @@ def test_password_migration_roundtrip_and_history_guard(world: World) -> None:
     with world.db.session() as s:
         assert (
             s.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-            == "0003_iam_password"
+            == ScriptDirectory.from_config(Config("alembic.ini")).get_current_head()
         )
 
 

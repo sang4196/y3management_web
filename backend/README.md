@@ -55,6 +55,23 @@ synthetic conftest probe는 호출자 소유이며 상위 실행의 정리 책�
 현재 운영 배포 구성은 없다. 향후 배포에는 `.local/qa/`·테스트 DB/키/프로필/원본 로그를
 포함하지 않아야 한다. wheel은 기존 `src/y3management`만 패키징한다. 배포 도구는 추가하지 않는다.
 
+## IAM-S2c 개발 증분 (2026-10-15)
+
+`PATCH /api/v1/admin/accounts/{id}/login-id`는 같은 조직 Master가 ACTIVE Branch Admin의
+`login_id`와 `expected_version`을 보내 변경한다. 현재 인증·CSRF를 검증하며 추가 암호 확인은 없다.
+대소문자를 무시하고 원계정의 과거 예약 ID 복귀를 허용한다. 다른 계정은 예약 ID를 가져올 수 없다.
+현재 ID만 로그인할 수 있다. 변경은 원래 암호/UUID/권한·Scope를 유지하고 대상 모든 세션을 철회한다.
+현재 version의 정규화 동일 ID는 세션/version/감사까지 그대로 두는 no-op다.
+실제 변경 성공은 현재 Master 세션의 활동 시각만 갱신하고 절대 만료와 다른 세션은 보존한다.
+같은 트랜잭션의 최종 재인증에서 만료되면 변경 전체를 rollback한다.
+
+계정의 고정 login budget key로 실패 횟수·cooldown·진행 중 예약을 유지한다. 익명 admission과
+변경 후 계정이 엇갈리는 기술 경합은 503으로 종료하고 기존 lease를 보존한다. 새 admission부터
+재시도하되 즉시 budget 반환을 보장하지 않는다. commit ACK 유실 때는 account UUID로 결과를 확인한다.
+새 `0004_iam_login_id`는 key 또는 신규 감사가 남으면 downgrade를 거부한다.
+[기술 설계](../docs/architecture/iam-004-login-id-design.md)와
+[개발 검증 결과](../docs/architecture/iam-004-login-id-results.md)를 참고한다.
+
 ## IAM-S2b 개발 증분 (2026-10-15)
 
 `POST /api/v1/auth/password`는 현재 인증된 본인의 `current_password`와 `new_password`만 받는다.

@@ -955,7 +955,7 @@ def test_login_snapshot_then_disable_and_wait_expiry(
 
     from y3management.contracts import Rejected
     from y3management.iam.infrastructure import IAM
-    from y3management.iam.public import LoginProof
+    from y3management.iam.public import LoginProof, Reservation
 
     settings, db, password = iam
     app = create_app(settings, database=db)
@@ -983,8 +983,10 @@ def test_login_snapshot_then_disable_and_wait_expiry(
         outcomes = []
         original = IAM.verify_login
 
-        def verify(adapter: IAM, identifier: str, value: str) -> LoginProof | None:
-            proof = original(adapter, identifier, value)
+        def verify(
+            adapter: IAM, identifier: str, value: str, reservation: Reservation
+        ) -> LoginProof | None:
+            proof = original(adapter, identifier, value, reservation)
             verified.set()
             assert release.wait(10)
             return proof

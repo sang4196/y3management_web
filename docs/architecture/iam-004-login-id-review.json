@@ -1,0 +1,334 @@
+{
+  "date": "2026-10-15",
+  "status": "PASS_LIMITED_LOCAL_IAM_S2C",
+  "scope": "Current Master changes same-Organization ACTIVE Branch Admin current Login ID; prior IDs reserved to owner, existing credential and independent scopes retained, all target authentication revoked; account login limits retained across rename. Real management refreshes only current actor activity; no-op does not.",
+  "approved_basis": [
+    "A2",
+    "A5",
+    "C1",
+    "C2",
+    "C6",
+    "E3",
+    "E4",
+    "PR-021/026/027",
+    "NFR-001",
+    "ARCH-002"
+  ],
+  "checkpoint": {
+    "commit": "0a947f9bccc615140b4a3ea24809790aa452172e",
+    "published_ref": "origin/codex/iam-s2b-password-change",
+    "new_milestone_branch": "codex/iam-s2c-login-id"
+  },
+  "source_revision": 4,
+  "source_sha256": {
+    "backend/alembic/versions/0004_iam_login_id.py": "07144bab1120b2d9a5f00ec4a2d40e3fb218b0c5b202c742051df25f454e3937",
+    "backend/src/y3management/audit/infrastructure.py": "4917e481a15bfe9a4b93113462331c601c63160c3b7581254a93ad404b74d970",
+    "backend/src/y3management/audit/public.py": "0b4a66917d0cb247d7b37c4e3c051a94832f87ffe18c9b7af7270a543701832e",
+    "backend/src/y3management/http.py": "816ac6911434bb40af1bc782cb219914f2efc33d8e22008c3003d1f3b644689f",
+    "backend/src/y3management/iam/infrastructure.py": "024787f150f2b83d7e0ba2e762eba574943e630afe2f64ac23ea0d6e078db871",
+    "backend/src/y3management/iam/public.py": "481191fc52018b58f69a0fe344e18cdc2891aaf1ad88e36e1ea7f50ff674315c",
+    "backend/src/y3management/iam/security.py": "c006e2cb8d9d75676c7f3e271da550fced146f1875c5f4db5ffd30b2d87e5ce0",
+    "backend/src/y3management/use_cases.py": "2f06297319ccfa4c61b24f50a9e7df5b0ae7aab1c31c90e24ba09a4edcbba20d",
+    "backend/tests/browser/required-checks.json": "a9f0262f0825c64c0e9fbcc72d98d63895b0906c4da946fc6b217b675454d002",
+    "backend/tests/browser/s1.cjs": "94a94ad63e80d67129043d7a3928faa7340b46bef94684b43c68625691cfe272",
+    "backend/tests/test_iam.py": "8c3f70e6919170a98e4abad024b170489a6531ee70193774ad38aa0340455dca",
+    "backend/tests/test_iam_policy.py": "176f41c2f25787f001bf5106de45bf00e71077817ee89ad40c7d57bc6c49c499",
+    "backend/tests/test_iam_s2b.py": "c69e47993a8b24be8fe84009298aa4b28a11915e3ad4dde88c4bd0fba9b3186c",
+    "backend/tests/test_iam_s2c.py": "40123260fe1692be7a9c8af38d71c7af04f3389371cb89b857dc0b3ca75137c7"
+  },
+  "full_candidate_manifest": {
+    "files": 70,
+    "sha256": "ac595cc29674ba7bce3877e34f4395c392e8eb282ae772a96a9f87901211adc1",
+    "current_matches": true
+  },
+  "root_review": {
+    "implementation_lock_graph_transaction_authorization_admission_activity_migration_privacy_reviewed": true,
+    "all_original_tracked_files_compared": 122,
+    "unexpected_changes_before_acceptance_docs": [],
+    "deleted_originals": [],
+    "product_adr_dependencies_corpus_old_migrations_unchanged": true,
+    "root_did_not_run_full_tests": true
+  },
+  "developer": {
+    "revision3_initial_pg": {
+      "selected": 86,
+      "passed": 85,
+      "failed": 1,
+      "scope": "pre-final test and repr hardening; no contemporaneous complete manifest, not final evidence"
+    },
+    "revision3_corrected_and_added_targeted_pg": 12,
+    "privacy_targeted": 1,
+    "idle_regression_red_executions": 2,
+    "idle_regression_red_failures_each": 1,
+    "idle_first_selection_command_exit4": true,
+    "revision4_fast": 81,
+    "revision4_targeted_pg": 23,
+    "developer_single_full97_claimed": false,
+    "executions_owned_resources_cleaned": true
+  },
+  "independent": {
+    "status": "PASS_LIMITED_LOCAL_IAM_S2C_INDEPENDENT_REVISION4",
+    "fast": {
+      "command": "backend/: bash check.sh fast",
+      "exit_code": 0,
+      "collected": 178,
+      "selected": 81,
+      "passed": 81,
+      "deselected": 97,
+      "warnings": 2,
+      "seconds": 17.7,
+      "ruff": "PASS",
+      "ruff_format": "PASS (50 files already formatted)",
+      "mypy": "PASS (42 source files)",
+      "import_linter": "PASS (7 kept,0 broken)"
+    },
+    "required_db": {
+      "command": "backend/: bash check.sh db",
+      "exit_code": 0,
+      "collected": 178,
+      "selected": 97,
+      "passed": 97,
+      "deselected": 81,
+      "warnings": 2,
+      "seconds": 728.34,
+      "single_full_execution_pass": true,
+      "previous_S1_S2a_S2b_foundation_browser": 49,
+      "S2c_cases_including_activity_expiry": 48,
+      "activity_near_idle_positive": 1,
+      "final_idle_absolute_rollback": 2,
+      "no_skip_xfail_missing_counted_as_success": true
+    },
+    "actual_trusted_https": {
+      "included_in_full_db97": true,
+      "separate_duplicate_browser_run": false,
+      "required": 58,
+      "previous48_preserved": true,
+      "additional_checks": 10,
+      "all_exact_booleans_true": true,
+      "browser_version": "151.0.7922.34",
+      "owned_run_and_copied_script_match_revision4": true,
+      "TLS_verification_and_sandbox_kept": true
+    },
+    "privacy_negative": {
+      "independently_executed_inside_fast_parent_test": true,
+      "parent_case_pass": true,
+      "intentional_child_pytest_failure_expected": 1,
+      "showlocals": true,
+      "synthetic_password_cookie_nonce_hash_anchor_hex_and_bytesrepr_absent": true,
+      "raw_canaried_output_retained": false
+    },
+    "extra_adverse_probes": {
+      "added": 0,
+      "reason": "Canonical48 S2c PG cases cover planned principal transitions, real final key/account/version guard, wrong-password audit attribution, budget/GC/capacity and new actor expiry invariants; no material uncovered contract required duplicate probes."
+    },
+    "source_verification": {
+      "candidate_revision": 4,
+      "candidate_sha256_before": "ac595cc29674ba7bce3877e34f4395c392e8eb282ae772a96a9f87901211adc1",
+      "candidate_sha256_after": "ac595cc29674ba7bce3877e34f4395c392e8eb282ae772a96a9f87901211adc1",
+      "revision4_sha256_before": "ac595cc29674ba7bce3877e34f4395c392e8eb282ae772a96a9f87901211adc1",
+      "revision4_sha256_after": "ac595cc29674ba7bce3877e34f4395c392e8eb282ae772a96a9f87901211adc1",
+      "candidate_files": 70,
+      "changed_files": [],
+      "delta_from_interrupted_revision3": [
+        "backend/README.md",
+        "backend/src/y3management/use_cases.py",
+        "backend/tests/test_iam_s2c.py",
+        "docs/architecture/iam-004-login-id-design.md"
+      ],
+      "protected_checkpoint_files": 34,
+      "protected_Product_ADR_OPEN_old_migrations0001_3_corpus_driver_dependencies_equal": true,
+      "original_offline_corpus_inputs_unchanged": 7,
+      "head": "0a947f9bccc615140b4a3ea24809790aa452172e",
+      "branch": "codex/iam-s2c-login-id",
+      "head_and_index_preserved": true,
+      "tester_source_git_public_docs_edits": false
+    },
+    "verified_invariants": [
+      "Single statement current/reserved routing without Account row lock under security_control",
+      "Admission principal/security_version before credential verification; actual reservation key bound under final Account lock",
+      "Unknown/retired admission cannot promote after rename, including incorrect-password paths; technical503 preserves pending/lease and no false successful login audit",
+      "Permanent ID owner and own past-ID return, case-insensitive normalization/current-only login, stale no-op rejected",
+      "Stable legacy anchor, retained failure/cooldown/pending across rename/restore, separate retired domain, no rekey or live-state eviction",
+      "All target sessions revoked while password/account UUID/grants/history and actor auth retained",
+      "Actual successful rename refreshes only current actor activity; absolute expiry/other actor sessions/account versions unchanged; no-op/rollback preserve and final expiry rolls back entirely",
+      "Audit/ACK atomicity, sorted management lock order and actual independent PG blocking",
+      "0004 guards anchor/history before downgrade DDL, original0001-3 and data/failed migration revision preserved"
+    ],
+    "closed_findings": {
+      "ids": [
+        "S2C-FREEZE-001",
+        "S2C-DEFINITION-001",
+        "S2C-ACTIVITY-001"
+      ],
+      "open_confirmed_defects": 0
+    }
+  },
+  "review_findings": [
+    {
+      "id": "S2C-ADMISSION-001",
+      "kind": "design",
+      "issue": "Anonymous admission could become real principal across rename; bound account/version/key and one snapshot required.",
+      "status": "CLOSED_VERIFIED_FINAL_REVISION4"
+    },
+    {
+      "id": "S2C-ORPHAN-001",
+      "kind": "test",
+      "issue": "Initial reserved-ID barrier counted pre-existing GC slot grace states as current-request leak.",
+      "status": "CLOSED_VERIFIED_FINAL_REVISION4"
+    },
+    {
+      "id": "S2C-FREEZE-001",
+      "kind": "harness",
+      "issue": "Independent initial candidate mismatch caught before test execution; frozen source reissued.",
+      "status": "CLOSED_VERIFIED_FINAL_REVISION4"
+    },
+    {
+      "id": "S2C-IDLE-001",
+      "kind": "implementation",
+      "issue": "Real rename omitted actor idle activity; regression reproduced before same-UoW final reauthentication fix.",
+      "status": "CLOSED_VERIFIED_FINAL_REVISION4"
+    },
+    {
+      "id": "S2C-PRIVACY-001",
+      "kind": "privacy",
+      "issue": "Proof/reservation repr and hex/bytes canary checks strengthened.",
+      "status": "CLOSED_VERIFIED_FINAL_REVISION4"
+    },
+    {
+      "id": "S2C-COUNT-001",
+      "kind": "report",
+      "issue": "Root initial browser count59 corrected to actual58; no check removed.",
+      "status": "CLOSED_VERIFIED_FINAL_REVISION4"
+    }
+  ],
+  "limitations": [
+    "Local development acceptance only; production MFA/recovery/deployment/load and global IAM completion not verified.",
+    "Current endpoint excludes Master, Trainer and non-ACTIVE target account states as deferred implementation scope.",
+    "Product/ADR/compound OPEN states unchanged; no JWT or frontend/framework/dependency adoption."
+  ],
+  "publication_policy": {
+    "dedicated_commit_review_required": true,
+    "detailed_korean_commit_and_normal_push_authorized": true,
+    "unapproved_product_choices_excluded": true,
+    "deployment_authorized": false
+  },
+  "acceptance_owner": "Root reviewed implementation, independent final source execution and resource closeout; no full tests executed by root.",
+  "history_not_final_pass": {
+    "initial_candidate_mismatch": {
+      "initial_status": "WAITING_EXPLICIT_ROOT_REHANDOFF_AFTER_SOURCE_MISMATCH",
+      "initial_source_mismatch_files": [
+        "backend/tests/test_iam_policy.py",
+        "backend/tests/test_iam_s2c.py"
+      ],
+      "independent_executions_before_final_rehandoff": 0,
+      "initial_browser_count_correction": {
+        "communicated": 59,
+        "actual": 58,
+        "resolved_by_root": true
+      },
+      "initial_candidate_sha256": "3bb8df886f3b90aca8ace1e8ebf0b477a317273ad877c670adfb80fc9ef45c26"
+    },
+    "revision3": {
+      "fast": {
+        "passed": 81,
+        "warnings": 2,
+        "seconds": 16.55,
+        "status": "PASS_OLD_SOURCE_ONLY"
+      },
+      "full_db": {
+        "intended_selected": 94,
+        "completed_passed": 51,
+        "uncompleted": 43,
+        "warnings": 2,
+        "seconds": 342.03,
+        "process_exit_code": 1,
+        "status": "ROOT_REQUESTED_SIGINT_INTERRUPTED_NOT_FULL_PASS",
+        "failed_tests_reported": [],
+        "exit1_reason": "SIGINT followed by conservative cleanup hold for one stale schema marker; actual schema already absent, marker reconciled and root removed."
+      },
+      "actual_browser": {
+        "checks": 58,
+        "all_true": true,
+        "status": "OLD_SOURCE_ONLY_NOT_FINAL_ACCEPTANCE"
+      },
+      "stop_reason": "Root-confirmed missing actor idle activity; owner/starttick/runroot verified SIGINT only own pytest.",
+      "normal_cleanup_initially_held": true,
+      "schema_markers_pending_after_SIGINT": 1,
+      "actual_owned_schema_additional_drop_needed": 0,
+      "cleanup_resolution": "Actual schema already absent, stale flag reconciled after verified target read; existing QA dry-plan removed own root.",
+      "final_resource_state": {
+        "owner_identity_stopped": true,
+        "registered_browser_children_still_live": [],
+        "ports_closed": true,
+        "schema_set_restored": true,
+        "unexpected_schema_count": 0,
+        "global_trust_unchanged_including_symlinks": true,
+        "trust_files": 246,
+        "owned_fast_and_interrupted_db_roots_absent": true,
+        "TLS_keys_inputs_NSS_profiles_removed_with_own_run": true,
+        "source_revision3_and_candidate_still_match_at_fix_release": true,
+        "shared_original_processes_data_dependencies_modified": false
+      },
+      "not_a_full94_or_final_source_pass": true
+    }
+  },
+  "cleanup": {
+    "source_candidate_and_revision4_manifest_hash_equal_before_after": true,
+    "source_files_checked": 70,
+    "source_changed_files": [],
+    "protected_checkpoint_files_checked": 34,
+    "protected_Product_ADR_OPEN_migrations0001_3_corpus_tooling_dependencies_equal": true,
+    "original_corpus_inputs_match": 7,
+    "owned_auto_roots_absent": {
+      "fast-revision4.log": true,
+      "db-revision4.log": true
+    },
+    "all_registered_process_and_schema_guard_removals_true": true,
+    "pytest_owner_identity_stopped": true,
+    "observed_registered_children_still_live": [],
+    "observed_browser_port_closed": true,
+    "database_schema_set_equal_before_after": true,
+    "unexpected_remaining_schema_count": 0,
+    "global_trust_equal_including_symlink_files": true,
+    "global_trust_file_count": 246,
+    "TLS_input_keys_NSS_profiles_removed_with_owned_root": true,
+    "fixed_runtime_lock_directory_preserved": true,
+    "head_unchanged": true,
+    "index_unchanged": true,
+    "tester_source_git_product_dependency_edits": false,
+    "other_projects_shared_data_processes_removed": false,
+    "completed_review_metadata": {
+      "status": "COMPLETE",
+      "dry_run_actual_match": true,
+      "roots_removed": [
+        ".local/qa/commit-s2b-33058d7487234835",
+        ".local/qa/iam-s2c-plan-ff77dd8c4477",
+        ".local/qa/iam-s2c-test-plan-61cc1272047f",
+        ".local/qa/iam-s2c-review-782a007c284a",
+        ".local/qa/iam-s2c-dev-f4881aa1729f",
+        ".local/qa/iam-s2c-independent-d96606c74a7b"
+      ],
+      "files_removed": 33,
+      "bytes_removed": 180647,
+      "held": [],
+      "failures": [],
+      "prior_guard_stop": {
+        "before_deletion": true,
+        "deleted": 0,
+        "reason": "Nanosecond mtime integer exceeded JavaScript safe integer precision; encode exact stat identities as decimal strings.",
+        "changed_fields": [
+          "mtime_ns"
+        ]
+      },
+      "original_data_shared_resources_current_commit_review_and_corpus_inputs_preserved": true
+    }
+  },
+  "warnings": {
+    "canonical_each": 2,
+    "types": [
+      "Starlette HTTPX TestClient deprecation",
+      "AnyIO BlockingPortal alias deprecation"
+    ],
+    "suppressed_or_upgraded": false
+  }
+}

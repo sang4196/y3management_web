@@ -23,6 +23,8 @@ class Event:
     after_version: int | None = None
     branch_code: str | None = None
     branch_name: str | None = None
+    before_login_id: str | None = None
+    after_login_id: str | None = None
 
 
 class AuditPort(Protocol):
