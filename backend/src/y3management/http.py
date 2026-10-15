@@ -64,6 +64,11 @@ class Login(Input):
     password: str = Field(min_length=1, max_length=512, repr=False)
 
 
+class PasswordChange(Input):
+    current_password: str = Field(min_length=1, max_length=512, repr=False)
+    new_password: str = Field(min_length=1, max_length=512, repr=False)
+
+
 class Complete(Input):
     setup_token: str = Field(min_length=40, max_length=128, repr=False)
     new_password: str = Field(min_length=1, max_length=512, repr=False)
@@ -222,6 +227,15 @@ def attach(app: FastAPI, settings: Settings) -> None:
     def logout(request: Request) -> Response:
         auth, nonce = write(request)
         service(request).logout(auth, request.cookies.get(PREAUTH), nonce)
+        response = Response(status_code=204)
+        clear(response, AUTH)
+        clear(response, PREAUTH)
+        return response
+
+    @router.post("/auth/password", status_code=204)
+    def change_password(request: Request, body: PasswordChange) -> Response:
+        auth, nonce = write(request)
+        service(request).change_password(auth, nonce, body.current_password, body.new_password)
         response = Response(status_code=204)
         clear(response, AUTH)
         clear(response, PREAUTH)

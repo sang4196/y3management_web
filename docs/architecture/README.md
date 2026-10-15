@@ -1,5 +1,18 @@
 # Architecture 및 현재 개발 단계
 
+2026-10-15 최신 인수: **IAM S2b 본인 비밀번호 변경의 제한된 로컬 개발 인수 PASS**.
+현재 비밀번호 확인 후 본인 자격을 바꾸고 현재 장치 포함 모든 기존 로그인을 종료한다.
+현재 비밀번호를 아는 마지막 Master도 허용하며 Scope·기존 로그인 실패 대기시간을 유지한다.
+[구현·검증 결과](iam-003-password-change-results.md)와 [설계자 인수 요약](iam-003-password-change-review.json)을 따른다.
+개발·독립 담당자 모두 fast **69개**, 실제 PostgreSQL 전체 **49개**를 통과했고 그 안의
+실제 신뢰 HTTPS 브라우저 필수 **48항목**을 확인했다. 추가 동일 비밀번호 입력 검사1개와
+privacy 의도적 실패6개는 정규 통과 건수와 구분한다. 현재 운영/MFA·복구/전체 IAM 완료는 아니다.
+기존 완료분은 `c2b01076298e3b1fee9d75ea71acf0184edbd859`로 origin/main에 푸시했다.
+이번 S2b는 `codex/iam-s2b-password-change`에서 구현·검증했고 Product/ADR/OPEN 상태는 유지한다.
+사용자 후속 지시로 완료 증분은 전담 커밋 담당자의 변경 검토 후 한글 상세 메시지로 커밋·푸시한다.
+사용자 결정이 필요한 변경은 승인 전 커밋하지 않으며 승인된 후속 작업은 계속 진행한다.
+아래 이전 단계/대기 설명은 해당 시점 이력이다.
+
 2026-10-14 최신 인수: **IAM S2a Branch Admin 일반 차단 해제의 제한된 로컬 개발 인수 PASS**.
 같은 Organization의 현재 Master가 DISABLED Branch Admin을 복구하고 기존 암호로 새 로그인한다.
 옛 인증은 되살리지 않으며 권한/version·감사·실패 제한을 보존한다.

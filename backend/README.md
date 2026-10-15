@@ -55,6 +55,18 @@ synthetic conftest probe는 호출자 소유이며 상위 실행의 정리 책�
 현재 운영 배포 구성은 없다. 향후 배포에는 `.local/qa/`·테스트 DB/키/프로필/원본 로그를
 포함하지 않아야 한다. wheel은 기존 `src/y3management`만 패키징한다. 배포 도구는 추가하지 않는다.
 
+## IAM-S2b 개발 증분 (2026-10-15)
+
+`POST /api/v1/auth/password`는 현재 인증된 본인의 `current_password`와 `new_password`만 받는다.
+현재 암호 확인과 기존 새 암호 정책을 통과하면 자격/version 변경·전 AuthSession 철회·감사를
+같은 트랜잭션으로 저장한다. 성공은 본문 없는 204이며 AUTH/PREAUTH cookie를 제거한다.
+현재 장치도 새 암호로 다시 로그인해야 한다. 마지막 Master의 본인 변경도 허용한다.
+실패하면 기존 자격/인증을 보존하고 로그인 실패 budget/cooldown은 변경하지 않는다.
+ACK 유실 등 503이면 저장 결과가 불명확할 수 있으므로 새 로그인으로 확인하며 이전 자격을 보상 복구하지 않는다.
+감사 action 추가는 새 `0003_iam_password` revision이고 기존 0001/0002는 유지한다.
+현재 구현·검증 결과는 [S2b 결과](../docs/architecture/iam-003-password-change-results.md)를 따른다.
+현재 실제 인수 대상은 Master/Branch Admin이다. Trainer 연결/운영 MFA·복구는 후속이다.
+
 ## IAM-S2a 개발 증분 (2026-10-14)
 
 같은 Organization의 Master가 정상 차단된 Branch Admin을
@@ -62,13 +74,14 @@ synthetic conftest probe는 호출자 소유이며 상위 실행의 정리 책�
 기존 암호로 새 로그인해야 하며 옛 인증·credential·실패 횟수/cooldown은 부활하거나 초기화하지 않는다.
 감사는 상태/version 변경과 같은 트랜잭션이고 새 명시적 migration은 `0002_iam_restore`다.
 현재 [결과와 제한](../docs/architecture/iam-002-restore-results.md)을 따른다.
-그 외 reset/추가 Master/본인 암호·ID 변경/운영 MFA·비상 복구는 아직 제공하지 않는다.
+본인 암호 변경은 위 S2b 범위다. reset/추가 Master/ID 변경/운영 MFA·비상 복구는 아직 제공하지 않는다.
 
 ## IAM-S1 개발 실행 (2026-10-13)
 
 IAM을 명시적으로 켜면 일회성 초기 Master 준비, 실제 암호 로그인, Branch Admin 발급/설정 링크,
 조직·지점 범위 조회, 현재 로그아웃, 차단/관리 지점 변경과 전체 인증 철회를 제공한다.
-S2a의 일반 Branch Admin 복구만 후속 제공하며 reset/추가 Master/Trainer 업무·운영 MFA는 제공하지 않는다. 운영 환경에서는 IAM 기동을 거부한다.
+S2a의 일반 Branch Admin 복구와 S2b 본인 암호 변경을 후속 제공하며
+reset/추가 Master/Trainer 업무·운영 MFA는 제공하지 않는다. 운영 환경에서는 IAM 기동을 거부한다.
 아래 Foundation/Windows 실행 기록은 해당 시점 이력이며 IAM 인수 결과와 구별한다.
 
 1. WSL에서 `uv sync --locked`를 실행한다. 기존 고정 패키지 버전을 유지하고 해시 관련 5개만 추가했다.

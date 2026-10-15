@@ -4,6 +4,7 @@
 - 승인된 기술은 [ADR-0001](docs/decisions/0001-backend-stack.md), 시스템 형태는 [ADR-0002](docs/decisions/0002-modular-monolith.md)에서 확인한다. PROPOSED 설계를 승인된 정책으로 취급하지 않는다.
 - 작업 전 관련 Requirement, Business Rule, [Product OPEN](docs/product/open-questions.md)과 [결정 게이트](docs/architecture/decision-gates.md)를 확인한다. 게이트에 걸린 금액·권한·상태 전이를 임의 기본값으로 구현하지 않는다.
 - 각 작업에서 사용자가 허용한 수정 범위를 지킨다. 기존 사용자 변경을 임의로 되돌리거나 덮어쓰지 않는다.
+- 사용자 승인된 작업 흐름은 개발 → 독립 테스트 → 설계자 검토 → 전담 `커밋노예` 세션의 변경 검토·커밋·푸시다. 커밋 메시지는 한글로 변경 이유·동작·검증을 구체적으로 작성한다. 사용자 결정/확인이 필요한 변경은 승인 전 구현·커밋하지 않으며 이미 승인된 부분과 구분한다. 완료된 증분 이후에도 승인 범위 안에서 진행하고 새로운 사용자 결정이 필요한 지점에서 질문을 모은다. 다른 작업의 채팅을 사용자에게 전달하지 않고 설계자가 결과 파일과 상태를 확인해 요약한다.
 - 설계 탐색은 [Architecture README](docs/architecture/README.md), [모듈 경계](docs/architecture/module-boundaries.md), [데이터·트랜잭션](docs/architecture/data-and-transactions.md)을 따른다.
 - [검증 계획](docs/architecture/validation-plan.md)의 미구성 검사와 실제 실행 가능한 검사를 구분한다. 수행하지 않은 테스트·migration·운영 검증을 통과했다고 보고하지 않는다.
 - 보안정보와 운영 개인정보를 문서·일반 로그에 복사하지 않는다. 문서 예시는 비식별 가상 데이터를 사용한다.

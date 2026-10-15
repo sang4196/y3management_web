@@ -12,6 +12,8 @@ from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
 import pytest
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from fastapi.testclient import TestClient
 from sqlalchemy import event as sql_event
 from sqlalchemy import text
@@ -398,5 +400,5 @@ def test_restore_migration_preserves_existing_data_and_audit(
     with db.session() as s:
         assert (
             s.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-            == "0002_iam_restore"
+            == ScriptDirectory.from_config(Config("alembic.ini")).get_current_head()
         )

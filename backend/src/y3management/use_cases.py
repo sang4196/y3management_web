@@ -323,6 +323,23 @@ class Service:
                 )
             return after
 
+    def change_password(
+        self, auth: str | None, nonce: str | None, current_password: str, new_password: str
+    ) -> None:
+        # End all initial authentication locks before doing any password hashing.
+        with self.uow.open() as w:
+            initial = w.iam.authenticate(auth, touch=False)
+            w.iam.csrf(initial, nonce)
+            ident = initial.caller.account_id
+        with self.uow.open() as w:
+            proof = w.iam.prepare_password_change(ident, current_password, new_password)
+            final = w.iam.authenticate(auth, management=True, target=ident, touch=False)
+            w.iam.csrf(final, nonce)
+            if final.caller.account_id != ident:
+                raise Rejected(401, "unauthorized")
+            before, after = w.iam.change_password(proof)
+            w.audit.append(event("password_change", final.caller, ident, before, after))
+
     def restore(self, auth: str | None, nonce: str | None, ident: UUID, version: int) -> Account:
         with self.uow.open() as w:
             authentication = w.iam.authenticate(auth, management=True, target=ident)

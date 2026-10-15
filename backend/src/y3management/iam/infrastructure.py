@@ -435,6 +435,68 @@ class IAM:
         )
         return self._account(account.id)
 
+    def prepare_password_change(
+        self, ident: UUID, current_password: str, new_password: str
+    ) -> LoginProof:
+        # This adapter has only unlocked snapshots until final authentication below.
+        row = (
+            self.s.execute(
+                text(
+                    "SELECT login_id,state,password_hash,security_version "
+                    "FROM iam_accounts WHERE id=:a"
+                ),
+                {"a": ident},
+            )
+            .mappings()
+            .one()
+        )
+        if row["state"] != "ACTIVE":
+            raise Rejected(401, "unauthorized")
+        encoded = str(row["password_hash"])
+        valid, _ = self.passwords.verify(current_password, encoded)
+        if not valid:
+            raise Rejected(401, "invalid_credentials")
+        self._upgrades[ident] = self.passwords.create(new_password, row["login_id"])
+        return LoginProof(
+            ident, row["security_version"], hmac.digest(self.key, encoded.encode(), "sha256")
+        )
+
+    def change_password(self, proof: LoginProof) -> tuple[Account, Account]:
+        # Account and every affected session are already locked in the canonical order.
+        row = (
+            self.s.execute(
+                text("SELECT state,password_hash,security_version FROM iam_accounts WHERE id=:a"),
+                {"a": proof.account_id},
+            )
+            .mappings()
+            .one()
+        )
+        marker = hmac.digest(self.key, str(row["password_hash"]).encode(), "sha256")
+        if (
+            row["state"] != "ACTIVE"
+            or row["security_version"] != proof.security_version
+            or not hmac.compare_digest(marker, proof.credential_marker)
+        ):
+            raise Rejected(401, "unauthorized")
+        before = self._account(proof.account_id)
+        self.lock_credentials(proof.account_id)
+        self.s.execute(
+            text(
+                "UPDATE iam_accounts SET password_hash=:h,row_version=row_version+1,"
+                "security_version=security_version+1 WHERE id=:a"
+            ),
+            {"h": self._upgrades.pop(proof.account_id), "a": proof.account_id},
+        )
+        self.s.execute(
+            text("UPDATE iam_sessions SET revoked=true WHERE account_id=:a"),
+            {"a": proof.account_id},
+        )
+        self.s.execute(
+            text("UPDATE iam_credentials SET consumed=true WHERE account_id=:a"),
+            {"a": proof.account_id},
+        )
+        return before, self._account(proof.account_id)
+
     def restore(self, account: Account) -> Account:
         # Caller and affected rows are locked by the management use case.
         if account.state != "DISABLED":

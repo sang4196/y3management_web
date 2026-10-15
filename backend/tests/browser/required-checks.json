@@ -29,5 +29,22 @@
   "restore_old_auth_revoked",
   "restore_existing_password_login",
   "restore_branch_scope",
-  "restore_master_preserved"
+  "restore_master_preserved",
+  "password_branch_two_live",
+  "password_wrong_current_denied",
+  "password_branch_changed",
+  "password_branch_cookies_cleared",
+  "password_branch_two_revoked",
+  "password_old_branch_rejected",
+  "password_new_branch_login",
+  "password_branch_same_scope",
+  "password_other_master_kept",
+  "password_master_two_live",
+  "password_last_master_allowed",
+  "password_master_cookies_cleared",
+  "password_master_two_revoked",
+  "password_old_master_rejected",
+  "password_new_master_login",
+  "password_master_same_scope",
+  "password_other_branch_kept"
 ]
