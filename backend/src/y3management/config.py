@@ -1,6 +1,8 @@
 """External settings only; no implicit development or production database."""
 
+import re
 from typing import Literal, Self
+from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, ValidationError, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -26,6 +28,40 @@ class Settings(BaseSettings):
     db_pool_timeout_seconds: float = Field(default=2, gt=0, le=30)
     db_statement_timeout_ms: int = Field(default=2000, ge=100, le=30000)
     readiness_timeout_seconds: float = Field(default=4, gt=0, le=30)
+
+    database_schema: str = "public"
+    iam_enabled: bool = False
+    canonical_origin: str = ""
+    iam_key: SecretStr = Field(default=SecretStr(""), repr=False)
+    # Resource limits, not account policies. Must be explicitly sized for the local run.
+    security_state_capacity: int | None = Field(default=None, ge=64, le=100000)
+    auth_session_capacity: int | None = Field(default=None, ge=16, le=100000)
+    worker_count: int = Field(default=1, ge=1, le=1)
+
+    @model_validator(mode="after")
+    def validate_iam(self) -> Self:
+        if not re.fullmatch(r"[a-z][a-z0-9_]{0,62}", self.database_schema):
+            raise ValueError("Invalid database schema")
+        if self.iam_enabled:
+            u = urlsplit(self.canonical_origin)
+            if (
+                u.scheme != "https"
+                or not u.hostname
+                or u.username
+                or u.password
+                or u.path
+                or u.query
+                or u.fragment
+                or u.netloc != u.netloc.lower()
+            ):
+                raise ValueError("Canonical HTTPS origin required")
+            if self.environment == "production":
+                raise ValueError("S1 is not authorized for production")
+            if len(self.iam_key.get_secret_value()) < 43:
+                raise ValueError("Explicit random IAM key required")
+            if self.security_state_capacity is None or self.auth_session_capacity is None:
+                raise ValueError("Explicit local security resource capacities required")
+        return self
 
     @model_validator(mode="after")
     def validate_database(self) -> Self:

@@ -1,0 +1,302 @@
+"""Real trusted HTTPS browser acceptance; no certificate bypass or global trust writes."""
+
+import hashlib
+import json
+import re
+import secrets
+import shutil
+import socket
+import ssl
+import subprocess
+import time
+import urllib.request
+from pathlib import Path
+
+import pytest
+
+from tests.browser_result import REQUIRED, validate_browser_report
+from tests.conftest import _qa_write, qa_register_process, qa_root, qa_stop_process
+from tests.test_iam import child_env, iam  # noqa: F401
+from y3management.config import Settings
+from y3management.database import Database
+
+pytestmark = pytest.mark.postgres
+
+
+def test_actual_https_browser(iam: tuple[Settings, Database, str], tmp_path: Path) -> None:  # noqa: F811
+    settings, _, password = iam
+    root = tmp_path / "https-browser"
+    root.mkdir(mode=0o700)
+
+    def command(args: list[str]) -> None:
+        result = subprocess.run(args, capture_output=True, timeout=30)
+        assert result.returncode == 0, "HTTPS prerequisite command failed (details suppressed)"
+
+    def trust() -> dict[str, str]:
+        return {
+            str(p): hashlib.sha256(p.read_bytes()).hexdigest()
+            for base in ["/etc/ssl/certs", "/home/shlee/.pki", "/home/shlee/.local/share/pki"]
+            for p in Path(base).rglob("*")
+            if p.is_file() and not p.is_symlink()
+        }
+
+    before = trust()
+    command(
+        [
+            "openssl",
+            "req",
+            "-x509",
+            "-newkey",
+            "rsa:2048",
+            "-nodes",
+            "-keyout",
+            str(root / "ca.key"),
+            "-out",
+            str(root / "ca.crt"),
+            "-days",
+            "2",
+            "-subj",
+            "/CN=S1 Test CA",
+            "-addext",
+            "keyUsage=critical,keyCertSign,cRLSign",
+        ]
+    )
+    command(
+        [
+            "openssl",
+            "req",
+            "-newkey",
+            "rsa:2048",
+            "-nodes",
+            "-keyout",
+            str(root / "server.key"),
+            "-out",
+            str(root / "server.csr"),
+            "-subj",
+            "/CN=localhost",
+        ]
+    )
+    (root / "ext").write_text(
+        "subjectAltName=DNS:localhost,IP:127.0.0.1\nextendedKeyUsage=serverAuth\nbasicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature,keyEncipherment\nsubjectKeyIdentifier=hash\nauthorityKeyIdentifier=keyid,issuer\n"
+    )
+    command(
+        [
+            "openssl",
+            "x509",
+            "-req",
+            "-in",
+            str(root / "server.csr"),
+            "-CA",
+            str(root / "ca.crt"),
+            "-CAkey",
+            str(root / "ca.key"),
+            "-CAcreateserial",
+            "-out",
+            str(root / "server.crt"),
+            "-days",
+            "2",
+            "-extfile",
+            str(root / "ext"),
+        ]
+    )
+    for f in root.glob("*.key"):
+        f.chmod(0o600)
+    nss = root / "shadow-home/.local/share/pki/nssdb"
+    nss.mkdir(parents=True)
+    package = subprocess.run(
+        ["apt", "download", "libnss3-tools"], cwd=root, capture_output=True, timeout=30
+    )
+    assert package.returncode == 0, "NSS tools download failed"
+    command(["dpkg-deb", "-x", str(next(root.glob("*.deb"))), str(root / "nss-tools")])
+    certutil = str(root / "nss-tools/usr/bin/certutil")
+    command([certutil, "-N", "-d", "sql:" + str(nss), "--empty-password"])
+    command(
+        [
+            certutil,
+            "-A",
+            "-d",
+            "sql:" + str(nss),
+            "-n",
+            "s1-ca",
+            "-t",
+            "C,,",
+            "-i",
+            str(root / "ca.crt"),
+        ]
+    )
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    origin = f"https://localhost:{port}"
+    env = child_env(settings)
+    env["Y3_CANONICAL_ORIGIN"] = origin
+    inputs = {
+        "origin": origin,
+        "masterPassword": password,
+        "branchPassword": "브라우저 가상 암호 " + secrets.token_urlsafe(24),
+    }
+    (root / "input.json").write_text(json.dumps(inputs))
+    (root / "input.json").chmod(0o600)
+    shutil.copy(Path(__file__).parent / "browser/s1.cjs", root / "browser.cjs")
+    shutil.copy(
+        Path(__file__).parent / "browser/required-checks.json", root / "required-checks.json"
+    )
+    log = (root / "server.log").open("wb")
+    server = subprocess.Popen(
+        [
+            str(Path.cwd() / ".venv/bin/python"),
+            "-m",
+            "y3management.cli",
+            "serve",
+            "--cert",
+            str(root / "server.crt"),
+            "--key",
+            str(root / "server.key"),
+            "--port",
+            str(port),
+        ],
+        env=env,
+        stdout=log,
+        stderr=log,
+    )
+    qa_register_process(server, port=port)
+    try:
+        context = ssl.create_default_context(cafile=str(root / "ca.crt"))
+        opener = urllib.request.build_opener(
+            urllib.request.ProxyHandler({}), urllib.request.HTTPSHandler(context=context)
+        )
+        deadline = time.monotonic() + 25
+        while time.monotonic() < deadline:
+            assert server.poll() is None, "HTTPS server stopped"
+            try:
+                with opener.open(origin + "/health/live", timeout=1) as response:
+                    if response.status == 200:
+                        break
+            except OSError as error:
+                reason = getattr(error, "reason", error)
+                (root / "readiness-error.json").write_text(
+                    json.dumps(
+                        {
+                            "type": type(reason).__name__,
+                            "verify_code": getattr(reason, "verify_code", None),
+                        }
+                    )
+                )
+                time.sleep(0.1)
+        else:
+            raise AssertionError("HTTPS server not ready")
+        # The real ASGI lifespan, not just a helper lock, rejects a second OS process.
+        with socket.socket() as second_socket:
+            second_socket.bind(("127.0.0.1", 0))
+            second_port = second_socket.getsockname()[1]
+        second = subprocess.run(
+            [
+                str(Path.cwd() / ".venv/bin/python"),
+                "-m",
+                "y3management.cli",
+                "serve",
+                "--cert",
+                str(root / "server.crt"),
+                "--key",
+                str(root / "server.key"),
+                "--port",
+                str(second_port),
+            ],
+            env=env,
+            capture_output=True,
+            timeout=20,
+        )
+        (root / "second-startup.log").write_bytes(second.stdout + second.stderr)
+        assert second.returncode != 0
+        with opener.open(origin + "/health/live", timeout=2) as response:
+            assert response.status == 200
+        (root / "startup-results.json").write_text(
+            json.dumps(
+                {
+                    "second_os_process_denied": True,
+                    "original_still_healthy": True,
+                    "same_database_and_schema_different_port": True,
+                }
+            )
+        )
+        browser = Path("/home/shlee/.cache/ms-playwright/chromium-1234/chrome-linux64")
+        playwright = Path(
+            "/home/shlee/Workspace/ai/01.codex/sj_company/node_modules/playwright-core"
+        )
+        node = Path("/home/shlee/.local/share/node/node-v22.23.2-linux-x64/bin/node")
+        for name in ["browser-binaries", "playwright-core", "browser-tmp"]:
+            (root / name).mkdir()
+        (root / "node-host").touch()
+        args = [
+            "bwrap",
+            "--unshare-user",
+            "--unshare-pid",
+            "--unshare-ipc",
+            "--ro-bind",
+            "/",
+            "/",
+            "--bind",
+            str(root / "shadow-home"),
+            "/home/shlee",
+            "--bind",
+            str(root),
+            str(root),
+            "--bind",
+            str(root / "browser-tmp"),
+            "/tmp",
+            "--ro-bind",
+            str(browser),
+            str(root / "browser-binaries"),
+            "--ro-bind",
+            str(playwright),
+            str(root / "playwright-core"),
+            "--ro-bind",
+            str(node),
+            str(root / "node-host"),
+            "--proc",
+            "/proc",
+            "--dev",
+            "/dev",
+            "--setenv",
+            "TMPDIR",
+            "/tmp",
+            "--setenv",
+            "NODE_EXTRA_CA_CERTS",
+            str(root / "ca.crt"),
+            "--setenv",
+            "Y3_BROWSER_RUN",
+            str(root),
+            "--chdir",
+            str(root),
+            "--die-with-parent",
+            str(root / "node-host"),
+            str(root / "browser.cjs"),
+        ]
+        result = subprocess.run(args, capture_output=True, timeout=90)
+        (root / "browser.log").write_bytes(result.stdout + result.stderr)
+        assert result.returncode == 0, (
+            "Actual HTTPS browser failed; inspect fixed-code owned browser log"
+        )
+        report = json.loads((root / "browser-results.json").read_text())
+        # Keep only the current safe verdict; raw logs/profiles/credentials are disposable.
+        checks = report.get("checks", {})
+        version = str(report.get("browser", ""))
+        safe: dict[str, object] = {
+            "checks": {
+                name: isinstance(checks, dict) and checks.get(name) is True for name in REQUIRED
+            },
+            "browser": version if re.fullmatch(r"\d+(\.\d+){1,3}", version) else "unknown",
+            "scope": "actual trusted HTTPS browser",
+            "run_id": root.parents[2].name,
+        }
+        _qa_write(qa_root() / "latest-browser.json", safe)
+        validate_browser_report(report)
+        assert trust() == before
+        print("Browser evidence: " + str(root / "browser-results.json"))
+    finally:
+        qa_stop_process(server)
+        log.close()
+        (root / "input.json").unlink(missing_ok=True)
+        with socket.socket() as sock:
+            assert sock.connect_ex(("127.0.0.1", port)) != 0
+        assert trust() == before

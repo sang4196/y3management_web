@@ -1,4 +1,153 @@
 # 백엔드 개발·검증 안내
+
+## QA 실행 자료와 정리
+
+2026-10-14부터 WSL의 기존 pytest runner/fixture가 기본 임시 위치를 프로젝트 루트
+`.local/qa/auto-<UUID>/`로 설정한다. 별도 QA 관리 CLI/서비스를 추가하지 않는다.
+`run.json`에는 실행 식별자·시각·상태·경로의 device/inode/소유자, 프로세스의 PID와
+시작 tick/boot ID, 알려진 포트·전용 테스트 schema를 기록한다. 비밀값은 기록하지 않는다.
+일반 `tmp_path`와 HTTPS의 키·입력·로그·NSS/브라우저 프로필도 이 실행 폴더 안에 둔다.
+
+자동 실행은 성공과 실패 모두 최소 결과 `latest-auto.json`을 먼저 기록하고, 자신이 만든
+프로세스와 schema를 종료/제거한 뒤 실행 폴더를 정리한다. HTTPS는 허용된 boolean check와
+브라우저 버전만 `latest-browser.json`에 유지한다. 원본 로그·캡처·전체 실행 환경을 계속
+쌓지 않는다. PID 숫자만으로 종료하지 않고 생성 시 기록한 OS identity와 pidfd를 확인한다.
+준비 실패에도 기존 fixture의 ExitStack이 자기 schema 정리를 시도한다. 살아 있는 프로세스,
+미정리 schema, 소유권 불일치 또는 정리 오류가 있으면 폴더를 남기고 검사를 실패 처리한다.
+강제 중단은 `run.json`의 owner identity로 발견할 수 있으며 자동으로 다른 환경을 지우지 않는다.
+
+수동 검수에는 기존 CLI와 별도 가상 데이터/schema를 사용한다. `tests.conftest.qa_create("manual")`
+로 검수 폴더를 만들고 기존 CLI의 환경 파일·인증서·실행 자료를 그 안에 둔다. Python에서
+기존 CLI를 Popen으로 시작하면 `qa_register_process(process, run=run, port=port)`로 기록하고
+`qa_stop_process(process)`로 동일한 프로세스만 종료한다. 직접 시작한 터미널 서버는 해당
+터미널의 Ctrl-C로 종료한다. 검수 폴더는 종료만으로 삭제하지 않으며 원본 DB/설정·미디어를
+옮기거나 공유 DB/볼륨을 초기화하지 않는다. 다음 코드는 기존 pytest 지원 함수를 이용한
+상태 조회와 **검수 완료 후** 지정 폴더의 정리 예다. 새로운 관리 도구가 아니다.
+
+```python
+from pathlib import Path
+from tests.conftest import qa_read, qa_finish, qa_cleanup
+
+run = Path("<프로젝트 절대경로>/.local/qa/manual-<UUID>")
+print(qa_read(run))  # 상태/OS identity; 인증정보 없음
+qa_finish(run, "review-complete")  # 검수 완료·미사용 확인 후에만
+plan = qa_cleanup(run)  # dry-run; held면 정리하지 않음
+print(plan)
+# 확인한 계획 그대로 지정 실행만 정리. 변경·실행 중·소유권 불일치는 거부한다.
+if "plan" in plan:
+    print(qa_cleanup(run, dry_run=False, expected_plan=plan["plan"]))
+```
+
+실패 환경 자체가 재현에 필요할 때만 `qa_finish(run, "retained", "비밀 없는 보존 사유")`로
+파일 환경을 보류한다. 수동 DB의 보존/정리는 별도로 소유권을 검증해야 하며 파일 정리 함수가
+DB/볼륨을 삭제하지 않는다. 자동 IAM fixture의 정상 종료는 자기 schema를 제거한다.
+완료된 테스트의 오래된 링크나 당시 검수 대기 문구는 영구 보존 근거가 아니다.
+legacy 경로는 새 표식을 붙여 검증을 우회하지 않고 내용·소유권·사용·공유 여부를 따로 확인한다.
+
+예외: `/tmp/y3management-runtime`은 앱 전체의 고정 배타 잠금 경로다. 실행별로 옮기거나
+잠금 파일을 삭제하면 중복 앱 방지가 깨지므로 유지한다. 명시적 pytest `--basetemp`와 복제한
+synthetic conftest probe는 호출자 소유이며 상위 실행의 정리 책임 아래 둔다. 코드 복제가
+필요하면 현재 dirty 파일까지 반영하되 `.local/qa`, `.git`, 가상환경·캐시를 재귀 복제하지 않는다.
+
+현재 오프라인 corpus 입력 한 벌은 `.local/qa/corpus-inputs-3a5f62f0e18a/`에 있다.
+`uv run --locked python tools/build_password_corpus.py ../.local/qa/corpus-inputs-3a5f62f0e18a --check`
+로 기존 도구를 실행한다. 고정 source manifest의 7개 입력만 유지하며 중복 실험 환경은 필요 없다.
+현재 운영 배포 구성은 없다. 향후 배포에는 `.local/qa/`·테스트 DB/키/프로필/원본 로그를
+포함하지 않아야 한다. wheel은 기존 `src/y3management`만 패키징한다. 배포 도구는 추가하지 않는다.
+
+## IAM-S2a 개발 증분 (2026-10-14)
+
+같은 Organization의 Master가 정상 차단된 Branch Admin을
+`POST /api/v1/admin/accounts/{id}/restore`와 `expected_version`으로 복구한다.
+기존 암호로 새 로그인해야 하며 옛 인증·credential·실패 횟수/cooldown은 부활하거나 초기화하지 않는다.
+감사는 상태/version 변경과 같은 트랜잭션이고 새 명시적 migration은 `0002_iam_restore`다.
+현재 [결과와 제한](../docs/architecture/iam-002-restore-results.md)을 따른다.
+그 외 reset/추가 Master/본인 암호·ID 변경/운영 MFA·비상 복구는 아직 제공하지 않는다.
+
+## IAM-S1 개발 실행 (2026-10-13)
+
+IAM을 명시적으로 켜면 일회성 초기 Master 준비, 실제 암호 로그인, Branch Admin 발급/설정 링크,
+조직·지점 범위 조회, 현재 로그아웃, 차단/관리 지점 변경과 전체 인증 철회를 제공한다.
+S2a의 일반 Branch Admin 복구만 후속 제공하며 reset/추가 Master/Trainer 업무·운영 MFA는 제공하지 않는다. 운영 환경에서는 IAM 기동을 거부한다.
+아래 Foundation/Windows 실행 기록은 해당 시점 이력이며 IAM 인수 결과와 구별한다.
+
+1. WSL에서 `uv sync --locked`를 실행한다. 기존 고정 패키지 버전을 유지하고 해시 관련 5개만 추가했다.
+2. 소유권이 확인된 `postgres-test` 또는 `postgres-dev`를 사용한다. 독립 검사에는 새 고유 schema를
+   직접 준비한다. 기존 `public`/다른 schema·볼륨을 초기화하지 않는다. DB 소유권 검사는
+   `tests/conftest.py`와 `y3management.ownership`에 있다.
+3. 작업 소유의 0600 환경 파일에 아래 설정을 명시한다. 파일/비밀은 Git에 넣거나 출력하지 않는다.
+4. `uv run --locked --env-file <환경파일> alembic upgrade head`로 명시적으로 migration한다.
+   앱 기동은 schema를 생성하거나 migration하지 않는다.
+5. 서버를 띄우기 전에 아래 Bootstrap 명령을 터미널에서 한 번 실행한다. 암호와 확인값은 숨김 입력한다.
+   stdin pipe·기본 암호·force·reset은 지원하지 않는다. 이미 설치된 경우 비정상 종료한다.
+6. 같은 origin의 신뢰 HTTPS 인증서/키로 서버를 실행한다. HTTP 예외·임의 forwarded 헤더 신뢰는 없다.
+
+```bash
+uv run --locked --env-file <환경파일> python -m y3management.cli bootstrap-initial-master \
+  --organization <가상조직명> --login-id <최초ID> --confirm-database y3management_test
+uv run --locked --env-file <환경파일> python -m y3management.cli serve \
+  --cert <신뢰HTTPS인증서> --key <개인키> --port <포트>
+```
+
+필수 IAM 설정은 `Y3_IAM_ENABLED=true`, `Y3_ENVIRONMENT=test`(또는 development),
+전용 대상의 `Y3_DATABASE_URL`, `Y3_DATABASE_SCHEMA`, 경로 없는 정확한
+`Y3_CANONICAL_ORIGIN=https://localhost:<포트>`, CSPRNG 32바이트 이상에서 만든
+`Y3_IAM_KEY`(최소 43문자), `Y3_SECURITY_STATE_CAPACITY`, `Y3_AUTH_SESSION_CAPACITY`다.
+키는 실행 간 동일하게 보관하고 요청마다 재생성하지 않는다. 자원 상한은 계정 정책이 아니며
+명시적 로컬 용량 설정이다. 자기소유 통합 검사에서는 상태 2048/인증 128을 사용한다.
+용량 부족은 503이고 live 예산을 삭제하거나 무제한 fallback하지 않는다.
+IAM을 켜지 않은 기존 health-only 구성은 유지한다. `/health/ready`는 DB 연결 검사이며 업무 인수 증거가 아니다.
+
+S1 지원 실행은 단일 WSL 호스트/단일 ASGI worker다. 실제 앱 lifespan이 고정 경로
+`/tmp/y3management-runtime/<DB·schema 식별자>.lock`을 획득하므로 같은 DB/schema의
+다른 포트/별도 OS 프로세스도 동시에 기동할 수 없다. 실행별 lock 경로 override는 없다.
+`Y3_WORKER_COUNT`는 1만 허용한다. 다중 컨테이너/호스트 배포의 자원 상한은 검증 범위 밖이다.
+생성/검증/rehash는 공통 동시 2개 gate를 사용하며 무제한 큐를 만들지 않는다.
+
+API 접두사는 `/api/v1`이다. `GET /auth/csrf`에는 `X-Y3-Client`와 정확한 Origin/Referer가 필요하다.
+Origin/Referer가 없는 브라우저 same-origin GET은 Fetch Metadata와 custom header를 함께 검사한다.
+변경 요청은 JSON과 정확한 Origin(없으면 엄격한 Referer), `X-CSRF-Token`을 요구한다.
+인증은 HttpOnly/Secure/SameSite=Lax의 `__Host-y3-auth`, 준비는 `__Host-y3-preauth`를 사용한다.
+유효 로그인 중 다시 로그인하면 현재 인증의 CSRF 확인 뒤 409이며 먼저 logout해야 한다.
+목록의 허용 query는 offset/limit뿐이며 role/organization/branch를 입력해 범위를 넓힐 수 없다.
+
+발급/재발급의 `setup_link`는 설정된 HTTPS origin의 `/activate#token=...`이고 한 번만 반환한다.
+설정 페이지는 fragment를 메모리에 옮기고 URL에서 지운 뒤 POST로 소비한다. GET으로 활성화하지 않으며
+설정 후 자동 로그인하지 않는다. 응답 유실 시 Master의 정확한 Login ID lookup으로 대상/version을
+확인하고 PENDING_SETUP에 한해 새 링크를 발급한다. 원래 token 조회·맹목 재발급은 없다.
+commit 결과 불명확은 503이며 이미 저장된 account/credential/session/audit를 보상 삭제하지 않는다.
+
+암호 공급은 `src/y3management/iam/data`의 고정 manifest/라이선스가 있는 실제 목록에서
+NFC 후 길이 15–128자 55,169개를 패키징했다. 저장 artifact는 원문 대신 정렬된 UTF-8 SHA-256
+지문 목록 `blocked-sha256.txt`이며 입력을 NFC 처리한 뒤 같은 지문으로 전체 일치를 검사한다.
+공개 사전의 토큰 형태 원문을 배포하지 않으면서 같은 항목을 모두 차단한다. 이는 차단 사전의
+표현 방식이며 실제 계정 암호 저장은 기존 Argon2를 유지한다. 짧은 반복 seed 4개도 유지한다.
+앱은 전체 artifact manifest와 각 파일 checksum을 확인하고 오류 시 기동을 거부한다.
+`python tools/build_password_corpus.py <고정 원문 디렉터리> --check`로 원문에서 동등성을 재현한다.
+원문 URL/checksum은 source-manifest.json에 있고 요청 중 네트워크 조회/빈 목록 fallback은 없다.
+갱신은 새 고정 공급의 분포/유한 약암호·정상문구 회귀와 라이선스를 검토한 후 artifact manifest 및
+코드에 고정한 manifest checksum을 함께 변경하는 별도 검토 작업이다. 한국어 유출 대표성/모든 변형 탐지는
+보장하지 않으며 일반 단어 부분 포함·hash 입력 trim/casefold는 적용하지 않는다.
+
+```bash
+bash check.sh fast
+bash check.sh db
+# IAM 실제 PG/CLI/API 검사만 (새 자기소유 schema 생성/제거)
+uv run --locked --env-file .env.example pytest tests/test_iam.py -m postgres --require-postgres
+# 실제 신뢰 HTTPS 브라우저 (추가 의존/리소스는 아래 참조)
+uv run --locked --env-file .env.example pytest tests/test_iam_browser.py -m postgres --require-postgres -s
+```
+
+브라우저 검사는 WSL의 openssl/bubblewrap/apt/dpkg-deb와 기존
+`/home/shlee/.cache/ms-playwright/chromium-1234/chrome-linux64`,
+`/home/shlee/Workspace/ai/01.codex/sj_company/node_modules/playwright-core`(1.62.1),
+`/home/shlee/.local/share/node/node-v22.23.2-linux-x64/bin/node`를 요구한다.
+libnss3-tools는 자기 임시 디렉터리에 다운로드/추출하고 CA 신뢰는 namespace에만 적용한다.
+인증서 검증을 끄지 않는다. 미설정/도구 부재를 skip/통과로 바꾸지 않는다.
+별도 임시 TLS/프로필/서버와 무작위 schema만 사용하며 종료 시 서버·브라우저·DB schema를 정리한다.
+현재 `.local/qa/latest-browser.json`에 비밀 없는 최신 결과만 유지하고 실행의 input/키/프로필/원본 로그는 종료 때 정리한다.
+Docker 서비스/기존 schema는 삭제하지 않는다. 지원 브라우저 전체/실운영 성능·배포 검증이 아니다.
+
 ## WSL Ubuntu 개발 환경 (2026-09-18 WSL로 이전)
 
 현재 작업 위치는 `/home/shlee/Workspace/ai/01.codex/y3management_web/backend`다. 아래 Windows 절과 FOUNDATION-002의 BLOCKED 기록은 이전 환경의 이력이다. WSL에서는 Python 3.13.15와 uv로 가상환경을 재구성했다.

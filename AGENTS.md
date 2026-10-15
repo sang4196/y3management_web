@@ -7,6 +7,7 @@
 - 설계 탐색은 [Architecture README](docs/architecture/README.md), [모듈 경계](docs/architecture/module-boundaries.md), [데이터·트랜잭션](docs/architecture/data-and-transactions.md)을 따른다.
 - [검증 계획](docs/architecture/validation-plan.md)의 미구성 검사와 실제 실행 가능한 검사를 구분한다. 수행하지 않은 테스트·migration·운영 검증을 통과했다고 보고하지 않는다.
 - 보안정보와 운영 개인정보를 문서·일반 로그에 복사하지 않는다. 문서 예시는 비식별 가상 데이터를 사용한다.
+- 테스트·검수 실행 자료는 ignored `.local/qa/`의 고유 실행 폴더에 둔다. 기존 pytest/fixture를 사용하고 별도 수명주기 관리 도구를 추가하지 않는다. 자동 실행 담당자는 최소 결과를 남긴 뒤 자기 프로세스·schema·폴더를 정리하고 실패/미정리 항목을 보고한다. 수동 검수·미해결 재현 환경은 이유와 정리 조건을 기록해 유지하며 검수 완료·미사용 확인 후에만 정리한다. 상세 절차는 [QA 안내](backend/README.md#qa-실행-자료와-정리)를 따른다.
 
 이 파일은 작업 규칙과 탐색 안내이며 자동 검증 장치가 아니다. 현재 단계와 다음 작업의 진입 조건은 Architecture README에 있다.
 

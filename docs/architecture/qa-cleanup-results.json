@@ -1,0 +1,837 @@
+{
+  "date": "2026-10-14",
+  "status": "PASS_CLEANUP_AND_QA_VERIFICATION",
+  "policy": "User selective retention replaces prior blanket preservation; extend existing pytest only, no standalone lifecycle tool or dependency.",
+  "deleted_legacy": {
+    "count": 181,
+    "bytes": 970549042,
+    "dry_run_actual_targets_match": true,
+    "items": [
+      {
+        "path": "/tmp/y3-iam-s1-browser-6mxuslqn",
+        "bytes": 3537954
+      },
+      {
+        "path": "/tmp/y3-iam-s1-browser-nw5_y3_n",
+        "bytes": 3537954
+      },
+      {
+        "path": "/tmp/y3-iam-s1-browser-crpc1ws3",
+        "bytes": 3536903
+      },
+      {
+        "path": "/tmp/y3-iam-s1-oxq4otn6",
+        "bytes": 344964
+      },
+      {
+        "path": "/tmp/y3-prep-iam-001-h90lpnpq",
+        "bytes": 317957347
+      },
+      {
+        "path": "/tmp/y3-iam-orchestration-bk8zqu5q",
+        "bytes": 264947
+      },
+      {
+        "path": "/tmp/y3-iam-tester-bk5ccktt",
+        "bytes": 329987846
+      },
+      {
+        "path": "/tmp/y3-iam-contract-review-5ku8bf2f",
+        "bytes": 3300682
+      },
+      {
+        "path": "/tmp/y3-ab-batch-xnu2d2ps",
+        "bytes": 4883217
+      },
+      {
+        "path": "/tmp/y3-aa-batch-u3inp2vn",
+        "bytes": 4582579
+      },
+      {
+        "path": "/tmp/y3-z-batch-scq2xh9m",
+        "bytes": 4898932
+      },
+      {
+        "path": "/tmp/y3-y-batch-_x9yg7bt",
+        "bytes": 4873663
+      },
+      {
+        "path": "/tmp/y3-x-batch-be03lltd",
+        "bytes": 4328719
+      },
+      {
+        "path": "/tmp/y3-x1-proposal-yo6l6j4h",
+        "bytes": 2861273
+      },
+      {
+        "path": "/tmp/y3-w-batch-sb0g1b9w",
+        "bytes": 5031351
+      },
+      {
+        "path": "/tmp/y3-v-batch-y9x9lwfm",
+        "bytes": 4965034
+      },
+      {
+        "path": "/tmp/y3-u-batch-ffm5mpsu",
+        "bytes": 4921849
+      },
+      {
+        "path": "/tmp/y3-t-batch-1ntdefil",
+        "bytes": 4888972
+      },
+      {
+        "path": "/tmp/y3-s-batch-lvgo3rgx",
+        "bytes": 4857857
+      },
+      {
+        "path": "/tmp/y3-r-batch-f7he80fx",
+        "bytes": 4816672
+      },
+      {
+        "path": "/tmp/y3-q-batch-kvg6uxu5",
+        "bytes": 4779027
+      },
+      {
+        "path": "/tmp/y3-p-batch-_jwu060q",
+        "bytes": 4742643
+      },
+      {
+        "path": "/tmp/y3-o-batch-t46gjwkn",
+        "bytes": 4692683
+      },
+      {
+        "path": "/tmp/y3-n-batch-sk_mml5l",
+        "bytes": 4641431
+      },
+      {
+        "path": "/tmp/y3-m-batch-asakbbrr",
+        "bytes": 4564184
+      },
+      {
+        "path": "/tmp/y3-l-batch-yjewlc96",
+        "bytes": 4491908
+      },
+      {
+        "path": "/tmp/y3-k-batch-an_jkvxi",
+        "bytes": 4695641
+      },
+      {
+        "path": "/tmp/y3-j-batch-_xas8pox",
+        "bytes": 4481650
+      },
+      {
+        "path": "/tmp/y3-i-batch-gae7iyz5",
+        "bytes": 4202227
+      },
+      {
+        "path": "/tmp/y3-h-batch-e1ymkz9w",
+        "bytes": 4285153
+      },
+      {
+        "path": "/tmp/y3-review-current-state-m1yij094",
+        "bytes": 142451
+      },
+      {
+        "path": "/tmp/y3-g-batch-ccroh3n1",
+        "bytes": 2443530
+      },
+      {
+        "path": "/tmp/y3-e-batch-k4scfe_1",
+        "bytes": 4307739
+      },
+      {
+        "path": "/tmp/y3-c-batch-03zc0mgm",
+        "bytes": 4374353
+      },
+      {
+        "path": "/tmp/y3-policy-batch-approved-o5ug4x3s",
+        "bytes": 4600533
+      },
+      {
+        "path": "/tmp/y3-admin-late-entry-scope-question-batch-xzremz7p",
+        "bytes": 3960411
+      },
+      {
+        "path": "/tmp/y3-inactive-trainer-admin-late-entry-ukg0sbuf",
+        "bytes": 3930360
+      },
+      {
+        "path": "/tmp/y3-active-trainer-new-assignment-t6oz65iz",
+        "bytes": 3876628
+      },
+      {
+        "path": "/tmp/y3-inactive-trainer-pass-assignment-i0ly73jt",
+        "bytes": 3831743
+      },
+      {
+        "path": "/tmp/y3-trainer-deactivate-authority-c29l8x80",
+        "bytes": 3790211
+      },
+      {
+        "path": "/tmp/y3-trainer-inactive-role-only-jrdurb9v",
+        "bytes": 3757565
+      },
+      {
+        "path": "/tmp/y3-trainer-home-change-master-aj_hkwgq",
+        "bytes": 3718390
+      },
+      {
+        "path": "/tmp/y3-trainer-account-issue-authority-4lns74_d",
+        "bytes": 3671960
+      },
+      {
+        "path": "/tmp/y3-operator-branch-change-master-jmp505ww",
+        "bytes": 3622314
+      },
+      {
+        "path": "/tmp/y3-operator-account-issue-authority-bmc5838v",
+        "bytes": 3579386
+      },
+      {
+        "path": "/tmp/y3-operator-single-branch-a96kscla",
+        "bytes": 3467940
+      },
+      {
+        "path": "/tmp/y3-pass-issuer-search-full-phone-0vl5zbyw",
+        "bytes": 3393234
+      },
+      {
+        "path": "/tmp/y3-pass-issuance-org-member-search-6fpxlcdq",
+        "bytes": 3314266
+      },
+      {
+        "path": "/tmp/y3-pass-issuer-role-permission-phvrfln0",
+        "bytes": 3236183
+      },
+      {
+        "path": "/tmp/y3-pass-cross-branch-issuance-4sif9ne0",
+        "bytes": 3172112
+      },
+      {
+        "path": "/tmp/y3-pass-adjustment-issued-branch-authority-rze_4bq3",
+        "bytes": 3119786
+      },
+      {
+        "path": "/tmp/y3-zero-remaining-pass-trainer-reassignment-f5wyd8d_",
+        "bytes": 3076280
+      },
+      {
+        "path": "/tmp/y3-former-assigned-trainer-late-entry-63126jea",
+        "bytes": 3034220
+      },
+      {
+        "path": "/tmp/y3-pass-assigned-trainer-cross-branch-6prio49y",
+        "bytes": 2985164
+      },
+      {
+        "path": "/tmp/y3-pass-trainer-reassignment-member-home-authority-oeoagrso",
+        "bytes": 2946992
+      },
+      {
+        "path": "/tmp/y3-existing-pass-trainer-reassignment-7d490fki",
+        "bytes": 1692281
+      },
+      {
+        "path": "/tmp/y3-member-transfer-active-target-uv92l341",
+        "bytes": 1676410
+      },
+      {
+        "path": "/tmp/y3-member-home-transfer-immediate-wo09pukl",
+        "bytes": 1664012
+      },
+      {
+        "path": "/tmp/y3-member-home-transfer-authority-yph69z87",
+        "bytes": 1645703
+      },
+      {
+        "path": "/tmp/y3-member-phone-duplicates-allowed-gq9vq7a4",
+        "bytes": 1627581
+      },
+      {
+        "path": "/tmp/y3-member-phone-required-on-registration-_s09zwyc",
+        "bytes": 1616671
+      },
+      {
+        "path": "/tmp/y3-trainer-authorized-member-full-phone-read-a6dgk0kl",
+        "bytes": 1678618
+      },
+      {
+        "path": "/tmp/y3-member-total-remaining-filter-dkmns1ut",
+        "bytes": 1658786
+      },
+      {
+        "path": "/tmp/y3-zero-remaining-member-read-filter-75cg71yj",
+        "bytes": 1632698
+      },
+      {
+        "path": "/tmp/y3-support-grants-preserved-after-home-transfer-tc18c1wg",
+        "bytes": 1624587
+      },
+      {
+        "path": "/tmp/y3-support-access-until-manual-revoke-7hf7cdob",
+        "bytes": 1603516
+      },
+      {
+        "path": "/tmp/y3-support-member-grant-home-branch-authority-kv4na08e",
+        "bytes": 1607234
+      },
+      {
+        "path": "/tmp/y3-trainer-assigned-and-support-member-access-i2sjqzn_",
+        "bytes": 1581081
+      },
+      {
+        "path": "/tmp/y3-product-sales-stop-existing-passes-hwayh7j2",
+        "bytes": 1547344
+      },
+      {
+        "path": "/tmp/y3-common-product-master-management-evuqd5t0",
+        "bytes": 1568510
+      },
+      {
+        "path": "/tmp/y3-late-pt-before-pass-expiry-zdmf1o2e",
+        "bytes": 1548203
+      },
+      {
+        "path": "/tmp/y3-undo-manual-pass-expiry-39q53hay",
+        "bytes": 1510563
+      },
+      {
+        "path": "/tmp/y3-manual-pass-expiry-preserve-remaining-tbvazc_v",
+        "bytes": 1488681
+      },
+      {
+        "path": "/tmp/y3-pass-expiry-issued-branch-authorization-v9yw7z6_",
+        "bytes": 1482579
+      },
+      {
+        "path": "/tmp/y3-pass-manual-expiry-without-deadline-ry3yfvkx",
+        "bytes": 1474456
+      },
+      {
+        "path": "/tmp/y3-past-class-pass-issued-before-performance-0rpvg1wm",
+        "bytes": 1465794
+      },
+      {
+        "path": "/tmp/y3-trainer-past-pt-unfinalized-month-1tplac2p",
+        "bytes": 1458773
+      },
+      {
+        "path": "/tmp/y3-same-day-distinct-pt-classes-2bn08mnt",
+        "bytes": 1445068
+      },
+      {
+        "path": "/tmp/y3-cross-branch-pass-without-approval-vvlkekuy",
+        "bytes": 1440743
+      },
+      {
+        "path": "/tmp/y3-support-to-ordinary-original-settings-zlw0j07c",
+        "bytes": 1464885
+      },
+      {
+        "path": "/tmp/y3-performed-branch-in-place-correction-dbwes984",
+        "bytes": 1449619
+      },
+      {
+        "path": "/tmp/y3-pt-classification-performance-home-fudhibye",
+        "bytes": 1422965
+      },
+      {
+        "path": "/tmp/y3-performed-branch-correction-master-only-eh0con4v",
+        "bytes": 1437109
+      },
+      {
+        "path": "/tmp/y3-pt-cancel-related-performance-invalid-7067ibbo",
+        "bytes": 1456976
+      },
+      {
+        "path": "/tmp/y3-operator-pt-correction-denied-1e95qqdl",
+        "bytes": 1425347
+      },
+      {
+        "path": "/tmp/y3-finalized-cross-branch-pt-cancel-flow-uutmd954",
+        "bytes": 1404799
+      },
+      {
+        "path": "/tmp/y3-pt-correction-performed-branch-c9ibu5sq",
+        "bytes": 1395417
+      },
+      {
+        "path": "/tmp/y3-trainer-pt-correction-denied-s7zs2z08",
+        "bytes": 1377625
+      },
+      {
+        "path": "/tmp/y3-all-additional-compensation-scope-c55lt5wx",
+        "bytes": 1359131
+      },
+      {
+        "path": "/tmp/y3-additional-performance-admin-discretion-clarification-6s1hix2g",
+        "bytes": 1363912
+      },
+      {
+        "path": "/tmp/y3-other-performance-finalized-amount-correction-consistency-01i8vzaw",
+        "bytes": 1697592
+      },
+      {
+        "path": "/tmp/y3-other-performance-positive-edits-consistent-policy-t57ejvrp",
+        "bytes": 1465910
+      },
+      {
+        "path": "/tmp/y3-other-performance-prefinal-amount-edit-authority-d41v_omy",
+        "bytes": 1594406
+      },
+      {
+        "path": "/tmp/y3-late-addition-admin-self-no-approval-csjspem7",
+        "bytes": 1471178
+      },
+      {
+        "path": "/tmp/y3-late-addition-nonself-no-master-approval-cm_b4e5l",
+        "bytes": 1424048
+      },
+      {
+        "path": "/tmp/y3-other-performance-late-addition-reopen-reason-fql149j0",
+        "bytes": 1379454
+      },
+      {
+        "path": "/tmp/y3-other-performance-current-home-authority-9ko48l2q",
+        "bytes": 1466817
+      },
+      {
+        "path": "/tmp/y3-other-performance-finalized-month-late-addition-aio55dsf",
+        "bytes": 1258124
+      },
+      {
+        "path": "/tmp/y3-other-performance-occurrence-month-j8diy6n8",
+        "bytes": 1228248
+      },
+      {
+        "path": "/tmp/y3-other-performance-positive-amount-vb1w9lxh",
+        "bytes": 1224495
+      },
+      {
+        "path": "/tmp/y3-other-performance-amount-at-registration-p9gikl7m",
+        "bytes": 1201323
+      },
+      {
+        "path": "/tmp/y3-additional-performance-admin-direct-only-rpnqlm_3",
+        "bytes": 1285164
+      },
+      {
+        "path": "/tmp/y3-other-performance-manual-amount-rrs4jtbk",
+        "bytes": 1455865
+      },
+      {
+        "path": "/tmp/y3-branch-cost-report-master-only-w2xny4ea",
+        "bytes": 1180770
+      },
+      {
+        "path": "/tmp/y3-other-performance-occurrence-home-cost-ivzo_gza",
+        "bytes": 1117663
+      },
+      {
+        "path": "/tmp/y3-ordinary-session-payment-performed-branch-cost-pb4i1oj5",
+        "bytes": 1104411
+      },
+      {
+        "path": "/tmp/y3-base-salary-transfer-month-end-cost-nt45hxp7",
+        "bytes": 1093743
+      },
+      {
+        "path": "/tmp/y3-support-compensation-performed-branch-cost-c3tsr7w7",
+        "bytes": 1074803
+      },
+      {
+        "path": "/tmp/y3-settlement-current-home-full-read-iaupz3u5",
+        "bytes": 1066034
+      },
+      {
+        "path": "/tmp/y3-settlement-initial-finalization-scope-wrhs6d6o",
+        "bytes": 1071843
+      },
+      {
+        "path": "/tmp/y3-salary-continues-until-next-change-h7cbomre",
+        "bytes": 1018921
+      },
+      {
+        "path": "/tmp/y3-salary-month-explicit-zero-i217bsjb",
+        "bytes": 1002762
+      },
+      {
+        "path": "/tmp/y3-salary-manual-admin-scope-xogz9v5y",
+        "bytes": 989363
+      },
+      {
+        "path": "/tmp/y3-salary-manual-reason-6na33i43",
+        "bytes": 978435
+      },
+      {
+        "path": "/tmp/y3-salary-manual-priority-y01uzrxo",
+        "bytes": 968670
+      },
+      {
+        "path": "/tmp/y3-salary-special-month-manual-nhbpntm5",
+        "bytes": 955345
+      },
+      {
+        "path": "/tmp/y3-salary-month-only-correction-oaywlspy",
+        "bytes": 931913
+      },
+      {
+        "path": "/tmp/y3-salary-correction-reasons-nax8uyyp",
+        "bytes": 922363
+      },
+      {
+        "path": "/tmp/y3-salary-correction-scope-z18_bovj",
+        "bytes": 914151
+      },
+      {
+        "path": "/tmp/y3-salary-finalized-correction-bmxil73t",
+        "bytes": 903930
+      },
+      {
+        "path": "/tmp/y3-salary-past-unfinalized-h3n5bz6i",
+        "bytes": 899437
+      },
+      {
+        "path": "/tmp/y3-salary-unfinalized-auto-ffs5po9t",
+        "bytes": 892842
+      },
+      {
+        "path": "/tmp/y3-salary-start-month-n2nc8mv8",
+        "bytes": 886707
+      },
+      {
+        "path": "/tmp/y3-support-correction-current-home-pw8iudon",
+        "bytes": 871223
+      },
+      {
+        "path": "/tmp/y3-settlement-reopen-reason-b5wzdlbn",
+        "bytes": 855493
+      },
+      {
+        "path": "/tmp/y3-settlement-reopen-no-approval-12g1rhwh",
+        "bytes": 834482
+      },
+      {
+        "path": "/tmp/y3-settlement-reopen-scope-m1s60fms",
+        "bytes": 819317
+      },
+      {
+        "path": "/tmp/y3-settlement-reopen-4012g10w",
+        "bytes": 799212
+      },
+      {
+        "path": "/tmp/y3-support-correction-reason-ycmzarkp",
+        "bytes": 778247
+      },
+      {
+        "path": "/tmp/y3-support-correction-direct-7qvycge5",
+        "bytes": 766723
+      },
+      {
+        "path": "/tmp/y3-support-correction-scope-wmf619ht",
+        "bytes": 753403
+      },
+      {
+        "path": "/tmp/y3-support-zero-9fkzroph",
+        "bytes": 737384
+      },
+      {
+        "path": "/tmp/y3-settlement-completeness-qd1ikfu3",
+        "bytes": 728331
+      },
+      {
+        "path": "/tmp/y3-support-timing-y0hk12cx",
+        "bytes": 722719
+      },
+      {
+        "path": "/tmp/y3-cross-branch-manual-amount-f8ggxcgz",
+        "bytes": 706683
+      },
+      {
+        "path": "/tmp/y3-additional-self-no-approval-z16qshyr",
+        "bytes": 704219
+      },
+      {
+        "path": "/tmp/y3-additional-self-registration-zs8bxogt",
+        "bytes": 698687
+      },
+      {
+        "path": "/tmp/y3-additional-no-approval-6w4zy9ew",
+        "bytes": 694355
+      },
+      {
+        "path": "/tmp/y3-additional-home-jcx3psvq",
+        "bytes": 690297
+      },
+      {
+        "path": "/tmp/y3-additional-admin-0wwzk5tb",
+        "bytes": 686545
+      },
+      {
+        "path": "/tmp/y3-pass-terms-xs7quusf",
+        "bytes": 295080
+      },
+      {
+        "path": "/tmp/y3-self-compensation-e38nr0v3",
+        "bytes": 367990
+      },
+      {
+        "path": "/tmp/y3-iam-s1-browser-1hf57udm",
+        "bytes": 3535419
+      },
+      {
+        "path": "/tmp/y3-iam-s1-browser-3mfgm25_",
+        "bytes": 2912723
+      },
+      {
+        "path": "/tmp/y3-iam-s1-browser-622yo9lk",
+        "bytes": 2912479
+      },
+      {
+        "path": "/tmp/y3-iam-s1-browser-i2hjg518",
+        "bytes": 2912483
+      },
+      {
+        "path": "/tmp/y3-iam-s1-browser-_q7cj459",
+        "bytes": 2912178
+      },
+      {
+        "path": "/tmp/y3-current-aa-review-path.txt",
+        "bytes": 25
+      },
+      {
+        "path": "/tmp/y3-finalized-ap-correction-consistency.py",
+        "bytes": 12156
+      },
+      {
+        "path": "/tmp/y3-positive-edits-consistent-policy.py",
+        "bytes": 10946
+      },
+      {
+        "path": "/tmp/y3-prefinal-other-performance-edit.py",
+        "bytes": 12171
+      },
+      {
+        "path": "/tmp/y3-late-addition-self-edit.py",
+        "bytes": 16918
+      },
+      {
+        "path": "/tmp/y3-late-addition-nonself-approval-edit.py",
+        "bytes": 10220
+      },
+      {
+        "path": "/tmp/y3-late-addition-reason-edit.py",
+        "bytes": 10158
+      },
+      {
+        "path": "/tmp/y3-current-home-authority-edit.py",
+        "bytes": 13476
+      },
+      {
+        "path": "/tmp/pytest-of-shlee/pytest-5/test_required_postgres_exit_po7",
+        "bytes": 19863
+      },
+      {
+        "path": "/tmp/pytest-of-shlee/pytest-5/test_required_postgres_exit_po6",
+        "bytes": 17508
+      },
+      {
+        "path": "/tmp/pytest-of-shlee/pytest-5/test_required_postgres_exit_po5",
+        "bytes": 17297
+      },
+      {
+        "path": "/tmp/pytest-of-shlee/pytest-5/test_required_postgres_exit_po4",
+        "bytes": 17308
+      },
+      {
+        "path": "/tmp/pytest-of-shlee/pytest-5/test_required_postgres_exit_po3",
+        "bytes": 17304
+      },
+      {
+        "path": "/tmp/pytest-of-shlee/pytest-5/test_required_postgres_exit_po2",
+        "bytes": 17056
+      },
+      {
+        "path": "/tmp/pytest-of-shlee/pytest-5/test_required_postgres_exit_po1",
+        "bytes": 17167
+      },
+      {
+        "path": "/tmp/pytest-of-shlee/pytest-5/test_required_postgres_exit_po0",
+        "bytes": 17201
+      },
+      {
+        "path": "/tmp/pytest-of-shlee/pytest-4/test_required_postgres_exit_po7",
+        "bytes": 19863
+      },
+      {
+        "path": "/tmp/pytest-of-shlee/pytest-4/test_required_postgres_exit_po6",
+        "bytes": 17508
+      },
+      {
+        "path": "/tmp/pytest-of-shlee/pytest-4/test_required_postgres_exit_po5",
+        "bytes": 17297
+      },
+      {
+        "path": "/tmp/pytest-of-shlee/pytest-4/test_required_postgres_exit_po4",
+        "bytes": 17308
+      },
+      {
+        "path": "/tmp/pytest-of-shlee/pytest-4/test_required_postgres_exit_po3",
+        "bytes": 17304
+      },
+      {
+        "path": "/tmp/pytest-of-shlee/pytest-4/test_required_postgres_exit_po2",
+        "bytes": 17056
+      },
+      {
+        "path": "/tmp/pytest-of-shlee/pytest-4/test_required_postgres_exit_po1",
+        "bytes": 17167
+      },
+      {
+        "path": "/tmp/pytest-of-shlee/pytest-4/test_required_postgres_exit_po0",
+        "bytes": 17201
+      },
+      {
+        "path": "/tmp/pytest-of-shlee/pytest-3/test_required_postgres_exit_po7",
+        "bytes": 19863
+      },
+      {
+        "path": "/tmp/pytest-of-shlee/pytest-3/test_required_postgres_exit_po6",
+        "bytes": 17508
+      },
+      {
+        "path": "/tmp/pytest-of-shlee/pytest-3/test_required_postgres_exit_po5",
+        "bytes": 17297
+      },
+      {
+        "path": "/tmp/pytest-of-shlee/pytest-3/test_required_postgres_exit_po4",
+        "bytes": 17308
+      },
+      {
+        "path": "/tmp/pytest-of-shlee/pytest-3/test_required_postgres_exit_po3",
+        "bytes": 17304
+      },
+      {
+        "path": "/tmp/pytest-of-shlee/pytest-3/test_required_postgres_exit_po2",
+        "bytes": 17056
+      },
+      {
+        "path": "/tmp/pytest-of-shlee/pytest-3/test_required_postgres_exit_po1",
+        "bytes": 17167
+      },
+      {
+        "path": "/tmp/pytest-of-shlee/pytest-3/test_required_postgres_exit_po0",
+        "bytes": 17201
+      },
+      {
+        "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/docs/architecture/iam-001-s1-evidence.zip",
+        "bytes": 85646
+      },
+      {
+        "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/docs/architecture/prep-iam-001-evidence.zip",
+        "bytes": 526122
+      }
+    ]
+  },
+  "new_completed_runs_removed": [
+    {
+      "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/.local/qa/auto-fd19239463b24d8f9837a3dc0a90eaba",
+      "plan": "a782a5820141aa08b0c3a4c367f2baff0521a08d50fd89c3258c0891f4dace84",
+      "entries": 1,
+      "removed": true
+    },
+    {
+      "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/.local/qa/auto-f617c2b95ce1494397e43fae606b7b89",
+      "plan": "a782a5820141aa08b0c3a4c367f2baff0521a08d50fd89c3258c0891f4dace84",
+      "entries": 1,
+      "removed": true
+    }
+  ],
+  "retained": [
+    {
+      "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/.local/qa/corpus-inputs-3a5f62f0e18a",
+      "reason": "Seven exact manifest inputs required by current password corpus rebuild tool, not obsolete execution copies. SHA verified before old input disposal.",
+      "input_bytes": 19184433,
+      "check": "uv run --locked python tools/build_password_corpus.py ../.local/qa/corpus-inputs-3a5f62f0e18a --check: PASS; eligible55169; seeds4"
+    },
+    {
+      "path": "/tmp/y3-mb009-correction-o6yjq273",
+      "reason": "Ownership/completion provenance not verified to deletion standard; small Product snapshot only, no live runtime discovered.",
+      "bytes": 276621,
+      "state": "unverified_hold"
+    },
+    {
+      "path": "/tmp/y3management-runtime",
+      "reason": "Existing shared process-exclusion lock directory. Relocation/deletion could break active runtime guard; compatibility exception."
+    },
+    {
+      "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/backend/.venv",
+      "reason": "Current development runtime; no symlink/.pth dependency on discarded /tmp environments."
+    },
+    {
+      "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/.local/qa/latest-auto.json",
+      "reason": "Latest bounded automatic verification/cleanup summary."
+    },
+    {
+      "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/.local/qa/latest-browser.json",
+      "reason": "Latest safe boolean browser acceptance summary."
+    },
+    {
+      "scope": "Original PostgreSQL/public schema/Compose volumes, configuration/media/auth, global trust store, shared Node/Chromium, other projects and shared pytest parent directories",
+      "reason": "Original/shared/current/other-owned resources protected; only verified per-run subtrees removed."
+    }
+  ],
+  "verification": {
+    "qa_cleanup_cases": 10,
+    "strict_browser_result_cases": 7,
+    "final_fast_passed": 68,
+    "final_fast_deselected": 25,
+    "static_gates": "Ruff check/format, mypy40, Import Linter7 PASS",
+    "warnings": 2,
+    "actual_https_browser_required_true": 31,
+    "schema_unexpected_remaining_count": 0,
+    "owned_registered_processes_live": [],
+    "ports_closed": true,
+    "trust_store_unchanged_files": 246,
+    "git_ignored": ".local/qa/",
+    "git_tracked_qa_paths": 0,
+    "deployment": "No deployment tool added; future deployments must exclude .local/qa; existing wheel packages src only."
+  },
+  "failures": "Initial actual-browser TMPDIR launch failure and README formatting failure fixed and independently rerun. Intentional failing cleanup test verifies preservation/failing exit. No historical failure converted into success.",
+  "git_preservation": {
+    "branch": "main",
+    "head": "b83defe3fc564b56d0f77cb075ddb5436759d191",
+    "index_unchanged": true,
+    "product_and_adrs_unchanged_since_task_start": true,
+    "existing_0001_and_dependency_files_unchanged_since_task_start": true,
+    "all_other_initial_files_preserved_except_two_explicitly_disposed_completed_evidence_zips": true
+  },
+  "commit_push_deploy": false,
+  "completed_task_folders_removed": [
+    {
+      "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/.local/qa/iam-next-review-51b6e585ad64",
+      "bytes": 65981,
+      "dry_run_digest_matched": true
+    },
+    {
+      "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/.local/qa/qa-independent-review-7667098db4ae",
+      "bytes": 7463,
+      "dry_run_digest_matched": true
+    },
+    {
+      "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/.local/qa/qa-independent-s2-ea3cd8f6b271",
+      "bytes": 12810,
+      "dry_run_digest_matched": true
+    },
+    {
+      "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/.local/qa/qa-cleanup-20261013T155657Z",
+      "bytes": 414206,
+      "dry_run_digest_matched": true
+    }
+  ],
+  "cleanup_failures": [],
+  "measured_bytes_removed": 971049502,
+  "approximate_decimal_megabytes_removed": 971.0,
+  "measured_bytes_note": "Includes legacy181 and current4 task folders; two tiny synthetic orphan runs separately removed but their pre-removal size was not recorded.",
+  "completed_at_utc": "2026-10-13T17:03:14.546008+00:00"
+}

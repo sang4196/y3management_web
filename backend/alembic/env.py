@@ -1,4 +1,4 @@
-"""Explicit migration entry point. No business metadata or revision exists yet."""
+"""Explicit migration entry point; IAM revisions run only on an operator-selected target."""
 
 from alembic.util import CommandError
 

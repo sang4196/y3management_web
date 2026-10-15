@@ -1,0 +1,360 @@
+{
+  "gate": "PREP-IAM-001",
+  "verdict": "PASS_FOR_LIMITED_DEVELOPMENT_IAM_S1_IMPLEMENTATION",
+  "decision_date": "2026-10-13",
+  "decision_owner": "Orchestrator",
+  "authorization": "Human user authorized preflight followed by first IAM implementation and separate independent tester; implementation continuation dispatched after evidence review.",
+  "evidence_bundle": {
+    "path": "docs/architecture/prep-iam-001-evidence.zip",
+    "sha256": "4f41883fd78cd8c3ea6427f2e3669c25998bee3efa8dd5d7c8b8cc99967eedcc"
+  },
+  "independent_review": {
+    "report_version": 2,
+    "completed_at_utc": "2026-10-13T13:19:01.478974+00:00",
+    "role": "Independent IAM-001 tester",
+    "scope_root": "/tmp/y3-iam-tester-bk5ccktt",
+    "independent_verdict": "PASS — PREP technical feasibility within the explicitly limited local development S1 scope",
+    "decision_owner": "Orchestrator makes final PREP gate/start decision; tester did not mark Product OPEN or ADR/module proposals accepted.",
+    "implementation_authorization_exercised_by_tester": false,
+    "actual_IAM_acceptance": "UNRUN by tester; developer implementation now authorized, so PREP baseline source absence must not be treated as current implementation state after handoff.",
+    "repository": {
+      "path": "/home/shlee/Workspace/ai/01.codex/y3management_web",
+      "head": "b83defe3fc564b56d0f77cb075ddb5436759d191",
+      "branch": "main",
+      "existing_dirty_documents_preserved": true,
+      "original_venv_files_unchanged": 4427,
+      "original_lockfile_and_pyproject_unchanged": true,
+      "index_unchanged": true,
+      "tester_repository_writes": false,
+      "developer_new_paths": [
+        "docs/architecture/prep-iam-001-results.md",
+        "docs/architecture/prep-iam-001-evidence.zip"
+      ],
+      "preservation_evidence": "/tmp/y3-iam-tester-bk5ccktt/preservation-final.json"
+    },
+    "final_developer_bundle": {
+      "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/docs/architecture/prep-iam-001-evidence.zip",
+      "sha256": "4f41883fd78cd8c3ea6427f2e3669c25998bee3efa8dd5d7c8b8cc99967eedcc",
+      "files": 55,
+      "bytes": 526122,
+      "current_scripts_match": true,
+      "reused_replayed_hash_PG_worker_HTTPS_scripts_byte_unchanged": true
+    },
+    "historical_preflight": {
+      "path": "/tmp/y3-iam-preflight-o0qwlz8q",
+      "exists": false,
+      "treatment": "Historical documented values were not counted as new reproduced evidence."
+    },
+    "independent_reproduction": {
+      "supply": {
+        "pinned_commit": "3a5f62f0e18a1b8a36b25399aff0077f3706e5af",
+        "independently_downloaded_files": 7,
+        "all_local_manifest_git_blob_remote_bytes_match": true,
+        "union_unique": 1926507,
+        "length_15_128": 55169,
+        "eligible_non_ascii": 297,
+        "hangul": 0,
+        "evidence": "/tmp/y3-iam-tester-bk5ccktt/corpus-independent-review.json"
+      },
+      "exact_package_artifacts": {
+        "auth_packages": 5,
+        "baseline_versions_preserved": 41,
+        "pip_check_passed": true,
+        "wheel_payload_files_matched": 70,
+        "evidence": "/tmp/y3-iam-tester-bk5ccktt/independent-environment-check.json"
+      },
+      "required_booleans": {
+        "hash-results.json": {
+          "required_count": 14,
+          "observed_true": 14,
+          "evidence": "/tmp/y3-iam-tester-bk5ccktt/replay/hash-results.json"
+        },
+        "budget-results.json": {
+          "required_count": 17,
+          "observed_true": 17,
+          "evidence": "/tmp/y3-iam-tester-bk5ccktt/replay/budget-results.json"
+        },
+        "resource-results.json": {
+          "required_count": 9,
+          "observed_true": 9,
+          "evidence": "/tmp/y3-iam-tester-bk5ccktt/replay/resource-results.json"
+        },
+        "single-worker-results.json": {
+          "required_count": 5,
+          "observed_true": 5,
+          "evidence": "/tmp/y3-iam-tester-bk5ccktt/replay/single-worker-results.json"
+        },
+        "https-results.json": {
+          "required_count": 22,
+          "observed_true": 22,
+          "evidence": "/tmp/y3-iam-tester-bk5ccktt/https-trust-complete/https-results.json"
+        },
+        "error-redaction-results.json": {
+          "required_count": 10,
+          "observed_true": 10,
+          "evidence": "/tmp/y3-iam-tester-bk5ccktt/corpus-final/error-redaction-results.json"
+        },
+        "corpus-supplement-results.json": {
+          "required_count": 12,
+          "observed_true": 12,
+          "evidence": "/tmp/y3-iam-tester-bk5ccktt/corpus-final/corpus-supplement-results.json"
+        },
+        "corpus-finite-results.json": {
+          "required_count": 4,
+          "observed_true": 4,
+          "evidence": "/tmp/y3-iam-tester-bk5ccktt/corpus-final/corpus-finite-results.json"
+        }
+      },
+      "negative_hash_control": {
+        "exit_code": 1,
+        "true_checks": 14,
+        "intentional_false_checks": 1,
+        "evidence": "/tmp/y3-iam-tester-bk5ccktt/replay-executions.json"
+      },
+      "independent_finite_quality_cases": {
+        "prior_six_concrete_misses_now_rejected": true,
+        "independent_normal_false_rejections": 0,
+        "arbitrary_period5_korean_not_blanket_rejected": true,
+        "evidence": "/tmp/y3-iam-tester-bk5ccktt/finite-corpus-final-independent.json"
+      },
+      "trusted_browser": {
+        "chromium": "151.0.7922.34",
+        "ignoreHTTPSErrors": false,
+        "chromiumSandbox": true,
+        "original_corrected_script_unmodified": true,
+        "full_global_trust_files_unchanged": 246,
+        "trusted_positive_and_untrusted_negative": true,
+        "evidence": "/tmp/y3-iam-tester-bk5ccktt/corrected-https-trust-complete.json"
+      },
+      "ownership_and_cleanup": {
+        "verified_context": "wsl-ubuntu",
+        "endpoint": "unix:///run/docker-wsl.sock",
+        "compose_project": "y3management-foundation",
+        "service": "postgres-test",
+        "host_port": 55433,
+        "database_and_role": "y3management_test",
+        "only_fresh_tester_schema_DDL": true,
+        "own_schema_cleanup_independently_confirmed": true,
+        "own_private_TLS_keys_removed": 9,
+        "evidence": "/tmp/y3-iam-tester-bk5ccktt/cleanup-independent.json"
+      },
+      "same_process_corpus_and_hash_memory": {
+        "mode": "full corpus1,926,507 retained in the same Python process during two overlapping Argon2 hash/verify operations",
+        "observed_MiB": {
+          "after_load_current": 193.809,
+          "before_hash_lifetime_peak": 193.684,
+          "sampled_peak_during_hash_verify": 322.812,
+          "same_process_total_lifetime_peak": 322.18,
+          "after_operations_current": 194.855
+        },
+        "all_seven_full_mode_checks_true": true,
+        "cgroup_memory_max": "max",
+        "tester_local_technical_observation_budget_MiB": 512,
+        "budget_is_enforced_or_production_policy": false,
+        "evidence": "/tmp/y3-iam-tester-bk5ccktt/combined-memory-full.json",
+        "root_independent_observation": {
+          "evidence": "/tmp/y3-iam-orchestration-bk8zqu5q/corpus-hash-memory-observation.json",
+          "note": "Root separately observed343.4MiB with full corpus and two operations; its1GiB observation budget is not a hard cgroup/production SLO."
+        },
+        "optional_filtered_mode": {
+          "runtime_items": 55173,
+          "eligible_items": 55169,
+          "required_verified_short_seed_auxiliary": 4,
+          "current_after_load_MiB": 26.801,
+          "sampled_during_operations_MiB": 155.789,
+          "lifetime_high_water_before_hash_MiB": 516.012,
+          "local_512MiB_criterion_passed": false,
+          "evidence": "/tmp/y3-iam-tester-bk5ccktt/combined-memory-eligible_plus_seeds.json",
+          "classification": "Unexpected lifetime-high-water observation already present before hashing; cause unestablished. Retained transparently, not counted as a filtered-capacity PASS or an app defect. Root selected full-corpus observation for finite PREP resource feasibility; filtered optimization remains deferred. No further duplicate runs."
+        }
+      }
+    },
+    "resolved_findings": [
+      {
+        "id": "F1",
+        "finding": "Developer browser exception handler exposed first-line canary despite URL substitution.",
+        "resolution": "Source and final bundle now print fixed PREP_HTTPS_PROBE_FAILED only. Independent current-source HTTPS22 and latest-bundle canary10 passed. Tester-instrumented earlier copy was not counted as original-source PASS."
+      },
+      {
+        "id": "F2",
+        "finding": "Six concrete public/synthetic weak examples escaped the prior finite candidate.",
+        "resolution": "Finite actual-corpus-seed repetition, bounded terminal punctuation/context variants, and attributed exact public examples added. Independent original-six regression and normal phrase checks passed. Arbitrary Korean period5 remains a disclosed non-required observation."
+      }
+    ],
+    "supported_development_candidate": [
+      "NFC/15–128/exact pinned corpus plus the reviewed bounded whole-string adjuncts; no implicit hash-input casefold/trim, substring denial or composition requirement.",
+      "WSL one service process/ASGI worker1 with shared canonical OS startup lock and in-process hash cap2/no queue for all hash/verify/rehash. Multi-host/container/multi-worker is outside this candidate.",
+      "ID-keyed atomic reservation/failure prototype, conservative expired lease treatment and separate guarded allocation feasibility. Production quantities/retention are not set by demo cap128/TTL30min.",
+      "Same-origin trusted HTTPS primitive with synchronizer nonce/origin checks, fragments removed, secure host cookies and no-store. Actual IAM route/UoW integration still requires S1 tests."
+    ],
+    "remaining_limits_not_new_PREP_gates": [
+      "Actual Korean compromised-password representativeness is absent; unlisted punctuation/whitespace/unknown context variants and arbitrary period>=5 Korean repetition remain outside finite adjuncts. No complete Unicode or production coverage claim.",
+      "German original provenance is unspecified by the upstream README; repository license/attribution verified without an independent legal guarantee of every upstream item.",
+      "Full-corpus+two-hash same-process RSS was observed directly (~322–343MiB). Actual app/DB pool/security-state load, hard resource enforcement and production p95/SLO remain S1/operating checks; separately measured peaks were not summed.",
+      "Advisory multi-process permit prototype releases on DB connection loss; it was tested but not adopted for S1 support.",
+      "Allocator and attempt budget are separate prototypes; actual bucket/attempt/preparation/setup cardinality, concurrent cleanup and result-recording failures must be integrated and exercised in S1.",
+      "Prototype state labels do not prove actual account/HTTP status/body/Retry-After equality; worker death/lease and commit-response-loss integration remain S1 C1/P2 cases.",
+      "Reset/recovery/additional Master/MFA/Trainer/Member/PT/Settlement and operating retention/backups/full supported-browser matrix remain outside S1 PREP."
+    ],
+    "tests_not_run": [
+      "bash check.sh fast",
+      "bash check.sh db",
+      "Actual IAM U1/P1/P2/C1/B1/B2 acceptance",
+      "First business migration upgrade/downgrade/application schema constraints"
+    ],
+    "next_independent_acceptance": {
+      "matrix": "/tmp/y3-iam-tester-bk5ccktt/contract-matrix.json",
+      "cases": 61,
+      "PREP_cases": 11,
+      "actual_implementation_cases": 50,
+      "all_actual_implementation_cases": "PLANNED_UNRUN",
+      "S1a": "intermediate only",
+      "S1_complete_condition": "S1a+S1b and all U1/P1/P2/C1/B1/B2 mandatory cases, actual real login/PG/worker/browser flows. Root coordinates execution times/ownership."
+    },
+    "exact_execution_records": [
+      "/tmp/y3-iam-tester-bk5ccktt/replay-executions.json",
+      "/tmp/y3-iam-tester-bk5ccktt/corrected-https-trust-complete.json",
+      "/tmp/y3-iam-tester-bk5ccktt/finite-corpus-final-independent.json"
+    ],
+    "primary_safe_artifacts": [
+      "/tmp/y3-iam-tester-bk5ccktt/baseline.json",
+      "/tmp/y3-iam-tester-bk5ccktt/preservation-final.json",
+      "/tmp/y3-iam-tester-bk5ccktt/corpus-independent-review.json",
+      "/tmp/y3-iam-tester-bk5ccktt/weak-case-rationale.json",
+      "/tmp/y3-iam-tester-bk5ccktt/finite-corpus-final-independent.json",
+      "/tmp/y3-iam-tester-bk5ccktt/additional-corpus-cases-final.json",
+      "/tmp/y3-iam-tester-bk5ccktt/independent-environment-check.json",
+      "/tmp/y3-iam-tester-bk5ccktt/corrected-https-trust-complete.json",
+      "/tmp/y3-iam-tester-bk5ccktt/cleanup-independent.json",
+      "/tmp/y3-iam-tester-bk5ccktt/contract-matrix.json",
+      "/tmp/y3-iam-tester-bk5ccktt/db-plan-after-prep.json"
+    ],
+    "earlier_intermediate_reports": "preflight-static-review.json/progress.json and early corpus reviews describe earlier incomplete evidence; this final report supersedes their pending statuses.",
+    "orchestrator_final_gate_decision": "Root confirmed limited development PREP PASS and authorized developer IAM-S1a→S1b. Tester DDL slot returned to developer; no further tester DDL/app/common-test mutation.",
+    "scope_transition_note": "Original .venv/lock preservation was verified through PREP. Developer may now add approved implementation dependencies; later authorized changes must not be misclassified as PREP preservation failure."
+  },
+  "root_composed_memory_observation": {
+    "scope": "root supplementary single-process corpus plus simultaneous two hash-and-verify operations; not application or production capacity",
+    "words_retained": 1926507,
+    "corpus_only_process_peak_mib": 246.81,
+    "combined_process_peak_mib": 343.4,
+    "sample_hash_verify_ms": [
+      545.61,
+      577.6
+    ],
+    "cgroup_memory_max": "max",
+    "observational_development_budget_mib": 1024,
+    "checks": {
+      "full_corpus_retained": true,
+      "two_hash_verify_success": true,
+      "observed_peak_below_budget": true
+    },
+    "limits": "One local sample. No cgroup hard limit installed. Final packaged corpus/app/DB pool/security-state load remains S1 acceptance."
+  },
+  "implementation_requirements": [
+    "IAM-S1a then S1b; actual API, CLI, PostgreSQL migration and transactions, authorization and revocation races, trusted HTTPS browser acceptance",
+    "Reviewed single-host single-worker startup lock and shared in-process hash admission; integrate bounded security-state allocation with attempt/preparation/credential lifecycle",
+    "Pinned real blocklist supply, license attribution, reviewed finite adjuncts and consistent normalization; no empty supply fallback",
+    "check.sh fast/db, no required skip/xfail/uncollected success; independent tester and root diff review",
+    "Eligible-length packaged corpus must preserve verified short auxiliary seed facts and final weak-password regression equivalence."
+  ],
+  "scope_limits": [
+    "Not production authorization, global module acceptance, Korean compromised corpus completeness, or multi-host capacity evidence",
+    "S2/MFA/recovery/Trainer Workforce/member/PT/settlement excluded",
+    "No Product OPEN resolution or git commit/push authorized by this gate"
+  ],
+  "independent_composed_memory_observation": {
+    "captured_at_utc": "2026-10-13T13:17:09.796329+00:00",
+    "mode": "full",
+    "checks": {
+      "expected_corpus_items_retained": true,
+      "all_four_raw_corpus_seed_facts_preserved": true,
+      "exactly_two_inflight_operations": true,
+      "actual_hash_intervals_overlap": true,
+      "both_roundtrips_valid": true,
+      "same_corpus_live_during_both_operations": true,
+      "process_lifetime_peak_under_local_technical_budget": true
+    },
+    "process_id": 2949605,
+    "corpus_items_retained": 1926507,
+    "eligible_corpus_items": 55169,
+    "verified_short_seed_auxiliary_items": 4,
+    "load_seconds": 1.961,
+    "RSS_MiB": {
+      "after_load_current": 193.809,
+      "before_hash_lifetime_peak": 193.684,
+      "sampled_peak_during_hash_verify": 322.812,
+      "same_process_total_lifetime_peak": 322.18,
+      "after_operations_current": 194.855
+    },
+    "concurrent_operations": [
+      {
+        "worker": 0,
+        "hash_start_offset_ms": 2.245500043500215,
+        "hash_end_offset_ms": 204.83250403776765,
+        "verify_ok": true,
+        "live_corpus_items_seen": 1926507,
+        "parameters": {
+          "type": "Argon2id",
+          "version": 19,
+          "memory_cost_kib": 65536,
+          "time_cost": 3,
+          "parallelism": 4,
+          "salt_len": 16,
+          "hash_len": 32
+        }
+      },
+      {
+        "worker": 1,
+        "hash_start_offset_ms": 2.5560000212863088,
+        "hash_end_offset_ms": 198.79990303888917,
+        "verify_ok": true,
+        "live_corpus_items_seen": 1926507,
+        "parameters": {
+          "type": "Argon2id",
+          "version": 19,
+          "memory_cost_kib": 65536,
+          "time_cost": 3,
+          "parallelism": 4,
+          "salt_len": 16,
+          "hash_len": 32
+        }
+      }
+    ],
+    "technical_budget": {
+      "RSS_MiB": 512,
+      "kind": "Explicit temporary experiment pass criterion; chosen below observed available host RAM. Not an approved product/production limit and not an OS-enforced cgroup cap.",
+      "new_policy_adopted": false
+    },
+    "observed_cgroup_and_host": {
+      "files": {
+        "/sys/fs/cgroup/memory.max": "max",
+        "/sys/fs/cgroup/memory.current": "6920306688",
+        "/sys/fs/cgroup/cpu.max": "max 100000",
+        "/proc/self/cgroup": "0::/non-systemd"
+      },
+      "meminfo": {
+        "MemTotal": "8100216 kB",
+        "MemAvailable": "4147424 kB"
+      },
+      "cpu_count": 8
+    },
+    "limitations": [
+      "Single sampled process/run; no production p95/SLO, app/DB pool/caches or maximum security-state request workload.",
+      "RSS numbers are directly observed in one process holding corpus and simultaneous operations; no sum of separately measured peaks.",
+      "memory.max=max means no finite cgroup memory cap was observed. memory.current is cgroup aggregate, not this process RSS.",
+      "Eligible-only supply must retain auxiliary proof/seed data for the finite common-seed-repeat adjunct; blindly intersecting seed names with the filtered set alone would remove that defense.",
+      "Source corpus remains fixed/unmodified; filtering occurs after NFC/length normalization and does not itself demonstrate a packaged application artifact."
+    ]
+  },
+  "retention_update_20261014": {
+    "policy": "new user retention policy replaces blanket archival",
+    "completed_full_bundle": "disposed after reviewed cleanup preview",
+    "historical_checksums_and_successes": "retained as history, not altered",
+    "latest_summary_and_current_code_tests": "retained",
+    "unresolved_confirmed_s1_core_defects": 0,
+    "current_qa_guidance": "backend/README.md#QA",
+    "corpus_inputs": ".local/qa/corpus-inputs-3a5f62f0e18a",
+    "no_bulk_copy_or_rearchive": true
+  }
+}

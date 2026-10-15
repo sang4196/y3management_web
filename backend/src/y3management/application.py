@@ -1,4 +1,4 @@
-"""HTTP composition only. No PT registration, authentication or business models."""
+"""HTTP and lifetime composition; synchronous business work stays within one worker."""
 
 import logging
 from collections.abc import AsyncIterator
@@ -13,6 +13,10 @@ from starlette.responses import JSONResponse, Response
 
 from y3management.config import Settings, load_settings
 from y3management.database import Database
+from y3management.http import attach
+from y3management.runtime import ProcessGuard
+from y3management.uow import UnitOfWork
+from y3management.use_cases import Service
 
 logger = logging.getLogger("y3management")
 
@@ -32,13 +36,28 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        resource = database if database is not None else Database(configuration)
-        app.state.database = resource
-        logger.info("application_started")
+        guard: ProcessGuard | None = None
+        resource: DatabaseResource | None = None
         try:
+            try:
+                guard = ProcessGuard(configuration) if configuration.iam_enabled else None
+                resource = database if database is not None else Database(configuration)
+                app.state.database = resource
+                if configuration.iam_enabled:
+                    if not isinstance(resource, Database):
+                        raise ValueError("IAM_REQUIRES_DATABASE")
+                    app.state.iam_service = Service(UnitOfWork(resource, configuration))
+            except Exception:
+                raise ValueError("APPLICATION_STARTUP_FAILED") from None
+            logger.info("application_started")
             yield
         finally:
-            await run_in_threadpool(resource.close)
+            try:
+                if resource is not None:
+                    await run_in_threadpool(resource.close)
+            finally:
+                if guard is not None:
+                    guard.close()
             logger.info("application_stopped")
 
     app = FastAPI(
@@ -75,4 +94,6 @@ def create_app(
             status_code=200 if available else 503,
         )
 
+    if configuration.iam_enabled:
+        attach(app, configuration)
     return app

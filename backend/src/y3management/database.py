@@ -17,7 +17,11 @@ class Database:
     def __init__(self, settings: Settings) -> None:
         options = {
             "connect_timeout": settings.db_connect_timeout_seconds,
-            "options": f"-c statement_timeout={settings.db_statement_timeout_ms}",
+            "options": (
+                f"-c statement_timeout={settings.db_statement_timeout_ms} "
+                f"-c lock_timeout={settings.db_statement_timeout_ms} "
+                f"-c search_path={settings.database_schema},pg_catalog"
+            ),
         }
         self.engine = create_engine(
             settings.database_url.get_secret_value(),

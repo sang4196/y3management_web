@@ -1,0 +1,150 @@
+{
+  "date": "2026-10-14",
+  "status": "PASS_LIMITED_LOCAL_S2A",
+  "acceptance": "Developer implementation, independent verification and root architect review completed; resolved findings only. No Product/ADR/OPEN state changes.",
+  "scope": "Normal DISABLED Branch Admin restore by current same-Organization Master, existing password fresh login, no revival of old sessions, plus existing pytest/browser QA cleanup tooling.",
+  "source_sha256": {
+    "backend/src/y3management/iam/public.py": "4152ae65945aab65dd86762eb9c2a371a506f3c84444d766986899049de73173",
+    "backend/src/y3management/iam/infrastructure.py": "86e6e263dc37342dd7ebaa65624ea4ebc86c8ca3a2d91a1352a6a3f53e067421",
+    "backend/src/y3management/use_cases.py": "9cb9ab783c52230f45065a66064fdfdc643726b8b2caae99f3e7f2ebc86d280a",
+    "backend/src/y3management/http.py": "1dabfbe0b74a2814e3a6e1b870b8a39ae3b17019f79cabda7fa505baa7eb6216",
+    "backend/alembic/versions/0002_iam_restore.py": "4322aa7d7a10ea56915927c3efe91c36f771741aaf92e5770a6fe2d8b0a7a5d1",
+    "backend/tests/test_iam_s2.py": "ceba6b990880660e1efba974558775bd2b067f6365bf7e3f898061f991e94a32"
+  },
+  "independent_verification": {
+    "final_fast": {
+      "command": "backend/: bash check.sh fast",
+      "exit_code": 0,
+      "passed": 68,
+      "deselected": 25,
+      "warnings": 2,
+      "seconds": 9.43,
+      "qa_cleanup_cases": 10,
+      "browser_result_cases": 7,
+      "ruff_check": "PASS",
+      "ruff_format_check": "PASS (46 already formatted)",
+      "mypy": "PASS (40 source files)",
+      "import_linter": "PASS (7 kept, 0 broken)",
+      "run_id": "auto-9af558cf1dfe4253ae818c47a2f41336",
+      "owned_auto_root_removed_observed": true
+    },
+    "required_postgres": {
+      "command": "backend/: bash check.sh db",
+      "original_exit_code": 1,
+      "passed": 24,
+      "failed": 1,
+      "warnings": 2,
+      "seconds": 105.17,
+      "s2_postgres_cases_passed": 7,
+      "foundation_s1_cases_passed": 17,
+      "failed_case": "Actual browser failed before IAM stage; corrected and independently rerun below.",
+      "full_db_repeated": false,
+      "interpretation": "24 passing PG cases retained; after root fixes, browser target separately passed1. This is 25 unique DB cases with successful outcomes across runs, not a new single-run fullDB25 pass."
+    },
+    "actual_https_browser_retest": {
+      "command": "backend/: uv run --locked --env-file .env.example pytest tests/test_iam_browser.py -m postgres --require-postgres -s",
+      "exit_code": 0,
+      "passed": 1,
+      "warnings": 2,
+      "seconds": 20.84,
+      "required_checks": 31,
+      "all_required_true": true,
+      "browser_version": "151.0.7922.34",
+      "root_fixes_verified": [
+        "Both pre-disable logins204 and me200 plus distinct cookies",
+        "Owned host browser-tmp bound to namespace /tmp and TMPDIR=/tmp",
+        "New ExitStack/schema resource tracking and pidfd fixture completed cleanup"
+      ],
+      "full_postgres_suite_repeated": false
+    },
+    "required_browser_report": {
+      "required": 31,
+      "all_exact_booleans_true": true,
+      "includes_original_s1": 25,
+      "includes_restore": 6,
+      "two_valid_distinct_sessions_guarded_before_disable": true,
+      "verified_tls_and_chromium_sandbox": true,
+      "namespace_tmp": "Owned host .local/qa browser-tmp bound as namespace /tmp; no host /tmp artifacts created by browser."
+    },
+    "warning_disposition": "Existing Starlette HTTPX TestClient and AnyIO BlockingPortal deprecation warnings remain visible. No dependency upgrade or warning suppression.",
+    "skip_xfail_missing_counted_as_success": false
+  },
+  "developer_sensitive_assertion_verification": {
+    "status": "PASS",
+    "checks": [
+      {
+        "command": "uv run --locked --env-file .env.example pytest tests/test_iam_s2.py -k 'real_http or migration_preserves' -m postgres --require-postgres",
+        "exit_code": 0,
+        "passed": 2,
+        "deselected": 5,
+        "warnings": 2,
+        "seconds": 11.52
+      },
+      {
+        "command": "uv run --locked ruff check tests/test_iam_s2.py",
+        "exit_code": 0
+      },
+      {
+        "command": "uv run --locked mypy",
+        "exit_code": 0,
+        "source_files": 40
+      },
+      {
+        "command": "private intentional-mismatch pytest probe --showlocals",
+        "expected_exit_code": 1,
+        "actual_exit_code": 1,
+        "raw_canary_absent": true,
+        "verification_not_weakened": true
+      }
+    ],
+    "performed_by_independent_tester": false,
+    "interpretation": "Test-only two sensitive-row assertions redacted without weakening equality checks; developer reran affected2 PG cases and deliberate mismatch probe. Application/migration unchanged. Latest test source is included in independent final fast static checks."
+  },
+  "review_findings": [
+    {
+      "id": "QA-S2-001",
+      "status": "CLOSED",
+      "resolution": "Both actual pre-disable browser logins and /auth/me succeed, with distinct valid cookies; all31 checks independently passed."
+    },
+    {
+      "id": "QA-S2-002",
+      "status": "CLOSED",
+      "resolution": "Owned host browser-tmp bound to namespace /tmp avoids Chromium Unix socket path length limit; real trusted HTTPS browser independently passed."
+    },
+    {
+      "id": "QA-S2-003",
+      "status": "CLOSED",
+      "resolution": "README canonical formatting fixed; independent final fast passed68 with all static gates."
+    },
+    {
+      "id": "ROOT-PRIVACY-001",
+      "status": "CLOSED",
+      "resolution": "Sensitive-row equality retains all fields via per-process keyed fingerprints. Synthetic secrets redacted. Affected PG2 and intentional --showlocals failure canary verified by developer; independent final static gate passed."
+    }
+  ],
+  "cleanup_verification": {
+    "latest_fast_auto_root_absent": true,
+    "schema_unexpected_remaining_count": 0,
+    "global_trust_files_unchanged": 246,
+    "owned_browser_listener_closed": true,
+    "owned_registered_process_identities_still_live": [],
+    "private_keys_inputs_profiles_NSS_browser_temp_removed": true,
+    "old_failed_db_run_auto_root_removed": true,
+    "all_disposable_new_probe_and_log_files_removed_after_review": true,
+    "shared_services_volumes_node_chromium_other_projects_modified_by_tester": false
+  },
+  "preservation": {
+    "branch": "main",
+    "head": "b83defe3fc564b56d0f77cb075ddb5436759d191",
+    "index_unchanged": true,
+    "product_and_adrs_unchanged_since_task_start": true,
+    "existing_0001_and_dependency_files_unchanged_since_task_start": true,
+    "all_other_initial_files_preserved_except_two_explicitly_disposed_completed_evidence_zips": true
+  },
+  "limitations": [
+    "Limited local single-host/single-worker development acceptance",
+    "Full S2 reset/additional Master/password or Login ID changes, MFA/emergency recovery, Workforce and operating readiness remain outside this scope"
+  ],
+  "retention": "Only current acceptance summary, source hashes and minimum cleanup ledger retained. Completed private environments/logs/probes disposed; no full rearchive.",
+  "commit_push_deploy": false
+}

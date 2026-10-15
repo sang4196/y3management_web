@@ -66,4 +66,5 @@ def test_alembic_online_environment(postgres_database: Database) -> None:
     )
     if result.returncode:
         pytest.fail("Alembic online current failed", pytrace=False)
-    assert result.stdout.strip() == ""  # No revision yet; not a schema migration test.
+    # Foundation target is untouched; IAM revisions are tested in owned schemas.
+    assert result.stdout.strip() == ""

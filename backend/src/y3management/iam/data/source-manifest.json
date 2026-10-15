@@ -1,0 +1,48 @@
+{
+  "commit": "3a5f62f0e18a1b8a36b25399aff0077f3706e5af",
+  "total_bytes": 19184433,
+  "files": [
+    {
+      "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/3a5f62f0e18a1b8a36b25399aff0077f3706e5af/LICENSE",
+      "file": "LICENSE",
+      "bytes": 1072,
+      "sha256": "3dbdc93d5f8829de0941744841730a09c106d0732e5ae0e98ca1d77be7ded66c"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/3a5f62f0e18a1b8a36b25399aff0077f3706e5af/Passwords/Common-Credentials/README.md",
+      "file": "Passwords__Common-Credentials__README.md",
+      "bytes": 872,
+      "sha256": "49b7d00632c09b24bfa7c21bace2164b72815f0e50344604dd63ed66db2dbd37"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/3a5f62f0e18a1b8a36b25399aff0077f3706e5af/Passwords/Common-Credentials/Language-Specific/README.md",
+      "file": "Passwords__Common-Credentials__Language-Specific__README.md",
+      "bytes": 1256,
+      "sha256": "cc1f825fdaea0f26833093acef223157751dcf8ab17c90b37dbe54df5addacab"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/3a5f62f0e18a1b8a36b25399aff0077f3706e5af/Passwords/Common-Credentials/xato-net-10-million-passwords-1000000.txt",
+      "file": "Passwords__Common-Credentials__xato-net-10-million-passwords-1000000.txt",
+      "bytes": 8557632,
+      "sha256": "424a3e03a17df0a2bc2b3ca749d81b04e79d59cb7aeec8876a5a3f308d0caf51"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/3a5f62f0e18a1b8a36b25399aff0077f3706e5af/Passwords/Common-Credentials/Language-Specific/German_common-password-list-top-1000000.txt",
+      "file": "Passwords__Common-Credentials__Language-Specific__German_common-password-list-top-1000000.txt",
+      "bytes": 10463477,
+      "sha256": "0d8e66c6840202bf85f9510d87447eccaac6784d58b84d38d5b16e69be463416"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/3a5f62f0e18a1b8a36b25399aff0077f3706e5af/Passwords/Common-Credentials/Language-Specific/French-common-password-list-top-20000.txt",
+      "file": "Passwords__Common-Credentials__Language-Specific__French-common-password-list-top-20000.txt",
+      "bytes": 154919,
+      "sha256": "6eed7c682afb0b085b1a2664c3f4be6df933c7fcfbe4389023cb51e4ab4de15a"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/3a5f62f0e18a1b8a36b25399aff0077f3706e5af/Passwords/Common-Credentials/Language-Specific/Arabic_common-password-list-top-487.txt",
+      "file": "Passwords__Common-Credentials__Language-Specific__Arabic_common-password-list-top-487.txt",
+      "bytes": 5205,
+      "sha256": "b861a430fd9d801226a98474132577bb27083034f68f99ce6643c0d2b4996b7c"
+    }
+  ]
+}

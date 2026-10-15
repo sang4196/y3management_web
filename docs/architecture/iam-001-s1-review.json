@@ -1,0 +1,254 @@
+{
+  "date": "2026-10-13",
+  "timezone": "Asia/Seoul",
+  "status": "PASS_DEVELOPMENT_IAM_S1A_S1B",
+  "reviewer": "orchestrator architect",
+  "scope": "K3/X1 first IAM vertical slice; one WSL host, one ASGI worker, hash concurrency2, explicit finite security-state/session capacities; development only",
+  "contracts": "iam-001-decision-pack.md sections4/9/10, IAM design section12; approved Product and ADR remain authoritative",
+  "accepted_behaviors": [
+    "protected one-time CLI bootstrap of Organization and Master",
+    "actual password login and PostgreSQL AuthSession, current caller and scope",
+    "Master branch creation and Branch Admin issue/setup/reissue/X1 lookup",
+    "backend organization/branch authorization including direct-ID denial",
+    "current-device logout and copied-cookie server revocation",
+    "ACTIVE Branch Admin disable/scope change with target-wide revocation and actor preservation",
+    "single business transaction with required audit, plus independent conservative login-failure state"
+  ],
+  "verification": {
+    "developer": {
+      "fast_passed": 58,
+      "postgres_passed": 18,
+      "mypy_source_files": 38,
+      "import_contracts_kept": 7,
+      "browser_exact_required_checks": 25,
+      "migration_roundtrip": "PASS; 15 tables,58 constraints, original/reupgrade equal"
+    },
+    "independent": {
+      "fast_passed": 58,
+      "postgres_passed": 18,
+      "postgres_seconds": 90.78,
+      "actual_browser_checks": 52,
+      "separate_actual_cli_https_pg_race_fault_checks": 104,
+      "separate_checks_include_setup_and_cleanup": true,
+      "real_pg_blocking_and_worker_death": "PASS; see independent-pg-blocking-traces.json",
+      "real_concurrent_bootstrap": "two OS processes at confirmation barrier, one succeeds/one rejects, one Org/Master/audit",
+      "bootstrap_login_logout_required_audit_rollback": "PASS; actual CLI/HTTPS and independent DB observations",
+      "migration_roundtrip": "PASS; actual downgrade base/reupgrade and real CLI bootstrap after reupgrade",
+      "source_changes_in_owned_execution": []
+    },
+    "pytest_skipped": 0,
+    "pytest_xfail": 0,
+    "pytest_warnings_per_run": 2,
+    "warnings": [
+      "HTTPX Starlette TestClient deprecation",
+      "AnyIO BlockingPortal alias deprecation"
+    ],
+    "source_manifest_sha256": "639026688d892fdf38110b29bd4813ad2ec794b392ab113036ef958ccf5e6219",
+    "current_source_matches_verified_manifest": true,
+    "distinction": "Common-suite independent rerun and separately authored CLI/HTTPS/PG/browser probes are distinct evidence; counts are not summed as unique tests."
+  },
+  "review_findings": [
+    {
+      "id": "IAM-R01",
+      "requirement": "Public Caller role scope, separate auth CSRF, multi-role identity/grant separation",
+      "status": "RESOLVED_SOURCE_AND_EXECUTED_CHECKS_VERIFIED",
+      "evidence": [
+        "backend/src/y3management/iam/public.py",
+        "backend/alembic/versions/0001_iam_s1.py",
+        "test_s1_cli_http_scope_revoke_and_audit",
+        "Import Linter public contracts"
+      ]
+    },
+    {
+      "id": "IAM-R02",
+      "requirement": "Audit role/scope/branch/version and bootstrap/credential-holder actor semantics",
+      "status": "RESOLVED_SOURCE_AND_EXECUTED_CHECKS_VERIFIED",
+      "evidence": [
+        "backend/src/y3management/audit/public.py",
+        "backend/src/y3management/use_cases.py",
+        "test_atomic_audit_rollback_and_sql_constraints"
+      ]
+    },
+    {
+      "id": "IAM-R03",
+      "requirement": "Canonical actual startup exclusion and error cleanup",
+      "status": "RESOLVED_SOURCE_AND_EXECUTED_CHECKS_VERIFIED",
+      "evidence": [
+        "backend/src/y3management/runtime.py",
+        "backend/src/y3management/application.py",
+        "test_iam_policy.py",
+        "final-startup-results.json"
+      ]
+    },
+    {
+      "id": "IAM-R04",
+      "requirement": "Orphan resource slots and expired session/state lifecycle",
+      "status": "RESOLVED_SOURCE_AND_EXECUTED_CHECKS_VERIFIED",
+      "evidence": [
+        "backend/src/y3management/iam/security.py",
+        "test_session_rows_and_slots_are_bounded_and_reclaimed"
+      ]
+    },
+    {
+      "id": "IAM-R05",
+      "requirement": "Normalized reserved Login ID ownership DB constraints",
+      "status": "RESOLVED_SOURCE_AND_EXECUTED_CHECKS_VERIFIED",
+      "evidence": [
+        "backend/alembic/versions/0001_iam_s1.py",
+        "test_atomic_audit_rollback_and_sql_constraints"
+      ]
+    },
+    {
+      "id": "IAM-R06",
+      "requirement": "Invalid/expired/used setup token rejection before hash with authoritative recheck",
+      "status": "RESOLVED_SOURCE_AND_EXECUTED_CHECKS_VERIFIED",
+      "evidence": [
+        "backend/src/y3management/iam/infrastructure.py",
+        "test_invalid_setup_is_rejected_before_hash",
+        "test_setup_snapshot_then_reissue"
+      ]
+    },
+    {
+      "id": "IAM-R07",
+      "requirement": "Organization public contract caller authorization",
+      "status": "RESOLVED_SOURCE_AND_EXECUTED_CHECKS_VERIFIED",
+      "evidence": [
+        "backend/src/y3management/organization/application.py",
+        "test_s1_cli_http_scope_revoke_and_audit"
+      ]
+    },
+    {
+      "id": "IAM-R08",
+      "requirement": "Activation JS failure fallback and initially disabled submit",
+      "status": "RESOLVED_SOURCE_AND_EXECUTED_CHECKS_VERIFIED",
+      "evidence": [
+        "backend/src/y3management/http.py",
+        "final-browser-results.json"
+      ]
+    },
+    {
+      "id": "IAM-R09",
+      "requirement": "Commit ACK loss preserves committed children/audit and original503; no blind slot compensation",
+      "status": "RESOLVED_SOURCE_AND_EXECUTED_CHECKS_VERIFIED",
+      "evidence": [
+        "backend/src/y3management/iam/security.py",
+        "backend/src/y3management/use_cases.py",
+        "test_commit_ack_loss_preserves_committed_children"
+      ]
+    },
+    {
+      "id": "IAM-R10",
+      "requirement": "Known failed login subject internal Account/Org in minimal audit; no fake authenticated actor or public leak",
+      "status": "RESOLVED_SOURCE_AND_EXECUTED_CHECKS_VERIFIED",
+      "evidence": [
+        "backend/src/y3management/use_cases.py",
+        "test_valid_auth_login_conflict_and_verification_failure_budget"
+      ]
+    },
+    {
+      "id": "IAM-R11",
+      "requirement": "Valid current AuthSession plus its CSRF login retry returns409; preparation nonce cannot authorize valid auth",
+      "status": "RESOLVED_SOURCE_AND_EXECUTED_CHECKS_VERIFIED",
+      "evidence": [
+        "backend/src/y3management/use_cases.py",
+        "test_valid_auth_login_conflict_and_verification_failure_budget",
+        "independent browser-results-safe.json"
+      ]
+    },
+    {
+      "id": "IAM-R12",
+      "requirement": "After verification starts, result/audit failure must preserve pending reservation; cancel only clear admission-before-verification rejection",
+      "status": "RESOLVED_SOURCE_AND_EXECUTED_CHECKS_VERIFIED",
+      "evidence": [
+        "backend/src/y3management/use_cases.py",
+        "test_valid_auth_login_conflict_and_verification_failure_budget",
+        "independent checks-live.json"
+      ]
+    }
+  ],
+  "intermediate_harness_failures": [
+    {
+      "kind": "test CA extensions",
+      "resolution": "strict certificate validation preserved; corrected temporary test CA and successful trusted HTTPS browser evidence"
+    },
+    {
+      "kind": "absolute expiry SQL fixture",
+      "constraint": "iam_session_slot",
+      "resolution": "Earlier tester mutated child expiry without its parent; consistent parent/child CTE rejected real API session with401. No application change or FK disabling."
+    }
+  ],
+  "limitations": [
+    "S2 reset/recovery, own password/Login ID change and additional Master are not implemented",
+    "Operator/Trainer Workforce link and all member/PT/payment/settlement functions are not implemented",
+    "Production IAM startup is denied; MFA/Passkey, deployment, recovery, audit access/retention/deletion and SLO gates remain",
+    "Only current local Chromium actual browser acceptance; full Chrome/Edge/Safari support matrix not verified",
+    "No multi-host resource enforcement or production sizing claim",
+    "Corpus has finite reviewed coverage, not Korean breach or every weak variant coverage",
+    "Browser prerequisites currently use external local Node/Playwright/Chromium/NSS tools",
+    "Individual future variants in the original61-case planning matrix are not universally claimed as independently implemented probes"
+  ],
+  "preservation": {
+    "head": "b83defe3fc564b56d0f77cb075ddb5436759d191",
+    "index_changes": [],
+    "baseline_missing": [],
+    "baseline_changed": [
+      "backend/README.md",
+      "backend/alembic/env.py",
+      "backend/pyproject.toml",
+      "backend/src/y3management/application.py",
+      "backend/src/y3management/config.py",
+      "backend/src/y3management/database.py",
+      "backend/tests/test_postgres.py",
+      "backend/uv.lock",
+      "docs/architecture/README.md",
+      "docs/architecture/iam-001-decision-pack.md",
+      "docs/architecture/iam-001-design.md",
+      "docs/architecture/validation-plan.md"
+    ],
+    "product_changes_since_task_start": [],
+    "adr_changes_since_task_start": [],
+    "removed_dependencies": [],
+    "upgraded_existing_dependencies": [],
+    "new_dependencies": {
+      "argon2-cffi": "25.1.0",
+      "argon2-cffi-bindings": "26.1.0",
+      "cffi": "2.1.1",
+      "pwdlib": "0.3.1",
+      "pycparser": "3.0"
+    }
+  },
+  "evidence_packaging": {
+    "status": "COMPLETE",
+    "archive": "iam-001-s1-evidence.zip",
+    "sha256": "467667a7b3cc4262bed3332d74040fb8be1371b8fa18b3e2cbc79897c70afda2",
+    "entries": 46,
+    "bytes": 85646,
+    "entry_manifest": "manifest.json",
+    "developer_reports_are_pre_architect_snapshots": true,
+    "independent_probe_intermediate_flags_do_not_replace_combined_architect_verdict": true
+  },
+  "delivery_preference": "Other sessions report through owned files and their own final answers; no direct report chats to this thread.",
+  "retention_update_20261014": {
+    "policy": "new user retention policy replaces blanket archival",
+    "completed_full_bundle": "disposed after reviewed cleanup preview",
+    "historical_checksums_and_successes": "retained as history, not altered",
+    "latest_summary_and_current_code_tests": "retained",
+    "unresolved_confirmed_s1_core_defects": 0,
+    "current_qa_guidance": "backend/README.md#QA",
+    "corpus_inputs": ".local/qa/corpus-inputs-3a5f62f0e18a",
+    "no_bulk_copy_or_rearchive": true
+  },
+  "independent_final_disposition": {
+    "status": "PASS — limited local development IAM S1 (S1a+S1b)",
+    "completed_at_utc": "2026-10-13T14:47:38.217423+00:00",
+    "confirmed_open_core_defects": 0,
+    "remaining_scope_limits": [
+      "S2 reset/recovery/additional Master and operating Passkey/MFA",
+      "Trainer/Member/PT/Settlement and full v1",
+      "Operating retention/backups/production capacity/SLO/hard cgroup budget",
+      "Multi-host/container/multi-ASGI-worker support",
+      "Full Chrome/Edge/Safari device/version matrix",
+      "Complete Korean/Unicode compromised-password or population false-positive coverage"
+    ]
+  }
+}

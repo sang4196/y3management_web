@@ -1,0 +1,10 @@
+{
+  "source_url": "https://xkcd.com/936/",
+  "title": "Password Strength",
+  "creator": "Randall Munroe / xkcd",
+  "checked_date": "2026-10-13",
+  "public_example": "correct horse battery staple",
+  "exact_local_forms": ["correct horse battery staple", "correcthorsebatterystaple"],
+  "interpretation": "Deny these already public exact example strings; no claim that random multiword passphrases are weak.",
+  "distribution": "Source attribution and short identifying example only; comic image/text not copied into corpus or bundle. Source page declares CC BY-NC 2.5 for its comic."
+}
