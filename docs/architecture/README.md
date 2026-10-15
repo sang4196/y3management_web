@@ -1,5 +1,7 @@
 # Architecture 및 현재 개발 단계
 
+2026-10-16 MFA 후속 정책: [M1/M2 승인](../product/product-decisions.md#review-20261016-mfa-m-batch)으로 관리자 복수 Passkey 등록/로그인 시 하나 사용과, 같은 Organization의 다른 정상 Master에 의한 관리자 본인 확인·기존 Passkey/모든 로그인 폐기·일회용 링크 재등록을 확정했다. 추가 등록/삭제·마지막 인증수단 보호·구체 계약/운영 확인/실제 검증은 후속이다. 아래 Passkey 등록·분실 복구의 미결정 중 M1/M2만 대체한다. MFA 코드·migration·의존성은 변경하지 않았고 최신 구현 인수는 S2c로 유지한다.
+
 2026-10-15 최신 인수: **IAM S2c Login ID 변경의 제한된 로컬 개발 인수 PASS**.
 현재 Master가 같은 Organization의 ACTIVE Branch Admin ID를 변경하며 이전 ID는 원계정에 예약한다.
 기존 암호/Scope를 보존하고 대상 모든 로그인을 종료하며 실패 제한을 새 ID에도 유지한다.

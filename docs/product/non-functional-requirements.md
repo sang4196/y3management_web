@@ -117,6 +117,8 @@ W1/W2 인가/완전성: 과거 Trainer Home 오류의 수업 분류 정정은 �
 
 AB3–AB5 확정: 후속 활성 계정 reset 링크30분, 운영 Master/Branch Admin 비밀번호 뒤 Passkey 추가 검증(서버 사용자 검증 확인), 전체 Master 로그인 불가의 조직 업무책임자 승인/별도 시스템 운영담당자 비상 복구를 적용한다. 생체 원본/Passkey 개인키는 서버에서 수집·저장하지 않는다. 정상 계정/보상 업무의 기존 Scope/승인 정책과 S1 개발 우선은 유지하며 MFA 등록/분실·복구 자격/본인확인·감사/철회·운영 검증은 후속이다([AB 승인](product-decisions.md#review-20261013-ab-batch); V-134–136 미구성·미실행).
 
+2026-10-16 MFA M1/M2: 관리자 계정의 복수 Passkey 등록과 로그인 시 하나 사용을 허용한다. 같은 Organization의 다른 정상 Master만 관리자 Passkey 분실의 본인 확인·기존 Passkey/모든 AuthSession 폐기·일회용 링크 재등록을 처리한다. Branch Admin/타 조직 접근·비밀번호 reset/차단 해제·회수 역할 복원·MFA 미충족 운영 접근으로 확대하지 않는다. AB5 모든 Master 로그인 불가 비상 복구와 생체 원본/개인키 비수집을 유지한다. 추가 등록/삭제·마지막 인증수단 보호와 실제 권한/철회·원자성/재사용/실패·브라우저 검증은 후속 계획이다([승인](product-decisions.md#review-20261016-mfa-m-batch); V-135 미구성·미실행).
+
 <a id="nfr-002"></a>
 ## NFR-002. 업무 데이터 정합성
 

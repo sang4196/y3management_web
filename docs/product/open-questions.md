@@ -380,6 +380,8 @@ Backend는 현재 검증된 Caller 역할/Organization·관리 Branch와 실제 
 
 2026-10-13 AB3–AB5=1 부분 해결: 후속 reset 링크30분·운영 관리자 비밀번호 뒤 Passkey 사용자 검증·비상 업무책임자 승인/별도 시스템 운영담당자 실행을 선택했다. 정상 관리 Scope/추가승인 없음·마지막 Master 보호·S1 개발 우선/분실 중단·운영 전 MFA/복구 검증은 유지한다. 실제 운영 확인/자격·등록/분실/복구·감사/철회·보존/최소 계약이 남아 OPEN이다. [AB 승인](product-decisions.md#review-20261013-ab-batch); V-134–136 미구성·미실행.
 
+2026-10-16 MFA M1/M2 부분 해결: 관리자 계정에 복수 Passkey 등록/로그인 시 하나 사용을 허용하고, 같은 Organization의 다른 정상 Master가 관리자 본인 확인 후 기존 Passkey/모든 AuthSession 폐기·일회용 링크 재등록을 처리한다. Branch Admin 위임/타 조직 접근·비밀번호 reset·계정/회수 역할 자동 복원은 포함하지 않고 AB4 추가 인증/AB5 전체 Master 로그인 불가 비상 복구는 유지한다. 추가 등록/삭제·마지막 인증수단 보호·링크 수명/소비·운영 확인·감사/철회/경합·실제 WebAuthn 검증이 남아 ARCH-002는 OPEN이다. [M1/M2 승인](product-decisions.md#review-20261016-mfa-m-batch); V-135 계획만 갱신, 미구성·미실행.
+
 <a id="arch-003"></a>
 ## ARCH-003. 복수 사용 가능 Pass의 상세 경계
 

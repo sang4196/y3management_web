@@ -1,5 +1,7 @@
 # Product Specification — Architecture Input Baseline
 
+2026-10-16 MFA 후속 부분 승인: [M1/M2](product-decisions.md#review-20261016-mfa-m-batch)로 관리자 계정의 복수 Passkey 등록/로그인 시 그중 하나 사용과, 같은 Organization의 다른 정상 Master에 의한 본인 확인·기존 Passkey/모든 로그인 폐기·일회용 링크 재등록을 확정했다. AB4/AB5와 22 OPEN/8 CLOSED를 유지하며 등록/삭제·복구 계약/운영 확인·실제 검증은 후속이다.
+
 현재 후속 정책: [2026-10-13 AB 승인](product-decisions.md#review-20261013-ab-batch)의 AB1–AB6 모두 1번이다. 월 정산 대상은 적용 기본급/월별 지정·유효 PT/보상대기 지원 PT/추가실적 등으로 자동 선정하며, 한 달 전체 Trainer 비활성·명시 기본급0·무활동·정정 대기 없는 경우 새 정산 확정 의무에서 제외한다. 기존 이력/미완료와 비활성만으로 기본급을 자동0으로 바꾸지 않음은 유지한다. 후속 reset 링크30분·운영 관리자 비밀번호 뒤 Passkey·업무책임자 승인/별도 운영담당자 비상 복구·Chrome/Edge/Safari 최신2개 안정 주버전을 선택했다. K3/X1 첫 IAM/별도 구현 지시·구체 계약 PROPOSED와 22 OPEN/8 CLOSED는 유지한다.
 
 2026-10-12 일괄 승인 반영: B1–B7/A1–A10의 선택은 [2026-10-12 일괄 승인](product-decisions.md#review-20261012-batch)을 따른다. A4/A5만 2번으로 최초 설정 링크 30분 및 전 역할 공통 idle 30분/absolute 8시간이다. 다른 항목은 1번이며 v1 PG AuthSession+opaque Cookie 방식은 ADR-0004 ACCEPTED, JWT는 후속 버전의 재검토 후보다. 새 Pass 활성 담당 필수/상품 횟수 최초 부여·인가 관리자 발급 횟수 초과 추가, Trainer 재활성화/비활성 전용 로그인 제한, 데이터 있는 Branch 비활성화/신규 업무 차단·원본 보존, 공통 한국 시간도 확정됐다. 모듈·저장/계약/UoW·경합의 기술 제안/남은 Product OPEN은 유지하며 코드/migration·의존성·실행 검사는 변경/수행하지 않았다. 앞선 PROPOSED/미결정 기록은 당시 이력이고 이번 승인 범위에 한해 대체한다.

@@ -1,5 +1,7 @@
 # 결정 게이트
 
+2026-10-16 ARCH-002/O03 부분 해결: [MFA M1/M2](../product/product-decisions.md#review-20261016-mfa-m-batch)로 관리자 복수 Passkey 등록/로그인 시 하나 사용과, 같은 조직 다른 정상 Master에 의한 관리자 본인 확인·기존 Passkey/전 로그인 철회·일회용 재등록 링크 처리를 승인했다. AB4/AB5·기존 계정/역할 상태·마지막 Master 보호를 유지한다. 추가 등록/삭제·마지막 인증수단 보호·재등록 링크 수명/소비·운영 확인/전달·감사/철회 원자성/경합·실제 WebAuthn 검증은 별도 진입 조건이다. ARCH-002/004 OPEN·22 OPEN/8 CLOSED를 유지하고 MFA 구현/운영 게이트를 닫지 않는다.
+
 최신 부분 해결: [2026-10-13 AB 승인](../product/product-decisions.md#review-20261013-ab-batch)의 AB1–AB6 모두 1번이다. 월 정산 대상은 적용 기본급/월별 지정·유효 PT/보상대기 지원 PT/추가실적 등으로 자동 선정하며, 한 달 전체 Trainer 비활성·명시 기본급0·무활동·정정 대기 없는 경우 새 정산 확정 의무에서 제외한다. 기존 이력/미완료와 비활성만으로 기본급을 자동0으로 바꾸지 않음은 유지한다. 후속 reset 링크30분·운영 관리자 비밀번호 뒤 Passkey·업무책임자 승인/별도 운영담당자 비상 복구·Chrome/Edge/Safari 최신2개 안정 주버전을 선택했다. K3/X1 첫 IAM/별도 구현 지시·구체 계약 PROPOSED와 22 OPEN/8 CLOSED는 유지한다.
 
 Status: PROPOSED — 설계 진행 순서와 보류 경계의 제안
