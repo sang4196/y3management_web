@@ -457,7 +457,7 @@ def test_login_id_migration_guards(world: World, guard: str) -> None:
     assert facts(world.db) == before
     with world.db.session() as s:
         revision = s.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-    assert revision == "0004_iam_login_id"
+    assert revision == "0005_iam_mfa"
 
 
 @pytest.mark.parametrize("competitor", ["disable", "scope", "password", "claim", "rename"])

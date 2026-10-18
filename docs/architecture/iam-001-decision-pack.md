@@ -1,5 +1,9 @@
 # IAM-001 첫 증분 계약과 최소 결정안
 
+2026-10-18 후속 M7/M8 승인: [본인 Passkey 삭제 성공 시 전 로그인 종료·Master 본인 관리자 reset 금지](../product/product-decisions.md#review-20261018-mfa-m7-m8)를 적용한다. C3 현재 암호 확인 본인 변경/다른 정상 Master reset·M4 마지막 key 보호·AB5를 유지하며 MFA-A 이후 해당 계약/인수에 반영한다. 아래 F01/O03의 미결정 중 이 부분만 대체한다.
+
+2026-10-18 F02/O03 부분 승인: [M3–M6](../product/product-decisions.md#review-20261018-mfa-m3-m6)은 설치/본인 최초 설정 첫 등록·정상 MFA 본인 추가 등록, 마지막 Passkey 삭제 금지, 분실 재등록 링크30분, 같은 조직 정상 Master의 추가 Master 신규 발급이다. 아래 미결정/후속 설명 중 이 정책만 대체한다. 첫 MFA-A는 계정 준비/첫 등록·비밀번호+UV 로그인·복수 등록/각 key 로그인으로 좁히고 삭제/복구/추가 Master는 별도 인수한다. API/상태·저장/UoW/잠금·감사/경합·운영·실제 검증은 미완료이며 전체 PROPOSED/OPEN과 AB4/AB5를 유지한다.
+
 2026-10-16 O03 부분 승인: [MFA M1/M2](../product/product-decisions.md#review-20261016-mfa-m-batch)로 관리자 복수 Passkey 등록/로그인 시 하나 사용과, 같은 Organization의 다른 정상 Master에 의한 관리자 본인 확인·기존 Passkey/모든 로그인 폐기·일회용 링크 재등록을 확정했다. Branch Admin 위임/타 조직·암호 reset/차단 해제·역할 복원은 포함하지 않으며 AB4/AB5를 유지한다. 추가 등록/삭제·마지막 인증수단 보호·등록/복구의 API·상태·링크 수명/소비·원자성/경합·운영 확인·실제 검증은 후속이며 아래 O03의 등록/분실/복구 미결정 중 승인된 M1/M2만 대체한다.
 
 2026-10-13 최신 인수: **§4/§9/§10의 IAM S1a/S1b 개발 인수 PASS**. [S1 결과](iam-001-s1-results.md) 및 [설계자 판정](iam-001-s1-review.json)에 구현·독립 실행·보완 검토 근거를 기록한다. 아래 별도 구현 지시/사전검증/인수 대기 기록은 이전 단계의 이력이다. 첫 증분의 인수로 Product OPEN, 전체 모듈의 PROPOSED, S2 및 운영 게이트를 닫지 않는다.

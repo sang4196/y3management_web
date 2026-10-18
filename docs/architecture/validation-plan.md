@@ -1,5 +1,10 @@
 # 후속 검증 계획
 
+2026-10-18 MFA-A 실제 검증: [결과](iam-005-mfa-a-results.md)와 [설계자 판정](iam-005-mfa-a-review.json)의
+동일 소스 독립 fast88/필수 PG144 및 신뢰 HTTPS 기존58·native MFA20을 완료했다. V-135 중 첫/추가 키 등록,
+비밀번호+UV 로그인·서버 검증/철회와 기존 업무 회귀에 한정한다. 삭제/분실 복구/추가 Master·관리자 reset,
+AB5·실물/모바일/지원 브라우저 전체·production은 후속이며 아래 전체 계획의 인수가 아니다.
+
 2026-10-13 실행 결과 구분: 첫 IAM S1a/S1b에 한해 실제 CLI/API·PostgreSQL·HTTPS 브라우저·잠금/장애·migration 왕복 및 fast58/DB18 검증을 완료했다([S1 결과](iam-001-s1-results.md), [설계자 판정](iam-001-s1-review.json)). 아래 매트릭스 전체의 완료 또는 다른 업무·운영 검증 완료를 뜻하지 않는다. S1 인수 이전의 미구성 기록은 해당 시점의 이력으로 읽는다.
 
 Status: PROPOSED — 테스트 코드·자동 검사 구성·실행 결과가 아닌 계획
@@ -165,7 +170,7 @@ V-18의 schema migration은 새 PostgreSQL 구조 변경이며 C# 데이터 이�
 | V-132 | 월 정산 대상 선정; AB1, BR-PAY-026, PR-010/030 | 적용 기본급/월별 지정·유효 PT/금액대기 지원 PT/AP 및 기존 이력/미완료 대조·미생성 정산/현재 활성 목록만으로 누락 금지·현재 Home 인가/자동확정 없음 | 역사 사실/선정 계약 후 정책/Use Case·실제 PostgreSQL 상태/설정/수업·선정/확정 경합 예정 | 2026-10-13 승인. 테스트 미구성·미실행 |
 | V-133 | 완전비활성 무지급 월 예외; AB2, BR-PAY-026 | 월전체 Trainer 비활성·명시 월기본급0·유효/보상대기 PT/AP/정정대기 없음 확인 시 새 확정 의무 제외. 미확인/월중활성/기존미완료 거부·자동0/이력삭제/자동확정 없음 | 상태/구성·예외 증거 계약 후 정책/Use Case·실제 PostgreSQL 상태/설정/후등록/정정 경합 예정 | 2026-10-13 승인. 테스트 미구성·미실행 |
 | V-134 | 후속 reset 링크30분; AB3, ARCH-002, PR-021/026 | 발급30분 경계/단일사용·대상/purpose·현재 Master Scope/마지막Master 보호·만료로옛암호/인증복원없음·감사원자성 | S2/해당계약 후 실제 PostgreSQL 재발급/소비/로그인 경합·브라우저 전달 검증 예정 | 후속기능 정책 승인. 테스트 미구성·미실행 |
-| V-135 | 운영 관리자 비밀번호+Passkey; AB4, [2026-10-16 MFA M1/M2](../product/product-decisions.md#review-20261016-mfa-m-batch), NFR-001/008 | 사용자검증 결과·계정/credential 소유·challenge/Origin·서명/재사용 거부, 생체원본/개인키서버비수집·약한자동fallback없음. M1 복수 등록/로그인 시 하나 사용·추가 등록/삭제 계약 검증. M2 현재 정상 다른 Master/같은 Organization 관리자만 허용·Branch Admin/타 조직 거부·기존 Passkey/전 로그인 철회와 일회용 재등록·감사 원자성/경합·실패/중복/재사용 및 비밀번호 reset/계정·역할 자동 복원/MFA 우회 없음. 모든 Master 로그인 불가는 AB5 별도 | 추가 등록/삭제·마지막 인증수단 보호·등록/복구 계약·운영 확인/전달·링크 수명 확정 후 실제 브라우저/WebAuthn·DB/권한/철회 검증 예정 | 운영전 정책 부분 승인. 테스트 미구성·미실행 |
+| V-135 | 운영 관리자 비밀번호+Passkey; AB4, [2026-10-16 MFA M1/M2](../product/product-decisions.md#review-20261016-mfa-m-batch), [M3–M6](../product/product-decisions.md#review-20261018-mfa-m3-m6), NFR-001/008 | 사용자검증 결과·계정/credential 소유·challenge/Origin·서명/재사용 거부, 생체원본/개인키서버비수집·약한자동fallback없음. M1 복수 등록/로그인 시 하나 사용. M3 설치/본인 설정 첫 등록·정상 MFA 본인 추가 등록, M4 다른 유효 key 없으면 삭제 거부·[M7 삭제 성공 전 로그인 철회/M8 Master 본인 관리자 reset 거부](../product/product-decisions.md#review-20261018-mfa-m7-m8)(각 후속 증분), M5 분실 재등록 링크30분·purpose 분리. M6 추가 Master 발급 Actor는 같은 조직 정상 Master만(별도 증분). M2 현재 정상 다른 Master/같은 Organization 관리자만 허용·Branch Admin/타 조직 거부·기존 Passkey/전 로그인 철회와 일회용 재등록·감사 원자성/경합·실패/중복/재사용 및 비밀번호 reset/계정·역할 자동 복원/MFA 우회 없음. 모든 Master 로그인 불가는 AB5 별도 | 정책 확정 범위의 최초/복수 등록·2단계 로그인부터 증분별 계약 후; 삭제/분실 복구/추가 Master 및 운영 확인/전달은 후속. 각 증분에서 실제 브라우저/WebAuthn·DB/권한/철회 검증 예정 | MFA-A 로컬 독립 fast88/PG144·nativeHTTPS20 검증 완료. 삭제/복구/추가 Master·운영 인수는 후속 |
 | V-136 | 비상 복구 승인/실행 분리; AB5, ARCH-002/OPS-001 | 업무책임자 확인/승인+별도시스템운영담당자 실행·제품Operator/일반reset와구별·단독우회/Bootstrap/DB초기화금지·승인/감사·복구실패/인증철회 대조 | 운영신원/자격·대상/범위/복구 계약 후 전용환경 비상분실/실패/감사·인증 무효 검증 예정 | 운영전 책임정책 승인. 테스트 미구성·미실행 |
 | V-137 | 지원 브라우저/반응형 목표; AB6, NFR-008 | Chrome/Edge/Safari 최신2개안정주버전·Desktop/Tablet/Smartphone 주요업무/현장Trainer폰·운영Passkey 인수 | 실제OS/기기/버전/지원갱신 매트릭스 후 브라우저 인수 예정 | 지원목표 승인/현재지원검증아님. 테스트 미구성·미실행 |
 | V-138 | S1 기술계약 구체화; TX01–TX06, K3/X1 | row_version/expected_version와security_version/AuthSession 구별·현재로그인/활동으로Account버전불변·관리명령target효과/actor로그인유지·no-op무철회. 경로별잠금/현재Caller/공유UoW·감사rollback·없는ID제한/HTTP상태비노출·setup_link한번/완료POSTtoken·X1유실복구·import경계 | 기술계약검토/보안공급사전검증 후 Use Case/API·실제PostgreSQL 독립연결/worker/감사실패·HTTPS브라우저/링크·정적의존성 검증 예정 | PROPOSED 기술안. 테스트 미구성·미실행 |

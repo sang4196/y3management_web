@@ -1,5 +1,9 @@
 # Product Specification — Architecture Input Baseline
 
+2026-10-18 추가 승인: [M7/M8](product-decisions.md#review-20261018-mfa-m7-m8)으로 본인 Passkey 삭제 성공 시 모든 기존 로그인 종료와 Master 본인 관리자 비밀번호 재설정 금지를 확정했다. 마지막 key 삭제 금지·현재 암호 확인 본인 변경/다른 정상 Master reset·AB5 비상 복구와 기존 OPEN을 유지하며 후속 구현/검증은 별도다.
+
+2026-10-18 MFA 후속 부분 승인: [M3–M6](product-decisions.md#review-20261018-mfa-m3-m6) 모두 1번으로 설치/본인 최초 설정의 첫 Passkey 등록·정상 MFA 본인 추가 등록, 마지막 Passkey 삭제 금지, 분실 재등록 링크30분, 같은 Organization 정상 Master의 추가 Master 신규 발급을 확정했다. M1/M2·AB4/AB5·기존 OPEN 및 운영 게이트를 유지하며 구현/검증 완료와 구별한다.
+
 2026-10-16 MFA 후속 부분 승인: [M1/M2](product-decisions.md#review-20261016-mfa-m-batch)로 관리자 계정의 복수 Passkey 등록/로그인 시 그중 하나 사용과, 같은 Organization의 다른 정상 Master에 의한 본인 확인·기존 Passkey/모든 로그인 폐기·일회용 링크 재등록을 확정했다. AB4/AB5와 22 OPEN/8 CLOSED를 유지하며 등록/삭제·복구 계약/운영 확인·실제 검증은 후속이다.
 
 현재 후속 정책: [2026-10-13 AB 승인](product-decisions.md#review-20261013-ab-batch)의 AB1–AB6 모두 1번이다. 월 정산 대상은 적용 기본급/월별 지정·유효 PT/보상대기 지원 PT/추가실적 등으로 자동 선정하며, 한 달 전체 Trainer 비활성·명시 기본급0·무활동·정정 대기 없는 경우 새 정산 확정 의무에서 제외한다. 기존 이력/미완료와 비활성만으로 기본급을 자동0으로 바꾸지 않음은 유지한다. 후속 reset 링크30분·운영 관리자 비밀번호 뒤 Passkey·업무책임자 승인/별도 운영담당자 비상 복구·Chrome/Edge/Safari 최신2개 안정 주버전을 선택했다. K3/X1 첫 IAM/별도 구현 지시·구체 계약 PROPOSED와 22 OPEN/8 CLOSED는 유지한다.

@@ -317,3 +317,25 @@ uv run --locked --no-dev uvicorn y3management.main:create_app --factory --host 1
 reload가 없고 loopback만 바인딩한다. 실제 서버/프로세스 관리자/프록시 구성은 미정이며 운영 Linux 서버 배포와 production DB 연결은 검증하지 않았다. Windows 로컬에서는 동일 factory의 비-reload liveness만 확인했다. --no-dev sync 이후 개발 검사는 uv sync --locked로 dev 그룹을 복구한다. migration은 별도 명령이며 배포 시 자동 실행하지 않는다.
 
 WSL 이전 후 실제 검증 결과는 [WSL migration](../docs/architecture/wsl-migration.md)을 따른다.
+
+## MFA-A 제한된 개발 실행
+
+IAM을 켤 때 `Y3_IAM_MODE=s1_password`(과거 개발 예외) 또는 `Y3_IAM_MODE=mfa`를 명시한다.
+설정 누락이나 등록 키 없음에 따른 자동 fallback은 없고 production 거부도 유지한다.
+MFA 모드에서 새 설치 CLI에는 `--enrollment-file /절대경로/개인폴더/등록파일`이 추가된다.
+개인폴더는 현재 Linux 사용자 소유의 0700이고 모든 경로 요소가 symlink가 아니어야 한다.
+파일은 새 0600 파일로 생성된다. 비밀번호는 기존처럼 TTY에 직접 입력한다.
+파일의 HTTPS `/enroll#token=...` 링크로 첫 키를 등록한 뒤 `/login`에서 비밀번호와 Passkey로 로그인한다.
+정상 MFA 로그인 후 `/passkeys`에서 본인 키를 추가한다. Branch Admin은 기존 `/activate` 설정 링크에서
+비밀번호와 첫 키 등록을 함께 완료한다. 실제 운영/복구/키 삭제/추가 Master 발급은 이번 범위가 아니다.
+
+설치 CLI exit 2와 `INSTALLATION_COMMIT_UNKNOWN_RETAIN_PRIVATE_FILE`은 COMMIT 결과가 불명확하다는 뜻이다.
+개인 등록 파일을 보존하고 실제 설치/전달 여부를 확인한다. bootstrap 재실행이나 직접 SQL 복구를 하지 않는다.
+첫 등록 성공 또는 허가 미사용/만료와 정리 가능 여부를 확인한 뒤 자기 파일만 정리한다.
+로그인 응답의 `mfa_cleanup_deferred`는 미전달 세션 철회 재시도/정리 확인이 필요한 실패이며 성공이 아니다.
+
+개발 대상 검사는 `uv run --locked --env-file .env.example pytest -m postgres --require-postgres
+ tests/test_iam_mfa.py tests/test_iam_mfa_security.py tests/test_iam_mfa_install.py tests/test_iam_mfa_races.py`
+이고 실제 HTTPS 검사는 `tests/test_iam_browser.py::test_actual_https_mfa_browser`다.
+기존 pytest의 소유 run/schema/process 정리 절차를 그대로 사용한다.
+자세한 계약은 [IAM-005 MFA-A](../docs/architecture/iam-005-mfa-a-design.md)에 있다.

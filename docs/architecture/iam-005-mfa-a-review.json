@@ -1,0 +1,653 @@
+{
+  "date": "2026-10-18",
+  "status": "PASS_LIMITED_LOCAL_MFA_A",
+  "acceptance_owner": "root architect",
+  "scope": [
+    "Protected real CLI first Master and initial UV Passkey",
+    "Real Master issuance of Branch Admin and personal password/first Passkey setup",
+    "Password followed by one UV Passkey; no password-only business AuthSession",
+    "Normal MFA self adds another Passkey; each credential separately logs in",
+    "Current Organization/Branch scope and prior IAM regression"
+  ],
+  "approved_basis": [
+    "M1/M3 first and multiple key registration",
+    "AB4 password + UV Passkey",
+    "M2/M4/M5/M6/M7/M8 recorded as followup policies, not all implemented",
+    "C1/C2/C3 and existing S1/S2 contracts retained"
+  ],
+  "checkpoint": {
+    "commit": "c58cd50668244fcdc0833a40d10e38ff068e803e",
+    "branch": "codex/iam-mfa-a",
+    "publication": "Designated committer final review then normal origin/codex/iam-mfa-a push; no main merge or deployment"
+  },
+  "source_revision": 1,
+  "executed_source_manifest_sha256": "98c173b960614f6d9d1d4aac2c8a7b066e391d735dd237672b7b8569c838a443",
+  "executed_source_sha256": {
+    "backend/.env.example": "a4080099b51fe66917844740c5a2afe6dec59eb7f36836caf1be5fa527209bdc",
+    "backend/.python-version": "861b3dd8083d28f336ef70f6755bc399538ddad627b1d095820ca34cb953cf14",
+    "backend/README.md": "3b20f46ed509a51b68dc62b184a0e2a83daeb252d621acf96c36469baec22778",
+    "backend/alembic.ini": "c8dff3ed8c5474c2959696e1460714e7dbef8a5e982050a9fb177e08cedf53b3",
+    "backend/alembic/env.py": "01bfc70f2bfa086f0eeeeeb7526a7067933a7ef7e8ed73572e11c5c50b018b07",
+    "backend/alembic/script.py.mako": "67042994cfc495007c508ccae15e44d21057d90222461630f9bc04d3657f5f6d",
+    "backend/alembic/versions/.gitkeep": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+    "backend/alembic/versions/0001_iam_s1.py": "b3d402d8c2b48873f88a693429b5cc92f5a295d9681871d5ad799c178033ad1f",
+    "backend/alembic/versions/0002_iam_restore.py": "4322aa7d7a10ea56915927c3efe91c36f771741aaf92e5770a6fe2d8b0a7a5d1",
+    "backend/alembic/versions/0003_iam_password.py": "f207d7f0938e17713f78d7e46cbd806137d5e1c488ae6a6dd5f5c7c4ec90762a",
+    "backend/alembic/versions/0004_iam_login_id.py": "07144bab1120b2d9a5f00ec4a2d40e3fb218b0c5b202c742051df25f454e3937",
+    "backend/alembic/versions/0005_iam_mfa.py": "52950c64e4011ff72f4a542c4c9b50d5dfa81579087ab1bf16c987a739b59a2b",
+    "backend/check.ps1": "abb1d8216d924c10a68e24bb73ad61eaf743d1a6ef2f68d64ff0ee6853ee5b4c",
+    "backend/check.sh": "913aca1b14811d52295d6145924464990665689158368d3024e4a769ac8e4b44",
+    "backend/compose.yaml": "057759a9125dc93d4b8b7a3e31dcee9fdbc338cec814ae76eff2b31ab63725e4",
+    "backend/logging.json": "7fe0601cf723ffd729ee970482bc5e6395a0358c64aea60f42f634e9acd2dfcf",
+    "backend/pyproject.toml": "7ef7e75fda5822c0f263fb33c699124016277f31618b30aeb966665430c34244",
+    "backend/src/y3management/__init__.py": "8cbacc38f76fad94d97347b932b70ae2a7e917e1c382faa1136ba1ee781665c8",
+    "backend/src/y3management/application.py": "442a3c30279e7c84df5eb7a8115a3db63dbeab6ef117d09fb58d80c150b321fd",
+    "backend/src/y3management/audit/__init__.py": "447d8ce612052ba9911099dbd8b29fcc0bf649c190efa7e89c1c478c7de42996",
+    "backend/src/y3management/audit/infrastructure.py": "4917e481a15bfe9a4b93113462331c601c63160c3b7581254a93ad404b74d970",
+    "backend/src/y3management/audit/public.py": "0b4a66917d0cb247d7b37c4e3c051a94832f87ffe18c9b7af7270a543701832e",
+    "backend/src/y3management/cli.py": "22a7d09961e94abf251698afc1cccc2c6b09de02c360e3d81f1e85b964a785b7",
+    "backend/src/y3management/config.py": "05617ff13e304e547cda5deab1899cf2efcda84a45f59fa92b92144baa79ba92",
+    "backend/src/y3management/contracts.py": "51c40d0f7558cb5677fcdc9d27f7e33edea22b527b4236bfadfa974b17b2aa72",
+    "backend/src/y3management/database.py": "c502567c5025cd527efdaebd3a7c278ed8505507ab19570ea89c8feb0047bb33",
+    "backend/src/y3management/http.py": "d8b10cc3b879bb661e748be878ceb3719a8b551d8e837b789c243449dc52c6fe",
+    "backend/src/y3management/iam/__init__.py": "447d8ce612052ba9911099dbd8b29fcc0bf649c190efa7e89c1c478c7de42996",
+    "backend/src/y3management/iam/data/LANGUAGE-SOURCES.md": "cc1f825fdaea0f26833093acef223157751dcf8ab17c90b37dbe54df5addacab",
+    "backend/src/y3management/iam/data/SECLISTS-LICENSE": "3dbdc93d5f8829de0941744841730a09c106d0732e5ae0e98ca1d77be7ded66c",
+    "backend/src/y3management/iam/data/SOURCE-README.md": "49b7d00632c09b24bfa7c21bace2164b72815f0e50344604dd63ed66db2dbd37",
+    "backend/src/y3management/iam/data/artifact-manifest.json": "770d4b7aa4d5f75744d5e9b0e8036ad1964ea6747f4768eac490f4cedf95e445",
+    "backend/src/y3management/iam/data/blocked-sha256.txt": "0e44ccea3096de7725f495080d1e8b4e624e7ba794d1dff133905c2f38f5bfae",
+    "backend/src/y3management/iam/data/public-example-provenance.json": "d04107b4e645f128effc550835df4cb96c54d72145ffc59f8e6c4462d143a368",
+    "backend/src/y3management/iam/data/seeds.txt": "d674c8719634c9ea2dc88990833ada6884789c0e447edddac067e67398c9bc90",
+    "backend/src/y3management/iam/data/source-manifest.json": "a3d9e0db191b0c9070957b6459e4a5cedec6b8926419225c6a718fe910ad4eaf",
+    "backend/src/y3management/iam/infrastructure.py": "bce5d0dca7478747ee2f9a6a904cbb6fd8fbbc715723a3ea64acda93c303a0c4",
+    "backend/src/y3management/iam/mfa.py": "52e515b30395f2a05a736e06823e57a71b7df6d31a43a3b3044fc797fc10a31a",
+    "backend/src/y3management/iam/passwords.py": "b592df3d9b9ae9d2a31ac04340a5091b7189a3d0c9ce4e32bedb6d1f0cc5fc56",
+    "backend/src/y3management/iam/public.py": "be4a152ecdaaadd6462a7086d2f1e590fb54905f63db809594c7967085d79221",
+    "backend/src/y3management/iam/security.py": "06b60a64db6f8bdae68ee5fb6fdc4f55cfd3d2e3f7b3ac9d4345737e9d915d1a",
+    "backend/src/y3management/main.py": "043f955bf1959ce02cc09a8487607c3ca10ab661a045658e0b161e6207888eed",
+    "backend/src/y3management/organization/__init__.py": "447d8ce612052ba9911099dbd8b29fcc0bf649c190efa7e89c1c478c7de42996",
+    "backend/src/y3management/organization/application.py": "4e7a22d301163fd2765d3e94cbb3a971b661fdb1473af73f6af12a2479dba88d",
+    "backend/src/y3management/organization/infrastructure.py": "fc64e0bf7175c1f8dd1fb8b92eef86df9aac0dd7646fed787618629a5a79f40d",
+    "backend/src/y3management/organization/public.py": "e1b195de4de69eaa0f36a2a6fd395102e664582821da9275b6e5ae00772c5a5c",
+    "backend/src/y3management/ownership.py": "08b39878e755567dda122c68d5dc54c11a8a92e7d1ff9f82219e56dd07e83916",
+    "backend/src/y3management/runtime.py": "18dd015be1ab4b76a402fda827ee0e9de910cc68c064aff142a4c8d9487bcf97",
+    "backend/src/y3management/uow.py": "885e9156038167fa43dcd2aaed13c3a790b91e061e4de02f4da3a5ae71f556ee",
+    "backend/src/y3management/use_cases.py": "95140b22a994fc5ecb0465c052bb3dd27b4bc2f998901dd461b80fbb745c2603",
+    "backend/tests/__init__.py": "238b2ab9051bda8c786c28ec95bf32708a59f54b06829cda74fd9134b87f4cc5",
+    "backend/tests/browser/mfa-checks.json": "acb9bffee97507b22c87ba6ef07c13f33a780cfd6ef6deabe36e6ca40638c7b6",
+    "backend/tests/browser/mfa.cjs": "7b8c0d78d940ba4a0c606e084c797b451f9a05194ab383ab382dd689d6583c42",
+    "backend/tests/browser/required-checks.json": "a9f0262f0825c64c0e9fbcc72d98d63895b0906c4da946fc6b217b675454d002",
+    "backend/tests/browser/s1.cjs": "94a94ad63e80d67129043d7a3928faa7340b46bef94684b43c68625691cfe272",
+    "backend/tests/browser_result.py": "5dea14fcb0aceeaa727580423d2fe64c29a5fbf62f21b8905a13778715ddcf7d",
+    "backend/tests/conftest.py": "1071e10229100ae5712fed119a74a3240a266f6a5173a21004c1d78cd47c7bb9",
+    "backend/tests/test_application.py": "880aafb5583e3e955c6d97b82edd07b7dada5b46233eabadbecbd4aaac285356",
+    "backend/tests/test_browser_result.py": "e3096363d4c71f5ea9860d20a96c114bda93493d071f0be5bce875fb9b9072fa",
+    "backend/tests/test_database.py": "620d674c99d2f06bbfd735db8446f99646b2ef8600b31d27d184acdc3d273f42",
+    "backend/tests/test_driver_failure.py": "661b8f8a02da7fca5d78c8dd6c524c81c1371bcc8d2d8ec50fdaf5255ef539bb",
+    "backend/tests/test_iam.py": "fce09e853ae23f245acbc26c0409fa2306942fdb755d02f22a2740edb4ff903a",
+    "backend/tests/test_iam_browser.py": "4f9cf0bd9cdcbb709e0b4e900b58e3cffd279248b9e338bdd56331b2c7cd27b8",
+    "backend/tests/test_iam_mfa.py": "7db863d195f808d19167f4fb62d028ea8831769fb28625439e556bf3bdae1248",
+    "backend/tests/test_iam_mfa_install.py": "e9c03945af2b31006ea0b97010b09afaa412c443f6ae87ba2965f7b61e38b190",
+    "backend/tests/test_iam_mfa_races.py": "878afb922e2ee408652e196d1a0abe8caafbc0bcb02eda96315d574e711f081e",
+    "backend/tests/test_iam_mfa_security.py": "cc7169a5251059df50b5693dcc682c0cd6b4e81d1f64d5122c16936033547e25",
+    "backend/tests/test_iam_policy.py": "219cdd6a53a518bb4fd050bbc2488224c27f9853c507ffd97b17854a3cedb719",
+    "backend/tests/test_iam_s2.py": "0526891b86e24027de3a2bef3c2868139fc8f3607494de29bd5761b409cb4341",
+    "backend/tests/test_iam_s2b.py": "c69e47993a8b24be8fe84009298aa4b28a11915e3ad4dde88c4bd0fba9b3186c",
+    "backend/tests/test_iam_s2c.py": "a6483c3d93bdd0af790a3bb7352ff4537b765c6ed6283f13e56d763a58f8c490",
+    "backend/tests/test_mfa_policy.py": "8dc02c7c3e101407a9a647014bed48ecf41dd50e34c100fe8ad38416a278b089",
+    "backend/tests/test_postgres.py": "9adb607898f7388f51d981a3f71c03801f2460f108483ea606ff403efefd0e4f",
+    "backend/tests/test_postgres_gate.py": "174e5373ad289d854c14d315cb4e4e6ea1cf0ce955e77fb6914be878d7a8f2c6",
+    "backend/tests/test_qa_cleanup.py": "c31d12f9f935997f607b8f91852796ccd13f514133b57dbedf1f5c550151802f",
+    "backend/tests/test_settings.py": "07d9ade228c4c8d8efd3889254036315a56adc931cda6c1c3b942b123be02fbc",
+    "backend/tools/build_password_corpus.py": "dbf12d1249af7681dcb8fcfd384358b4a178688bc9842199fb407dba365974f3",
+    "backend/uv.lock": "8251577bfdec490b82f72ec47ea59700d52a12b7673494f58b953f2f8098c276",
+    "docs/architecture/iam-005-mfa-a-design.md": "5612bb82ad3ed7e669df936d6364154c446311f3814f1916cdb10910b6f6b486"
+  },
+  "publication_documentation_delta": {
+    "file": "docs/architecture/iam-005-mfa-a-design.md",
+    "before_sha256": "5612bb82ad3ed7e669df936d6364154c446311f3814f1916cdb10910b6f6b486",
+    "after_sha256": "89a365399478f697a33c4b4545bb2f572076f4228c01faa80177a91020d557fd",
+    "description": "Clarify synthetic signatures are generated by cryptography/CBOR; no app/test/dependency/migration delta after independent execution"
+  },
+  "full_candidate_manifest": {
+    "backend/README.md": "3b20f46ed509a51b68dc62b184a0e2a83daeb252d621acf96c36469baec22778",
+    "backend/alembic/versions/0005_iam_mfa.py": "52950c64e4011ff72f4a542c4c9b50d5dfa81579087ab1bf16c987a739b59a2b",
+    "backend/pyproject.toml": "7ef7e75fda5822c0f263fb33c699124016277f31618b30aeb966665430c34244",
+    "backend/src/y3management/cli.py": "22a7d09961e94abf251698afc1cccc2c6b09de02c360e3d81f1e85b964a785b7",
+    "backend/src/y3management/config.py": "05617ff13e304e547cda5deab1899cf2efcda84a45f59fa92b92144baa79ba92",
+    "backend/src/y3management/contracts.py": "51c40d0f7558cb5677fcdc9d27f7e33edea22b527b4236bfadfa974b17b2aa72",
+    "backend/src/y3management/http.py": "d8b10cc3b879bb661e748be878ceb3719a8b551d8e837b789c243449dc52c6fe",
+    "backend/src/y3management/iam/infrastructure.py": "bce5d0dca7478747ee2f9a6a904cbb6fd8fbbc715723a3ea64acda93c303a0c4",
+    "backend/src/y3management/iam/mfa.py": "52e515b30395f2a05a736e06823e57a71b7df6d31a43a3b3044fc797fc10a31a",
+    "backend/src/y3management/iam/public.py": "be4a152ecdaaadd6462a7086d2f1e590fb54905f63db809594c7967085d79221",
+    "backend/src/y3management/iam/security.py": "06b60a64db6f8bdae68ee5fb6fdc4f55cfd3d2e3f7b3ac9d4345737e9d915d1a",
+    "backend/src/y3management/uow.py": "885e9156038167fa43dcd2aaed13c3a790b91e061e4de02f4da3a5ae71f556ee",
+    "backend/src/y3management/use_cases.py": "95140b22a994fc5ecb0465c052bb3dd27b4bc2f998901dd461b80fbb745c2603",
+    "backend/tests/browser/mfa-checks.json": "acb9bffee97507b22c87ba6ef07c13f33a780cfd6ef6deabe36e6ca40638c7b6",
+    "backend/tests/browser/mfa.cjs": "7b8c0d78d940ba4a0c606e084c797b451f9a05194ab383ab382dd689d6583c42",
+    "backend/tests/test_iam.py": "fce09e853ae23f245acbc26c0409fa2306942fdb755d02f22a2740edb4ff903a",
+    "backend/tests/test_iam_browser.py": "4f9cf0bd9cdcbb709e0b4e900b58e3cffd279248b9e338bdd56331b2c7cd27b8",
+    "backend/tests/test_iam_mfa.py": "7db863d195f808d19167f4fb62d028ea8831769fb28625439e556bf3bdae1248",
+    "backend/tests/test_iam_mfa_install.py": "e9c03945af2b31006ea0b97010b09afaa412c443f6ae87ba2965f7b61e38b190",
+    "backend/tests/test_iam_mfa_races.py": "878afb922e2ee408652e196d1a0abe8caafbc0bcb02eda96315d574e711f081e",
+    "backend/tests/test_iam_mfa_security.py": "cc7169a5251059df50b5693dcc682c0cd6b4e81d1f64d5122c16936033547e25",
+    "backend/tests/test_iam_policy.py": "219cdd6a53a518bb4fd050bbc2488224c27f9853c507ffd97b17854a3cedb719",
+    "backend/tests/test_iam_s2c.py": "a6483c3d93bdd0af790a3bb7352ff4537b765c6ed6283f13e56d763a58f8c490",
+    "backend/tests/test_mfa_policy.py": "8dc02c7c3e101407a9a647014bed48ecf41dd50e34c100fe8ad38416a278b089",
+    "backend/uv.lock": "8251577bfdec490b82f72ec47ea59700d52a12b7673494f58b953f2f8098c276",
+    "docs/architecture/README.md": "e0647c0f40498f50de0938fe10413b817e3a2ff5d86b451d116dbd0bff9740a0",
+    "docs/architecture/decision-gates.md": "32ff434eaa3c038f8ca7488bcc7f02609e242a782d51624f801b416bafd33104",
+    "docs/architecture/iam-001-decision-pack.md": "25848e17691801eef7138b71f1b8ea6877d16146f66cfd697c098b773177295a",
+    "docs/architecture/iam-001-design.md": "3f844725860a34b4c35bf6b2837d01994e2a944fa10337c2c7b5a5e94d04d00a",
+    "docs/architecture/iam-005-mfa-a-design.md": "89a365399478f697a33c4b4545bb2f572076f4228c01faa80177a91020d557fd",
+    "docs/architecture/iam-005-mfa-a-results.md": "d6ab7ccbb87e32fedf89d7a871a984262b9ce97efa8b846f03e349901a3d8c66",
+    "docs/architecture/validation-plan.md": "62de8f6c9b964d2a024304730e2de788c07db0d08909b1127c6a55001b99ddd9",
+    "docs/product/README.md": "451b635a84666e556b5335c18269707aa334fd30f02f0ea4b48aeebfbe164bd0",
+    "docs/product/non-functional-requirements.md": "7ed87dce85e66b8144673c903b2922a41d823993f1fb5aa57e96af0418ee57eb",
+    "docs/product/open-questions.md": "b46f8d12591ee5aac18d110078da7712dffae286bb42c2dd759650af2e77cc52",
+    "docs/product/product-decisions.md": "3a0f022b4208ad707043ac69dad34716171cb1bdb61c68d54dfd053d5feb5031"
+  },
+  "root_review": {
+    "source_transaction_lock_authorization_admission_protocol_privacy_reviewed": true,
+    "static_checks": {
+      "R1": "Current account/version/actual stable budget key checked at MFA begin and final with attempt key binding; existing S2c marker retained",
+      "R2_PF1": "Registration crypto outside row locks; current MFA session authenticated again before effects; isolated idle/absolute/revoked tests leave ceremony live",
+      "R3": "Onboarding/add purpose and exact actor/session/account bound; cross-route and different actor tests present",
+      "R4": "Forward0005 only; no old revision changes; key/context/assurance/stage/audit/orphan guards under DDL locks; declared maintenance migration, not online deployment",
+      "R5": "Known admitted-principal failures attributed using account/version/key-validated Organization; unknown or changed principal remains minimal",
+      "protocol": "Exact library3.0.1 verifies RP/Origin/challenge/signature/UP/UV/algorithm/counter/backup; stable UUID user.id and optional userHandle ownership enforced",
+      "state": "Explicit local s1_password/mfa mode; weak sessions and 0key fallback rejected; production remains blocked",
+      "atomicity": "Key/activation/context consumption/required audits share one business UoW; security finalization separately documented and no cookie on failure",
+      "delivery": "Private capability descriptor paths,0700 owner parent,O_EXCL exact0600,clear rollback cleanup vs ambiguous COMMIT retention",
+      "boundaries": "Only public ports from use cases/router; new private MFA import denied by existing Import Linter contracts; no internalHTTP/cache/broker added",
+      "testing": "Native browser20 separate from synthetic server vectors; independent PG connection barriers present; original58 browser manifest retained; no test skip/xfail weakening observed"
+    },
+    "independent_counts_browser_booleans_hashes_and_four_removed_roots_crosschecked": true,
+    "root_did_not_rerun_application_tests": true,
+    "old_migrations0001_4_ADRs_AGENTS_unchanged": true,
+    "existing_dependency_versions_preserved": true,
+    "product_open": {
+      "OPEN": 22,
+      "CLOSED": 8
+    },
+    "product_decisions": {
+      "OPEN": 1,
+      "CLOSED": 26
+    },
+    "overall_module_and_contract_proposals_not_blanket_accepted": true
+  },
+  "developer": {
+    "final_fast": 88,
+    "targeted_pg_runs": [
+      50,
+      10
+    ],
+    "full144_claimed": false,
+    "targeted50_source_changed_during_execution_not_final_immutable_evidence": true,
+    "early_browser20_not_final_frozen_evidence": true,
+    "failure_history": [
+      "First PG preflight failed because canonical Compose test service was stopped; no DB accessed. Service started with verified context/owner.",
+      "First functional test attempted nested lifespan and was correctly rejected by ProcessGuard; client reuse fixed.",
+      "Next functional test incorrectly expected a logged-out session to survive GC; corrected expected active storage count.",
+      "First full fast had87 pass/1 failure: old startup guard fixture lacked new explicit mode; set s1_password and reran to88 pass.",
+      "Initial ruff/mypy command used repository root rather than backend; corrected. Intermediate formatting/type errors fixed before final passes; not counted as tests."
+    ],
+    "owned_auto_runs_cleaned": 11
+  },
+  "independent": {
+    "status": "PASS",
+    "freeze": {
+      "manifest_path": ".local/qa/iam-mfa-a-51e5747733d7439c/source-frozen.json",
+      "manifest_sha256": "98c173b960614f6d9d1d4aac2c8a7b066e391d735dd237672b7b8569c838a443",
+      "files": 79,
+      "before_mismatches": [],
+      "after_mismatches": [],
+      "extra_backend_source_files": [],
+      "missing_backend_files": [],
+      "before_and_after_match": true,
+      "protected_files_checked": 9,
+      "protected_changes": []
+    },
+    "executions": {
+      "fast": {
+        "command": "bash check.sh fast",
+        "cwd": "/home/shlee/Workspace/ai/01.codex/y3management_web/backend",
+        "started_at_utc": "2026-10-18T07:03:52.288467+00:00",
+        "finished_at_utc": "2026-10-18T07:04:16.335994+00:00",
+        "elapsed_command_seconds": 24.048,
+        "exit_code": 0,
+        "actual_collection": {
+          "total": 232,
+          "deselected": 144,
+          "selected": 88
+        },
+        "actual_counts": {
+          "passed": 88,
+          "failed": 0,
+          "deselected": 144,
+          "skipped": 0,
+          "xfail": 0,
+          "xpass": 0,
+          "warnings": 2
+        },
+        "pytest_summary": "88 passed, 144 deselected, 2 warnings in 21.85s",
+        "pytest_auto_run": {
+          "run_id": "auto-630c92ad48fa44e281221d119a2f6ec3",
+          "finished_at": "2026-10-18T07:04:15.496140+00:00",
+          "exit_code": 0,
+          "passed": 88,
+          "failed_tests": [],
+          "cleanup": {
+            "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/.local/qa/auto-630c92ad48fa44e281221d119a2f6ec3",
+            "plan": "c68edbc75b0da3901fc859112bf6471633f9ecbfae6a080c37c463d2bf7555e6",
+            "entries": 190,
+            "removed": true
+          }
+        },
+        "output_wrapper_cleanup": {
+          "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/.local/qa/auto-bebaab1fcfbb4e0ebfe0cdf7796b0985",
+          "plan": "0f1ffcaaadefd5b2cac34b4fab0e847873dc0edc9504c8646fd0bb26089a4fdb",
+          "entries": 2,
+          "removed": true
+        },
+        "source_mismatches_after": []
+      },
+      "mandatory_postgres": {
+        "command": "bash check.sh db",
+        "cwd": "/home/shlee/Workspace/ai/01.codex/y3management_web/backend",
+        "started_at_utc": "2026-10-18T07:04:34.353583+00:00",
+        "finished_at_utc": "2026-10-18T07:21:10.787379+00:00",
+        "elapsed_command_seconds": 996.434,
+        "exit_code": 0,
+        "actual_collection": {
+          "total": 232,
+          "deselected": 88,
+          "selected": 144
+        },
+        "actual_counts": {
+          "passed": 144,
+          "failed": 0,
+          "deselected": 88,
+          "skipped": 0,
+          "xfail": 0,
+          "xpass": 0,
+          "warnings": 2
+        },
+        "pytest_summary": "144 passed, 88 deselected, 2 warnings in 993.86s (0:16:33)",
+        "pytest_auto_run": {
+          "run_id": "auto-4b79ad4d2c2249f2aeb1ced3a5a2a116",
+          "finished_at": "2026-10-18T07:21:08.910351+00:00",
+          "exit_code": 0,
+          "passed": 144,
+          "failed_tests": [],
+          "cleanup": {
+            "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/.local/qa/auto-4b79ad4d2c2249f2aeb1ced3a5a2a116",
+            "plan": "281d78bfa26f2d1e60f2832980e8e74218aca15c4319a7c32c62500fd64c7059",
+            "entries": 414,
+            "removed": true
+          }
+        },
+        "output_wrapper_cleanup": {
+          "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/.local/qa/auto-034efc9a45c94ad4be7066826bec2c2f",
+          "plan": "22a635a71406b65475fcbb4c1470bbfb509a78b6100cfc2aa61b506e6892465d",
+          "entries": 2,
+          "removed": true
+        },
+        "source_mismatches_after": []
+      },
+      "collection_total": 232,
+      "old_counts_reused": false,
+      "developer_partial50_or10_reused_as_full": false,
+      "reruns_or_interrupted_independent_attempts": [],
+      "additional_probe_execution": false
+    },
+    "fast_tools": {
+      "ruff": "PASS",
+      "ruff_format_files": 57,
+      "mypy_files": 48,
+      "import_linter": {
+        "kept": 7,
+        "broken": 0
+      },
+      "import_boundary_review": "7개 계약 유지. Use case/HTTP 및 Organization의 IAM private 금지에 iam.mfa 포함. MFA adapter 호출은 public port/UoW 구성 경계를 따름."
+    },
+    "library_validation": {
+      "installed_webauthn": "3.0.1",
+      "exact_locked_version": "3.0.1",
+      "local_api_introspection": "실제 설치된 verify_registration_response / verify_authentication_response signature를 확인. credential·expected_challenge·expected_rp_id·expected_origin·require_user_verification 및 authentication의 public key/current sign count 인자를 확인.",
+      "adapter_review": "실제 pinned verifier 호출, 명시 UV 필수, canonical Origin/RP, context challenge/purpose/account/version/expiry, credential 소유권/userHandle/counter/backup flags 연결 확인.",
+      "old_locked_package_version_changes": {},
+      "new_locked_packages": {
+        "cbor2": "6.1.5",
+        "cryptography": "50.0.2",
+        "pyasn1": "0.6.4",
+        "pyasn1-modules": "0.4.2",
+        "pyopenssl": "26.4.0",
+        "webauthn": "3.0.1"
+      }
+    },
+    "trusted_https": {
+      "evidence_source": "이번 필수 PostgreSQL 전체 실행에서 새로 생성한 safe browser 결과",
+      "pytest_run_id": "auto-4b79ad4d2c2249f2aeb1ced3a5a2a116",
+      "legacy": {
+        "manifest": "backend/tests/browser/required-checks.json",
+        "manifest_exact": true,
+        "required": 58,
+        "all_true": true,
+        "fresh_for_this_run": true,
+        "checks": {
+          "cookie_js_hidden": true,
+          "forged_origin_denied": true,
+          "password_last_master_allowed": true,
+          "password_master_two_live": true,
+          "password_other_branch_kept": true,
+          "restore_branch_scope": true,
+          "password_old_branch_rejected": true,
+          "no_js_submit_disabled": true,
+          "password_wrong_current_denied": true,
+          "password_new_master_login": true,
+          "password_master_cookies_cleared": true,
+          "password_other_master_kept": true,
+          "password_branch_two_live": true,
+          "link_get_not_activated": true,
+          "login_id_master_preserved": true,
+          "no_token_submit_disabled": true,
+          "fragment_absent_request_urls": true,
+          "password_new_branch_login": true,
+          "password_branch_changed": true,
+          "real_logout": true,
+          "missing_origin_denied": true,
+          "branch_scope_list": true,
+          "restore_real_command": true,
+          "restore_existing_password_login": true,
+          "password_master_same_scope": true,
+          "master_still_authenticated": true,
+          "login_id_changed": true,
+          "secure_context": true,
+          "safe_form_fallback": true,
+          "cookie_deleted": true,
+          "real_master_login": true,
+          "login_id_two_revoked": true,
+          "real_branch_login": true,
+          "master_creates_branches": true,
+          "restore_old_auth_revoked": true,
+          "real_form_setup": true,
+          "restore_master_preserved": true,
+          "password_old_master_rejected": true,
+          "password_branch_cookies_cleared": true,
+          "cookie_flags": true,
+          "fragment_removed": true,
+          "actual_issuance": true,
+          "login_id_missing_csrf": true,
+          "password_master_two_revoked": true,
+          "login_id_two_live": true,
+          "login_id_noop": true,
+          "login_id_branch_denied": true,
+          "login_id_owner_reuse": true,
+          "password_branch_same_scope": true,
+          "login_id_old_denied": true,
+          "login_id_new_password_preserved": true,
+          "no_js_no_secret_submission": true,
+          "restore_real_disable": true,
+          "foreign_branch_denied": true,
+          "copied_cookie_rejected": true,
+          "missing_csrf_denied": true,
+          "password_branch_two_revoked": true,
+          "no_auto_login": true
+        },
+        "browser": "151.0.7922.34",
+        "scope": "actual trusted HTTPS browser",
+        "run_id": "auto-4b79ad4d2c2249f2aeb1ced3a5a2a116"
+      },
+      "mfa_native": {
+        "manifest": "backend/tests/browser/mfa-checks.json",
+        "manifest_exact": true,
+        "required": 20,
+        "all_true": true,
+        "fresh_for_this_run": true,
+        "checks": {
+          "secure_context": true,
+          "first_key_form": true,
+          "no_auto_login": true,
+          "first_key_login": true,
+          "password_stage_no_auth": true,
+          "additional_key_form": true,
+          "second_key_login": true,
+          "cookie_flags": true,
+          "cookie_js_hidden": true,
+          "actual_issuance": true,
+          "branch_setup_form": true,
+          "branch_login": true,
+          "scope_enforced": true,
+          "missing_csrf_denied": true,
+          "forged_origin_denied": true,
+          "assertion_replay_denied": true,
+          "uv_false_denied": true,
+          "fragment_removed": true,
+          "fragment_absent_request_urls": true,
+          "logout_reuse_denied": true
+        },
+        "browser": "151.0.7922.34",
+        "scope": "actual trusted HTTPS browser",
+        "run_id": "auto-4b79ad4d2c2249f2aeb1ced3a5a2a116"
+      },
+      "counting": "기존/새 HTTPS는 PG144 안의 2개 pytest 검사다. 58/20 boolean을 pytest144에 더하지 않는다.",
+      "cryptographic_evidence_separation": "TestClient의 가상 EC/CBOR 서명에 대한 실제 라이브러리 검증과, trusted HTTPS Chromium의 CDP virtual authenticator/native create/get 증거를 구별한다. 서버 검증 알고리즘을 새로 복제하거나 verifier를 무조건 성공으로 대체한 인수가 아니다."
+    },
+    "implementation_matrix": [
+      {
+        "id": "CLI-and-onboarding",
+        "status": "PASS",
+        "evidence": [
+          "backend/tests/test_iam_mfa.py::test_actual_cli_setup_two_keys_and_branch",
+          "backend/tests/test_iam_mfa_install.py::test_cli_failed_or_unknown_commit",
+          "backend/tests/test_iam_browser.py::test_actual_https_mfa_browser"
+        ],
+        "verified": "실제 보호 CLI/TTY Master→첫 key, 정상 Master의 실제 API 발급→Branch Admin 본인 password/첫 key 설정. 최초 계정·등록을 fixture SQL 삽입으로 대체하지 않음. 첫 등록 자동 로그인 없음."
+      },
+      {
+        "id": "two-factor-and-multiple-keys",
+        "status": "PASS",
+        "evidence": [
+          "backend/tests/test_iam_mfa.py",
+          "backend/tests/test_iam_mfa_security.py::test_no_key_or_password_only_session_fallback",
+          "backend/tests/browser/mfa.cjs"
+        ],
+        "verified": "password 성공만으로 업무 AuthSession/cookie/업무 접근 없음. password+UV 완료 후 발급, 복수 key 각각 하나로 로그인 및 정상 MFA 본인 추가 등록. key 없음/약한 session의 MFA 승격과 자동 fallback 거부."
+      },
+      {
+        "id": "protocol-and-context",
+        "status": "PASS",
+        "evidence": [
+          "backend/tests/test_iam_mfa.py::test_crypto_rejection",
+          "backend/tests/test_iam_mfa_security.py::test_registration_replay_and_uv",
+          "backend/tests/test_iam_mfa_security.py::test_reverse_purpose_other_actor_and_real_credential_owner"
+        ],
+        "verified": "UV/UP·Origin/RP·userHandle/credential 소유권·서명·backup flags 부정 벡터, 등록 UV/replay·목적 양방향/다른 actor/session·실제 타 계정 credential 거부. counter/backup 및 duplicate key도 검증.",
+        "read_only_checks": "라이브러리의 type/expected challenge 결합과 서버 context의 만료/현재 version 검증을 코드로 대조. 정해진 부정 벡터 외 모든 프로토콜 입력 조합을 실행했다고 주장하지 않음."
+      },
+      {
+        "id": "R1-C2-fixed-admission",
+        "status": "PASS",
+        "evidence": [
+          "backend/tests/test_iam_mfa_security.py::test_c2_shared_budget_success_does_not_clear",
+          "backend/tests/test_iam_mfa_security.py::test_waiting_is_bounded_and_counts_toward_admission",
+          "backend/tests/test_iam_mfa_security.py::test_actual_budget_key_binding",
+          "backend/tests/test_iam_mfa_races.py"
+        ],
+        "verified": "두 요소 전체 단일 C2 시도·고정 key/account/version/최종 attempt 결합, 성공도 기존 실패/cooldown 비초기화, pending 한도/기한·GC/총량 및 실제 rename/보안 변경 경합. 기존 S2c 고정 key 검사도 전체 회귀에 포함."
+      },
+      {
+        "id": "R2-PF1-final-actor",
+        "status": "PASS",
+        "evidence": [
+          "backend/tests/test_iam_mfa_security.py:245"
+        ],
+        "verified": "별도 DB 연결에서 crypto 뒤 actor session의 idle/absolute/revoked만 변경한다. ceremony가 여전히 유효함을 확인하고 key/context/활동/감사 등 fingerprint 전체 보존을 검증. 기존 9시간 일괄 이동으로 원인이 섞이던 PF1을 보완함."
+      },
+      {
+        "id": "R3-purpose-and-actor",
+        "status": "PASS",
+        "evidence": [
+          "backend/tests/test_iam_mfa_security.py::test_add_key_final_expiry_and_purpose_binding",
+          "backend/tests/test_iam_mfa_security.py::test_reverse_purpose_other_actor_and_real_credential_owner"
+        ],
+        "verified": "install/setup/add/login 목적·현재 동일 계정/동일 MFA session·CSRF 경계 및 타 actor/credential 소유권 거부."
+      },
+      {
+        "id": "single-consumption-and-audit",
+        "status": "PASS",
+        "evidence": [
+          "backend/tests/test_iam_mfa_races.py",
+          "backend/tests/test_iam_mfa_security.py::test_setup_key_and_audits_roll_back_together",
+          "backend/tests/test_iam_mfa_security.py::test_onboarding_reissue_revokes_staged_password"
+        ],
+        "verified": "실제 독립 PG 연결 barrier로 단일 등록 소비와 reissue/disable/scope/rename/password 경합, setup staged password 무효·활성화/key/context 소비/필수 감사 원자성 확인."
+      },
+      {
+        "id": "commit-ambiguity-and-finish",
+        "status": "PASS",
+        "evidence": [
+          "backend/tests/test_iam_mfa_install.py::test_cli_failed_or_unknown_commit",
+          "backend/tests/test_iam_mfa_security.py::test_failed_final_delivery_never_returns_cookie"
+        ],
+        "verified": "명확 rollback의 자기 설치 파일 제거와 COMMIT ACK 유실의 유일 파일 보존/실제 등록 가능. 최종 finish/ACK/정리 실패는 no cookie, 해당 미전달 session만 철회·기존 정상 session 보존, 정리 실패 코드 비은폐. 성공 감사는 session 저장이지 HTTP 전달 보장이 아님."
+      },
+      {
+        "id": "R4-migration",
+        "status": "PASS",
+        "evidence": [
+          "backend/tests/test_iam_mfa_install.py::test_empty_roundtrip_and_orphan_guard",
+          "backend/tests/test_iam_mfa_install.py::test_mfa_downgrade_preserves_each_fact",
+          "backend/tests/test_iam_mfa_install.py::test_downgrade_waits_for_inflight_mfa_allocation"
+        ],
+        "verified": "실제 0005 빈 상태 왕복, key/context/assurance/attempt/감사/live orphan MFA parent 각각의 downgrade 거부·원본/버전 보존과 실제 할당 transaction 잠금 대기. 기존0001–0004 보존."
+      },
+      {
+        "id": "R5-audit-principal",
+        "status": "PASS",
+        "evidence": [
+          "backend/tests/test_iam_mfa_security.py::test_failed_login_audit_principal_and_unknown"
+        ],
+        "verified": "검증된 admission principal의 조직/대상에 password/MFA 실패 감사 귀속. unknown/결합 불일치는 일반 최소 기록."
+      },
+      {
+        "id": "S1-S2-regression",
+        "status": "PASS",
+        "evidence": [
+          "backend/tests/test_iam.py",
+          "backend/tests/test_iam_s2.py",
+          "backend/tests/test_iam_s2b.py",
+          "backend/tests/test_iam_s2c.py",
+          "backend/tests/test_postgres.py",
+          "backend/tests/test_iam_browser.py"
+        ],
+        "verified": "현재 필수 PG 전체에서 기존 발급/설정/X1·인가/Scope·CSRF/logout·차단/복구·본인 암호/ID 변경·고정 실패예산·철회/원자성/감사·near-idle actor 활동/no-op/최종 만료 rollback 및 DB 기반 검사까지 완료."
+      },
+      {
+        "id": "privacy",
+        "status": "PASS",
+        "evidence": [
+          "backend/tests/test_iam_policy.py::test_failure_locals_keep_synthetic_secrets_private",
+          "backend/tests/test_mfa_policy.py::test_mfa_failure_locals_canary"
+        ],
+        "verified": "기존 및 신규 MFA --showlocals canary parent 검사가 fast88 안에서 통과. 각 의도적 child 실패 exit1은 예상된 privacy 검사 입력이며 독립 검사 실패/추가 통과 건수로 합산하지 않음. 원본 token/cookie/proof/환경/로그를 이 결과에 복사하지 않음."
+      }
+    ],
+    "additional_probes": {
+      "performed": false,
+      "reason": "동결된 기존/신규 검사에 실제 CLI·library 부정 벡터·native HTTPS·독립 연결/장애·PF1/R1–R5·migration·privacy가 포함되어, 승인된 전체 실행과 읽기 검토 외 신규 probe를 추가할 필요를 확인하지 못함."
+    },
+    "changes_by_reviewer": {
+      "production_source": false,
+      "reusable_test_source": false,
+      "public_docs": false,
+      "git_commit_push": false,
+      "other_session_messages": false,
+      "shared_outputs_only": [
+        "independent-progress.json",
+        "independent-findings.json",
+        "independent-result.json"
+      ]
+    }
+  },
+  "review_findings": [
+    {
+      "id": "R1",
+      "status": "CLOSED_VERIFIED_SAME_SOURCE_REVISION1"
+    },
+    {
+      "id": "R2",
+      "status": "CLOSED_VERIFIED_SAME_SOURCE_REVISION1"
+    },
+    {
+      "id": "PF1",
+      "status": "CLOSED_VERIFIED_SAME_SOURCE_REVISION1"
+    },
+    {
+      "id": "R3",
+      "status": "CLOSED_VERIFIED_SAME_SOURCE_REVISION1"
+    },
+    {
+      "id": "R4",
+      "status": "CLOSED_VERIFIED_SAME_SOURCE_REVISION1"
+    },
+    {
+      "id": "R5",
+      "status": "CLOSED_VERIFIED_SAME_SOURCE_REVISION1"
+    }
+  ],
+  "cleanup": {
+    "completed": true,
+    "pytest_fast": {
+      "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/.local/qa/auto-630c92ad48fa44e281221d119a2f6ec3",
+      "plan": "c68edbc75b0da3901fc859112bf6471633f9ecbfae6a080c37c463d2bf7555e6",
+      "entries": 190,
+      "removed": true
+    },
+    "fast_output_capture": {
+      "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/.local/qa/auto-bebaab1fcfbb4e0ebfe0cdf7796b0985",
+      "plan": "0f1ffcaaadefd5b2cac34b4fab0e847873dc0edc9504c8646fd0bb26089a4fdb",
+      "entries": 2,
+      "removed": true
+    },
+    "pytest_db": {
+      "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/.local/qa/auto-4b79ad4d2c2249f2aeb1ced3a5a2a116",
+      "plan": "281d78bfa26f2d1e60f2832980e8e74218aca15c4319a7c32c62500fd64c7059",
+      "entries": 414,
+      "removed": true
+    },
+    "db_output_capture": {
+      "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/.local/qa/auto-034efc9a45c94ad4be7066826bec2c2f",
+      "plan": "22a635a71406b65475fcbb4c1470bbfb509a78b6100cfc2aa61b506e6892465d",
+      "entries": 2,
+      "removed": true
+    },
+    "raw_logs_profiles_tls_nss_inputs": "소유 QA 폴더 4개 제거에 포함. 최소 auto/browser boolean 결과와 승인된 독립 결과만 유지.",
+    "own_schema_and_process_cleanup": "기존 pytest/QA fixture의 소유권·OS identity/schema marker 검사를 통해 정리 완료. 별도 관리 도구/서비스를 추가하지 않음.",
+    "simulated_cleanup_failure": "검사 내부의 의도적 철회 실패는 자기 sid를 정리한 뒤 소유 fixture가 schema/run을 제거. 미해결 정리 항목 없음.",
+    "global_trust_regular_files_checked": 4,
+    "global_trust_hashes_unchanged": true,
+    "canonical_runtime_lock_not_cleanup_target": true,
+    "existing_compose_postgres_test": "개발자가 시작해 유지 중인 공유 검증 서비스/기존 schema/volume을 정리 대상으로 삼지 않음.",
+    "root_shared_folder_preserved": true
+  },
+  "warnings": {
+    "canonical_each": 2,
+    "types": [
+      "Starlette HTTPX TestClient fallback deprecation",
+      "AnyIO BlockingPortal alias deprecation"
+    ],
+    "suppressed_or_dependency_upgraded_to_hide": false
+  },
+  "limitations": [
+    "단일 WSL 호스트의 제한된 로컬 MFA-A 개발 검증이며 설계자 인수/운영 허용과 구별한다.",
+    "virtual authenticator 및 라이브러리 검사를 실제 보안키/생체장치·OS/모바일·Chrome/Edge/Safari 지원 전체 인수로 확대하지 않는다.",
+    "삭제/복구/추가 Master/admin reset/AB5 운영 절차는 구현·검증 완료 범위가 아니다.",
+    "모든 외부 라이브러리 입력 조합·운영 부하/가용성·장기 보존/배포 검증을 수행한 것은 아니다.",
+    "Maintenance migration only; no online zero-downtime deployment acceptance.",
+    "Account/role/Workforce/Member/PT/Settlement and overall IAM/v1 are not complete.",
+    "No credential-record retention/deletion period or new deployment/identity-verification operating policy selected."
+  ],
+  "publication_policy": "Approved narrow milestone only. Newly required user decisions must be asked before dependent implementation/commit. No force push, main merge, deployment or secret/raw QA inclusion."
+}

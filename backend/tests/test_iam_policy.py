@@ -91,6 +91,7 @@ def test_startup_failure_releases_canonical_guard(settings: Settings) -> None:
             **settings.model_dump(),
             "database_schema": "iam_test_" + uuid4().hex,
             "iam_enabled": True,
+            "iam_mode": "s1_password",
             "canonical_origin": "https://localhost:8443",
             "iam_key": "s" * 43,
             "security_state_capacity": 64,

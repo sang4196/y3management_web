@@ -31,6 +31,7 @@ class Settings(BaseSettings):
 
     database_schema: str = "public"
     iam_enabled: bool = False
+    iam_mode: Literal["s1_password", "mfa"] | None = None
     canonical_origin: str = ""
     iam_key: SecretStr = Field(default=SecretStr(""), repr=False)
     # Resource limits, not account policies. Must be explicitly sized for the local run.
@@ -43,6 +44,8 @@ class Settings(BaseSettings):
         if not re.fullmatch(r"[a-z][a-z0-9_]{0,62}", self.database_schema):
             raise ValueError("Invalid database schema")
         if self.iam_enabled:
+            if self.iam_mode is None:
+                raise ValueError("Explicit IAM mode required")
             u = urlsplit(self.canonical_origin)
             if (
                 u.scheme != "https"

@@ -28,7 +28,7 @@ class Security:
         self.s.execute(text("SELECT id FROM iam_security_control WHERE id=1 FOR UPDATE")).one()
         now = self.now()
         # Consumed/expired transient children only, SKIP LOCKED avoids business lock waits.
-        for table in ("iam_preparations", "iam_credentials"):
+        for table in ("iam_mfa_contexts", "iam_preparations", "iam_credentials"):
             rows = self.s.execute(
                 text(
                     f"SELECT id FROM {table} WHERE consumed OR expires_at<=:n "
@@ -61,10 +61,11 @@ class Security:
         )
         self.s.execute(
             text("""DELETE FROM iam_security_states s
-          WHERE s.kind IN ('preparation','credential','session_slot')
+          WHERE s.kind IN ('preparation','credential','session_slot','mfa')
           AND s.created_at<=:lease_end
           AND NOT EXISTS (SELECT 1 FROM iam_preparations p WHERE p.id=s.id)
           AND NOT EXISTS (SELECT 1 FROM iam_credentials c WHERE c.id=s.id)
+          AND NOT EXISTS (SELECT 1 FROM iam_mfa_contexts m WHERE m.id=s.id)
           AND NOT EXISTS (SELECT 1 FROM iam_sessions a WHERE a.id=s.id)"""),
             {"lease_end": now - timedelta(seconds=30)},
         )
@@ -106,7 +107,8 @@ class Security:
                 "DELETE FROM iam_security_states s WHERE id=:id "
                 "AND NOT EXISTS (SELECT 1 FROM iam_credentials c WHERE c.id=s.id) "
                 "AND NOT EXISTS (SELECT 1 FROM iam_sessions a WHERE a.id=s.id) "
-                "AND NOT EXISTS (SELECT 1 FROM iam_preparations p WHERE p.id=s.id)"
+                "AND NOT EXISTS (SELECT 1 FROM iam_preparations p WHERE p.id=s.id) "
+                "AND NOT EXISTS (SELECT 1 FROM iam_mfa_contexts m WHERE m.id=s.id)"
             ),
             {"id": ident},
         )
@@ -203,7 +205,11 @@ class Security:
         expires = now + timedelta(minutes=16)
         ident = self._allocate("attempt", expires)
         self.s.execute(
-            text("INSERT INTO iam_attempts VALUES(:id,:k,'pending',:lease,NULL)"),
+            text(
+                "INSERT INTO "
+                "iam_attempts(id,key,outcome,lease_until,finished_at) "
+                "VALUES(:id,:k,'pending',:lease,NULL)"
+            ),
             {"id": ident, "k": key, "lease": now + timedelta(seconds=30)},
         )
         self.s.execute(
@@ -248,4 +254,34 @@ class Security:
                 "(SELECT id FROM iam_attempts WHERE outcome='pending' AND key=:k)"
             ),
             {"i": reservation.id, "k": reservation.key},
+        )
+
+    def mfa_stage(self, reservation: Reservation, stage: str) -> None:
+        now = self._guard()
+        prior = "password" if stage == "waiting" else "waiting"
+        seconds = 300 if stage == "waiting" else 30
+        changed = self.s.execute(
+            text(
+                "UPDATE iam_attempts SET stage=:stage,lease_until=:expiry "
+                "WHERE id=:id AND key=:key AND stage=:prior AND outcome='pending' "
+                "AND lease_until>:now RETURNING id"
+            ),
+            {
+                "stage": stage,
+                "expiry": now + timedelta(seconds=seconds),
+                "id": reservation.id,
+                "key": reservation.key,
+                "prior": prior,
+                "now": now,
+            },
+        ).first()
+        if changed is None:
+            raise Rejected(401, "invalid_credentials")
+        # Keep abandonment failures observable for the full 15 minute window.
+        self.s.execute(
+            text(
+                "UPDATE iam_security_states SET expires_at=GREATEST(expires_at,:e) "
+                "WHERE id=:id OR id=(SELECT state_id FROM iam_budgets WHERE key=:key)"
+            ),
+            {"e": now + timedelta(minutes=21), "id": reservation.id, "key": reservation.key},
         )

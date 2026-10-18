@@ -26,10 +26,13 @@ def digest(value: str) -> bytes:
 
 
 class IAM:
-    def __init__(self, session: Session, passwords: Passwords, key: str) -> None:
+    def __init__(
+        self, session: Session, passwords: Passwords, key: str, mode: str | None = None
+    ) -> None:
         self.s = session
         self.passwords = passwords
         self.key = key.encode()
+        self.mode = mode
         self._upgrades: dict[UUID, str] = {}
 
     def now(self) -> datetime:
@@ -163,6 +166,8 @@ class IAM:
         nonce: str | None,
         reservation: Reservation,
     ) -> tuple[str, Account]:
+        if self.mode == "mfa":
+            raise Rejected(403, "mfa_required")
         lock = "UPDATE" if proof.account_id in self._upgrades else "SHARE"
         row = (
             self.s.execute(
@@ -204,7 +209,12 @@ class IAM:
         if slot is None or slot <= now:
             raise Rejected(503, "unavailable")
         self.s.execute(
-            text("INSERT INTO iam_sessions VALUES(:id,:a,:d,:c,:v,:n,:n,:e,false)"),
+            text(
+                "INSERT INTO "
+                "iam_sessions(id,account_id,digest,csrf,security_version,"
+                "created_at,last_activity,expires_at,revoked) "
+                "VALUES(:id,:a,:d,:c,:v,:n,:n,:e,false)"
+            ),
             {
                 "id": sid,
                 "a": proof.account_id,
@@ -271,6 +281,7 @@ class IAM:
         now = self.now()
         if (
             row is None
+            or (self.mode == "mfa" and row["assurance"] != "password_uv")
             or row["revoked"]
             or row["state"] != "ACTIVE"
             or row["security_version"] != row["current_version"]
@@ -372,6 +383,8 @@ class IAM:
     def complete(
         self, token: str, password: str, preauth: str | None, nonce: str | None
     ) -> Account:
+        if self.mode == "mfa":
+            raise Rejected(403, "mfa_required")
         hint = self.s.execute(
             text(
                 "SELECT c.account_id FROM iam_credentials c JOIN iam_accounts a ON "

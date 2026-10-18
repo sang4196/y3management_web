@@ -1,5 +1,9 @@
 # IAM-001 — 로그인한 관리자의 지점 접근 제어
 
+2026-10-18 후속 부분 승인: [M7/M8](../product/product-decisions.md#review-20261018-mfa-m7-m8)은 본인 Passkey 삭제 성공의 전 로그인 종료와 Master 본인 관리자 비밀번호 재설정 금지다. M4/C3·다른 정상 Master·AB5 경계를 유지하고 삭제/관리자 reset 증분의 구체 계약·철회/감사 원자성/경합과 실제 검증은 후속이다.
+
+2026-10-18 MFA 후속 부분 승인: [M3–M6](../product/product-decisions.md#review-20261018-mfa-m3-m6)으로 설치/본인 계정 설정 첫 등록·정상 MFA 본인 추가 등록, 마지막 Passkey 본인 삭제 금지, 분실 재등록 링크30분, 같은 조직 정상 Master만 추가 Master 신규 발급을 확정했다. 아래 해당 미결정/PROPOSED를 대체하되 구체 공개 계약·검증 수준/철회·UoW/경합·실제 검증과 운영 게이트는 유지한다. 첫 MFA-A는 삭제/분실 복구/추가 Master를 분리하여 최초/복수 등록·정상 2단계 로그인을 구현·검증한다.
+
 2026-10-16 MFA 후속 부분 승인: [M1/M2](../product/product-decisions.md#review-20261016-mfa-m-batch)로 관리자 복수 Passkey 등록/로그인 시 하나 사용과, 같은 Organization의 다른 정상 Master에 의한 본인 확인·관리자 기존 Passkey/모든 AuthSession 폐기·일회용 링크 재등록을 확정했다. AB4 추가 인증/AB5 전체 Master 로그인 불가 비상 복구를 유지하며 비밀번호 reset·차단 해제·역할 복원을 자동 포함하지 않는다. 아래 미결정/PROPOSED 중 이 승인 부분만 대체하며 추가 등록/삭제·마지막 인증수단 보호·구체 API/상태/수명·원자성/경합·실제 검증은 후속이다.
 
 2026-10-13 최신 인수: **IAM S1a/S1b 개발 인수 PASS**. 현재 구현·실행 증거는 [S1 결과](iam-001-s1-results.md), 범위와 한계는 [설계자 판정](iam-001-s1-review.json)을 따른다. 아래 설계 작성 당시의 미구현/미검증·인수 대기 기록은 당시 이력이다. 이번 인수는 K3/X1·§12의 좁은 첫 증분이며 S2·Trainer/Operator 연결·운영 MFA/복구·전체 설계의 일괄 승격을 포함하지 않는다.

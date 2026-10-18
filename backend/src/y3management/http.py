@@ -1,5 +1,6 @@
 """Strict same-origin HTTPS adapters. No database authentication in dependencies."""
 
+import json
 from dataclasses import asdict
 from typing import Annotated, Literal, cast
 from urllib.parse import urlsplit
@@ -12,11 +13,12 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from y3management.config import Settings
 from y3management.contracts import Rejected
-from y3management.iam.public import Account, Setup
+from y3management.iam.public import Account, Ceremony, Setup
 from y3management.use_cases import Service
 
 AUTH = "__Host-y3-auth"
 PREAUTH = "__Host-y3-preauth"
+CEREMONY = "__Host-y3-ceremony"
 
 
 class BodyLimit:
@@ -72,6 +74,15 @@ class PasswordChange(Input):
 class Complete(Input):
     setup_token: str = Field(min_length=40, max_length=128, repr=False)
     new_password: str = Field(min_length=1, max_length=512, repr=False)
+
+
+class Enrollment(Input):
+    setup_token: str = Field(min_length=40, max_length=128, repr=False)
+    new_password: str | None = Field(default=None, min_length=1, max_length=512, repr=False)
+
+
+class PasskeyResponse(Input):
+    credential: dict[str, object] = Field(repr=False)
 
 
 class NewBranch(Input):
@@ -200,12 +211,79 @@ def attach(app: FastAPI, settings: Settings) -> None:
     @router.post("/auth/login", status_code=204)
     def login(request: Request, body: Login) -> Response:
         auth, nonce = write(request)
+        if settings.iam_mode == "mfa":
+            return ceremony_response(
+                service(request).begin_mfa_login(
+                    body.login_id, body.password, request.cookies.get(PREAUTH), nonce, auth
+                )
+            )
         token = service(request).login(
             body.login_id, body.password, request.cookies.get(PREAUTH), nonce, auth
         )
         response = Response(status_code=204)
         cookie(response, AUTH, token)
         clear(response, PREAUTH)
+        return response
+
+    def ceremony_response(result: Ceremony) -> JSONResponse:
+        response = JSONResponse(
+            {
+                "publicKey": json.loads(result.options_json),
+                "csrf_token": result.csrf,
+                "expires_at": result.expires_at.isoformat(),
+            }
+        )
+        cookie(response, CEREMONY, result.token)
+        clear(response, PREAUTH)
+        return response
+
+    @router.post("/auth/passkeys/enrollment/options")
+    def enrollment_options(request: Request, body: Enrollment) -> Response:
+        _, nonce = write(request)
+        return ceremony_response(
+            service(request).begin_enrollment(
+                body.setup_token, body.new_password, request.cookies.get(PREAUTH), nonce
+            )
+        )
+
+    @router.post("/auth/passkeys/options")
+    def additional_options(request: Request) -> Response:
+        auth, nonce = write(request)
+        return ceremony_response(service(request).begin_passkey(auth, nonce))
+
+    @router.post("/auth/passkeys/enrollment/verify")
+    def enrollment_verify(request: Request, body: PasskeyResponse) -> Response:
+        auth, nonce = write(request)
+        service(request).register_passkey(
+            request.cookies.get(CEREMONY),
+            nonce,
+            json.dumps(body.credential),
+            auth,
+            additional=False,
+        )
+        response = Response(status_code=204)
+        clear(response, CEREMONY)
+        return response
+
+    @router.post("/auth/passkeys/verify")
+    def additional_verify(request: Request, body: PasskeyResponse) -> Response:
+        auth, nonce = write(request)
+        service(request).register_passkey(
+            request.cookies.get(CEREMONY), nonce, json.dumps(body.credential), auth, additional=True
+        )
+        response = Response(status_code=204)
+        clear(response, CEREMONY)
+        return response
+
+    @router.post("/auth/login/passkey/verify")
+    def login_verify(request: Request, body: PasskeyResponse) -> Response:
+        _, nonce = write(request)
+        raw = service(request).finish_mfa_login(
+            request.cookies.get(CEREMONY), nonce, json.dumps(body.credential)
+        )
+        response = Response(status_code=204)
+        cookie(response, AUTH, raw)
+        clear(response, CEREMONY)
         return response
 
     @router.get("/auth/me")
@@ -337,6 +415,8 @@ def attach(app: FastAPI, settings: Settings) -> None:
     @app.get("/activate", response_class=HTMLResponse)
     def activation_page(request: Request) -> str:
         read(request)
+        if settings.iam_mode == "mfa":
+            return mfa_page("setup")
         return """<!doctype html><meta charset="utf-8"><title>비밀번호 설정</title>
 <form id="setup" method="post" action="/activate">
 <label>새 비밀번호 <input id="password" type="password" autocomplete="new-password"
@@ -365,3 +445,72 @@ required></label>
         }catch{output.textContent='설정할 수 없습니다. 새 설정 링크와 입력을 확인해 주세요.';}
         });})();"""
         return Response(script, media_type="application/javascript")
+
+    def mfa_page(flow: str) -> str:
+        return f"""<!doctype html><meta charset="utf-8"><title>Y3 인증</title>
+<body data-flow="{flow}"><form id="mfa">
+<label>로그인 ID <input id="identifier" autocomplete="username"></label>
+<label>비밀번호 <input id="password" type="password" autocomplete="current-password"></label>
+<button>계속</button></form><p id="result"></p><script src="/mfa.js"></script></body>"""
+
+    @app.get("/enroll", response_class=HTMLResponse)
+    def enroll_page(request: Request) -> str:
+        read(request)
+        return mfa_page("install")
+
+    @app.get("/login", response_class=HTMLResponse)
+    def login_page(request: Request) -> str:
+        read(request)
+        return mfa_page("login")
+
+    @app.get("/passkeys", response_class=HTMLResponse)
+    def keys_page(request: Request) -> str:
+        read(request)
+        return mfa_page("add")
+
+    @app.get("/mfa.js")
+    def mfa_script(request: Request) -> Response:
+        read(request)
+        return Response(MFA_SCRIPT, media_type="application/javascript")
+
+
+MFA_SCRIPT = r"""(()=>{'use strict';
+let token=new URLSearchParams(location.hash.slice(1)).get('token');
+history.replaceState(null,'',location.pathname);
+const flow=document.body.dataset.flow;
+const form=document.getElementById('mfa'),out=document.getElementById('result');
+const id=document.getElementById('identifier'),pw=document.getElementById('password');
+id.parentElement.hidden=flow!=='login';
+pw.parentElement.hidden=!['login','setup'].includes(flow);
+if(flow==='setup')pw.autocomplete='new-password';
+const decode=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
+const encode=b=>btoa(String.fromCharCode(...new Uint8Array(b)))
+.replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+async function post(path,csrf,body){const r=await fetch('/api/v1'+path,{method:'POST',
+headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(body)});
+if(!r.ok)throw Error();return r;}
+form.addEventListener('submit',async e=>{e.preventDefault();
+form.querySelector('button').disabled=true;
+try{
+const p=await fetch('/api/v1/auth/csrf',{headers:{'X-Y3-Client':'mfa'}});if(!p.ok)throw Error();
+const csrf=(await p.json()).csrf_token;
+const path=flow==='login'?'/auth/login':flow==='add'?'/auth/passkeys/options':
+'/auth/passkeys/enrollment/options';
+const body=flow==='login'?{login_id:id.value,password:pw.value}:flow==='add'?{}:
+{setup_token:token,...(flow==='setup'?{new_password:pw.value}:{})};
+const result=await (await post(path,csrf,body)).json();pw.value='';
+const options=result.publicKey;options.challenge=decode(options.challenge);
+if(options.user)options.user.id=decode(options.user.id);
+for(const key of ['allowCredentials','excludeCredentials'])
+if(options[key])for(const item of options[key])item.id=decode(item.id);
+const credential=flow==='login'?await navigator.credentials.get({publicKey:options}):
+await navigator.credentials.create({publicKey:options});
+const response={clientDataJSON:encode(credential.response.clientDataJSON)};
+for(const key of ['attestationObject','authenticatorData','signature','userHandle'])
+if(credential.response[key])response[key]=encode(credential.response[key]);
+await post(flow==='login'?'/auth/login/passkey/verify':flow==='add'?'/auth/passkeys/verify':
+'/auth/passkeys/enrollment/verify',result.csrf_token,{credential:{id:credential.id,
+rawId:encode(credential.rawId),type:credential.type,response}});
+token=null;out.textContent=flow==='login'?'로그인되었습니다.':'Passkey가 등록되었습니다.';
+}catch{out.textContent='인증할 수 없습니다. 입력 또는 설정 링크를 확인하고 다시 시도해 주세요.';}
+finally{pw.value='';form.querySelector('button').disabled=false;}});})();"""

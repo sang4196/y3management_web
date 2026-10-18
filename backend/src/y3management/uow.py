@@ -9,11 +9,12 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from y3management.audit.infrastructure import Audit
 from y3management.audit.public import AuditPort
 from y3management.config import Settings
-from y3management.contracts import Rejected
+from y3management.contracts import CommitUncertain, Rejected
 from y3management.database import Database
 from y3management.iam.infrastructure import IAM
+from y3management.iam.mfa import MFA
 from y3management.iam.passwords import Passwords
-from y3management.iam.public import IAMPort, SecurityPort
+from y3management.iam.public import IAMPort, MFAPort, SecurityPort
 from y3management.iam.security import Security
 from y3management.organization.application import Organization
 from y3management.organization.infrastructure import Organization as OrganizationRepository
@@ -26,6 +27,7 @@ class Work:
     organization: OrganizationPort
     audit: AuditPort
     security: SecurityPort
+    mfa: MFAPort
 
 
 class UnitOfWork:
@@ -39,8 +41,14 @@ class UnitOfWork:
         # The whole context is created, used and closed by one synchronous worker.
         try:
             with self.database.session() as session:
+                iam = IAM(
+                    session,
+                    self._passwords,
+                    self.settings.iam_key.get_secret_value(),
+                    self.settings.iam_mode,
+                )
                 work = Work(
-                    IAM(session, self._passwords, self.settings.iam_key.get_secret_value()),
+                    iam,
                     Organization(OrganizationRepository(session)),
                     Audit(session),
                     Security(
@@ -49,6 +57,7 @@ class UnitOfWork:
                         self.settings.security_state_capacity or 0,
                         self.settings.auth_session_capacity or 0,
                     ),
+                    MFA(iam, self.settings.canonical_origin),
                 )
                 try:
                     yield work
@@ -56,7 +65,12 @@ class UnitOfWork:
                     if commit_denial and error.status == 429:
                         session.commit()
                     raise
-                session.commit()
+                try:
+                    session.commit()
+                except IntegrityError:
+                    raise
+                except SQLAlchemyError:
+                    raise CommitUncertain() from None
         except IntegrityError:
             raise Rejected(409, "conflict") from None
         except SQLAlchemyError:

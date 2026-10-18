@@ -14,7 +14,7 @@ class Caller:
     master: bool
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, repr=False)
 class Authentication:
     caller: Caller
     session_id: UUID
@@ -39,13 +39,13 @@ class LoginProof:
     credential_marker: bytes
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, repr=False)
 class Setup:
     token: str
     expires_at: datetime
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, repr=False)
 class Preparation:
     token: str
     csrf: str
@@ -117,3 +117,50 @@ class SecurityPort(Protocol):
     def reserve(self, login_id: str) -> Reservation: ...
     def finish(self, reservation: Reservation, success: bool) -> None: ...
     def cancel(self, reservation: Reservation) -> None: ...
+    def mfa_stage(self, reservation: Reservation, stage: str) -> None: ...
+
+
+@dataclass(frozen=True, repr=False)
+class Ceremony:
+    token: str
+    csrf: str
+    options_json: str
+    expires_at: datetime
+
+
+@dataclass(frozen=True, repr=False)
+class RegistrationProof:
+    context_id: UUID
+    challenge: bytes
+    credential_id: bytes
+    public_key: bytes
+    sign_count: int
+    device_type: str
+    backed_up: bool
+    purpose: str
+
+
+class MFAPort(Protocol):
+    def failure_subject(self, reservation: Reservation) -> Account | None: ...
+    def installation(self, account: Account, state_id: UUID) -> Setup: ...
+    def begin_install(self, token: str) -> Ceremony: ...
+    def begin_setup(self, token: str, password: str, state_id: UUID) -> Ceremony: ...
+    def begin_add(self, authentication: Authentication, state_id: UUID) -> Ceremony: ...
+    def begin_login(
+        self, proof: LoginProof, reservation: Reservation, state_id: UUID
+    ) -> Ceremony: ...
+    def reservation(self, token: str | None, nonce: str | None) -> Reservation: ...
+    def verify_registration(
+        self, token: str | None, nonce: str | None, payload: str
+    ) -> RegistrationProof: ...
+    def register(
+        self,
+        token: str | None,
+        nonce: str | None,
+        proof: RegistrationProof,
+        authentication: Authentication | None,
+    ) -> Account: ...
+    def authenticate(
+        self, token: str | None, nonce: str | None, payload: str, sid: UUID
+    ) -> tuple[str, Account]: ...
+    def revoke_undelivered(self, sid: UUID) -> None: ...

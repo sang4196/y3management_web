@@ -1,5 +1,22 @@
 # Architecture 및 현재 개발 단계
 
+2026-10-18 최신 인수: **IAM MFA-A 최초/복수 Passkey 등록·비밀번호+UV 로그인의 제한된 로컬 개발 인수 PASS**.
+보호 CLI의 최초 Master 준비, Master가 실제 발급한 Branch Admin의 본인 설정, 정상 MFA 본인의 추가 키 등록과
+각 키 로그인·Backend 지점 제한을 검증했다. [구현 계약](iam-005-mfa-a-design.md),
+[검증 결과](iam-005-mfa-a-results.md), [설계자 인수 근거](iam-005-mfa-a-review.json)를 따른다.
+동결79개 소스에 독립 fast **88개**, 필수 PostgreSQL 전체 **144개**가 통과했고,
+해당 PG 실행의 신뢰 HTTPS 기존 **58항목**·native MFA **20항목**이 모두 true였다.
+R1–R5/PF1 보완·초기 실패/부분 검사·정리 결과를 실제 최종 통과와 구분했다.
+webauthn3.0.1과 필요한 전이 의존성만 추가했으며 0001–0004·기존 패키지 버전·Product OPEN/ADR 상태는 유지했다.
+`codex/iam-mfa-a`의 전담 최종 변경 검토·한글 커밋·일반 push 뒤, 이미 승인된 본인 키 삭제(M4/M7) →
+추가 Master(M6) → 정상 다른 Master의 분실 복구(M2/M5)를 다음 증분으로 진행한다.
+그 후속 기능·M8 관리자 reset·AB5 비상 복구·실물/모바일/지원 브라우저 전체와 운영 인수는 아직 미완료다.
+production 거부는 유지한다. 아래 각 날짜의 최신/미착수 설명은 해당 시점 이력이다.
+
+2026-10-18 후속 정책: [M7/M8 승인](../product/product-decisions.md#review-20261018-mfa-m7-m8)은 본인 Passkey 삭제 성공 시 전 로그인 종료·Master 본인 관리자 reset 금지다. 현재 MFA-A 등록/로그인 증분과 분리해 다음 삭제/관리자 reset 계약·실제 검증에 적용하며 아직 해당 후속 기능 인수는 아니다.
+
+2026-10-18 MFA-A 진입: [M3–M6 승인](../product/product-decisions.md#review-20261018-mfa-m3-m6)으로 첫 등록 신뢰 경로/본인 추가 등록·마지막 삭제 금지·복구 링크30분·추가 Master 발급 Actor를 확정했다. 현재 다음 개발 단위는 실제 계정 준비/최초 등록 → 비밀번호+UV Passkey 로그인 → 본인 복수 등록/각 credential 로그인이다. 삭제/분실 복구/추가 Master·운영 비상 복구는 별도 증분으로 분리한다. 구현·독립 인수 전이며 아래 최신 구현 PASS는 S2c다. 정책 선택만으로 production 거부/운영 게이트를 해제하지 않는다.
+
 2026-10-16 MFA 후속 정책: [M1/M2 승인](../product/product-decisions.md#review-20261016-mfa-m-batch)으로 관리자 복수 Passkey 등록/로그인 시 하나 사용과, 같은 Organization의 다른 정상 Master에 의한 관리자 본인 확인·기존 Passkey/모든 로그인 폐기·일회용 링크 재등록을 확정했다. 추가 등록/삭제·마지막 인증수단 보호·구체 계약/운영 확인/실제 검증은 후속이다. 아래 Passkey 등록·분실 복구의 미결정 중 M1/M2만 대체한다. MFA 코드·migration·의존성은 변경하지 않았고 최신 구현 인수는 S2c로 유지한다.
 
 2026-10-15 최신 인수: **IAM S2c Login ID 변경의 제한된 로컬 개발 인수 PASS**.

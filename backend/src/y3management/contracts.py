@@ -14,3 +14,10 @@ class HashAdmissionRejected(Rejected):
 
     def __init__(self) -> None:
         super().__init__(503, "unavailable")
+
+
+class CommitUncertain(Rejected):
+    """The server cannot prove whether COMMIT was applied; never retry the command blindly."""
+
+    def __init__(self) -> None:
+        super().__init__(503, "commit_outcome_unknown")

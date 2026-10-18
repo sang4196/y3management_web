@@ -2,11 +2,12 @@
 
 import logging
 import re
+from collections.abc import Callable
 from uuid import UUID
 
 from y3management.audit.public import Event
 from y3management.contracts import HashAdmissionRejected, Rejected
-from y3management.iam.public import Account, Caller, Preparation, Reservation, Setup
+from y3management.iam.public import Account, Caller, Ceremony, Preparation, Reservation, Setup
 from y3management.organization.public import Branch, BranchPage
 from y3management.uow import UnitOfWork
 
@@ -50,10 +51,22 @@ class Service:
     def __init__(self, uow: UnitOfWork) -> None:
         self.uow = uow
 
-    def bootstrap(self, name: str, identifier: str, password: str) -> Account:
+    def bootstrap(
+        self,
+        name: str,
+        identifier: str,
+        password: str,
+        deliver: Callable[[Setup], None] | None = None,
+    ) -> Account:
         identifier = normalize_login(identifier)
         if not name or len(name) > 128:
             raise Rejected(422, "invalid_request")
+        state_id = None
+        if self.uow.settings.iam_mode == "mfa":
+            if deliver is None:
+                raise Rejected(403, "installation_delivery_required")
+            with self.uow.open() as w:
+                state_id = w.security.allocate("mfa")
         with self.uow.open() as w:
             w.iam.prepare_master(identifier, password)
             w.iam.ensure_uninstalled()
@@ -71,6 +84,8 @@ class Service:
                     after_version=account.version,
                 )
             )
+            if state_id is not None and deliver is not None:
+                deliver(w.mfa.installation(account, state_id))
             return account
 
     def csrf(self, auth: str | None, preauth: str | None) -> tuple[str, str | None]:
@@ -385,3 +400,202 @@ class Service:
                 raise
             with self.uow.open() as w:
                 w.iam.preparation(preauth, nonce, consume=True)
+
+    def require_mfa(self) -> None:
+        if self.uow.settings.iam_mode != "mfa":
+            raise Rejected(403, "mfa_unavailable")
+
+    def begin_enrollment(
+        self, token: str, password: str | None, preauth: str | None, nonce: str | None
+    ) -> Ceremony:
+        self.require_mfa()
+        with self.uow.open() as w:
+            w.iam.preparation(preauth, nonce)
+        slot = None
+        if password is not None:
+            with self.uow.open() as w:
+                slot = w.security.allocate("mfa")
+        try:
+            with self.uow.open() as w:
+                result = (
+                    w.mfa.begin_setup(token, password, slot)
+                    if password is not None and slot is not None
+                    else w.mfa.begin_install(token)
+                )
+                w.iam.preparation(preauth, nonce, consume=True)
+            return result
+        except Exception:
+            self._release_login_slot(slot)
+            raise
+
+    def begin_passkey(self, auth: str | None, nonce: str | None) -> Ceremony:
+        self.require_mfa()
+        with self.uow.open() as w:
+            initial = w.iam.authenticate(auth, touch=False)
+            w.iam.csrf(initial, nonce)
+        with self.uow.open() as w:
+            slot = w.security.allocate("mfa")
+        try:
+            with self.uow.open() as w:
+                current = w.iam.authenticate(auth, management=True)
+                w.iam.csrf(current, nonce)
+                return w.mfa.begin_add(current, slot)
+        except Exception:
+            self._release_login_slot(slot)
+            raise
+
+    def register_passkey(
+        self,
+        token: str | None,
+        nonce: str | None,
+        payload: str,
+        auth: str | None,
+        *,
+        additional: bool,
+    ) -> None:
+        self.require_mfa()
+        initial = None
+        if additional:
+            with self.uow.open() as w:
+                initial = w.iam.authenticate(auth, touch=False)
+        with self.uow.open() as w:
+            proof = w.mfa.verify_registration(token, nonce, payload)
+        with self.uow.open() as w:
+            current = w.iam.authenticate(auth, management=True) if additional else None
+            if current is not None and initial is not None:
+                w.iam.csrf(current, initial.csrf)
+                if current.session_id != initial.session_id:
+                    raise Rejected(401, "unauthorized")
+            account = w.mfa.register(token, nonce, proof, current)
+            if proof.purpose == "setup":
+                w.audit.append(
+                    Event(
+                        "setup_complete",
+                        account.organization_id,
+                        None,
+                        account.id,
+                        actor_role="CREDENTIAL_HOLDER",
+                        actor_scope="ACTIVATION",
+                        before_state="PENDING_SETUP",
+                        after_state=account.state,
+                        before_branch=account.branch_id,
+                        after_branch=account.branch_id,
+                        before_version=account.version - 1,
+                        after_version=account.version,
+                    )
+                )
+            w.audit.append(
+                Event(
+                    "passkey_register",
+                    account.organization_id,
+                    current.caller.account_id if current else None,
+                    account.id,
+                    actor_role="ADMIN" if current else "CREDENTIAL_HOLDER",
+                    actor_scope="SELF" if current else "ONBOARDING",
+                    after_state=account.state,
+                    after_version=account.version,
+                )
+            )
+
+    def begin_mfa_login(
+        self,
+        identifier: str,
+        password: str,
+        preauth: str | None,
+        nonce: str | None,
+        auth: str | None,
+    ) -> Ceremony:
+        self.require_mfa()
+        if auth:
+            try:
+                with self.uow.open() as w:
+                    current = w.iam.authenticate(auth, touch=False)
+                    w.iam.csrf(current, nonce)
+            except Rejected as error:
+                if error.status != 401:
+                    raise
+            else:
+                raise Rejected(409, "logout_required")
+        identifier = normalize_login(identifier)
+        with self.uow.open() as w:
+            w.iam.preparation(preauth, nonce)
+            w.iam.gc_sessions()
+        with self.uow.open(commit_denial=True) as w:
+            reservation = w.security.reserve(identifier)
+        slot = None
+        try:
+            with self.uow.open() as w:
+                proof = w.iam.verify_login(identifier, password, reservation)
+                if proof is None:
+                    raise Rejected(401, "invalid_credentials")
+            with self.uow.open() as w:
+                w.security.mfa_stage(reservation, "waiting")
+                slot = w.security.allocate("mfa")
+            with self.uow.open() as w:
+                result = w.mfa.begin_login(proof, reservation, slot)
+                w.iam.preparation(preauth, nonce, consume=True)
+            return result
+        except HashAdmissionRejected:
+            self._cancel_login(reservation, slot)
+            raise
+        except Rejected as error:
+            if error.status == 401:
+                self.fail_mfa(reservation)
+            self._release_login_slot(slot)
+            raise
+        except Exception:
+            self._release_login_slot(slot)
+            raise
+
+    def fail_mfa(self, reservation: Reservation) -> None:
+        with self.uow.open() as w:
+            subject = w.mfa.failure_subject(reservation)
+            w.security.finish(reservation, False)
+            w.audit.append(
+                Event(
+                    "login",
+                    subject.organization_id if subject else None,
+                    None,
+                    subject.id if subject else None,
+                    success=False,
+                    actor_role="LOGIN_ATTEMPT",
+                )
+            )
+
+    def finish_mfa_login(self, token: str | None, nonce: str | None, payload: str) -> str:
+        self.require_mfa()
+        with self.uow.open() as w:
+            reservation = w.mfa.reservation(token, nonce)
+        with self.uow.open() as w:
+            w.security.mfa_stage(reservation, "verifying")
+        sid = None
+        try:
+            with self.uow.open() as w:
+                sid = w.security.allocate("session_slot")
+            with self.uow.open() as w:
+                raw, account = w.mfa.authenticate(token, nonce, payload, sid)
+                w.audit.append(
+                    event(
+                        "login",
+                        Caller(
+                            account.id, account.organization_id, account.branch_id, account.master
+                        ),
+                        account.id,
+                    )
+                )
+            with self.uow.open() as w:
+                w.security.finish(reservation, True)
+            return raw
+        except Exception as error:
+            # Includes unknown business COMMIT and finish ACK: never send the cookie.
+            if sid is not None:
+                try:
+                    with self.uow.open() as w:
+                        w.mfa.revoke_undelivered(sid)
+                    self._release_login_slot(sid)
+                except Exception:
+                    logging.getLogger("y3management").error("mfa_session_cleanup_deferred")
+                    raise Rejected(503, "mfa_cleanup_deferred") from None
+            if isinstance(error, Rejected) and error.status == 401:
+                self.fail_mfa(reservation)
+            raise

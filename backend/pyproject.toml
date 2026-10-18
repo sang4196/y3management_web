@@ -15,6 +15,7 @@ dependencies = [
   "argon2-cffi-bindings==26.1.0",
   "cffi==2.1.1",
   "pycparser==3.0",
+  "webauthn==3.0.1",
 ]
 
 [dependency-groups]
@@ -75,7 +76,7 @@ forbidden_modules = ["fastapi", "starlette"]
 name = "Use cases depend only on module public contracts"
 type = "forbidden"
 source_modules = ["y3management.use_cases", "y3management.http"]
-forbidden_modules = ["y3management.iam.infrastructure", "y3management.iam.security", "y3management.iam.passwords", "y3management.organization.infrastructure", "y3management.audit.infrastructure"]
+forbidden_modules = ["y3management.iam.mfa", "y3management.iam.infrastructure", "y3management.iam.security", "y3management.iam.passwords", "y3management.organization.infrastructure", "y3management.audit.infrastructure"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
@@ -94,7 +95,7 @@ forbidden_modules = ["y3management.organization", "y3management.audit"]
 name = "Organization depends only on IAM public facts"
 type = "forbidden"
 source_modules = ["y3management.organization"]
-forbidden_modules = ["y3management.iam.infrastructure", "y3management.iam.security", "y3management.iam.passwords", "y3management.audit"]
+forbidden_modules = ["y3management.iam.mfa", "y3management.iam.infrastructure", "y3management.iam.security", "y3management.iam.passwords", "y3management.audit"]
 
 [[tool.importlinter.contracts]]
 name = "Audit does not read business modules"

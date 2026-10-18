@@ -9,6 +9,7 @@ import sys
 import time
 from collections.abc import Iterator
 from contextlib import ExitStack
+from pathlib import Path
 from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
@@ -37,6 +38,7 @@ def child_env(settings: Settings) -> dict[str, str]:
         Y3_DATABASE_URL=settings.database_url.get_secret_value(),
         Y3_DATABASE_SCHEMA=settings.database_schema,
         Y3_IAM_ENABLED="true",
+        Y3_IAM_MODE=settings.iam_mode or "",
         Y3_CANONICAL_ORIGIN=ORIGIN,
         Y3_IAM_KEY=settings.iam_key.get_secret_value(),
         Y3_SECURITY_STATE_CAPACITY="2048",
@@ -45,7 +47,9 @@ def child_env(settings: Settings) -> dict[str, str]:
     return env
 
 
-def cli_bootstrap(settings: Settings, password: str, *, success: bool = True) -> None:
+def cli_bootstrap(
+    settings: Settings, password: str, *, success: bool = True, enrollment_file: Path | None = None
+) -> None:
     master, slave = pty.openpty()
     process = subprocess.Popen(
         [
@@ -59,6 +63,7 @@ def cli_bootstrap(settings: Settings, password: str, *, success: bool = True) ->
             "master.test",
             "--confirm-database",
             "y3management_test",
+            *(["--enrollment-file", str(enrollment_file)] if enrollment_file else []),
         ],
         stdin=slave,
         stdout=slave,
@@ -115,6 +120,7 @@ def iam(postgres_database: Database) -> Iterator[tuple[Settings, Database, str]]
             database_url=postgres_database.engine.url.render_as_string(hide_password=False),
             database_schema=schema,
             iam_enabled=True,
+            iam_mode="s1_password",
             canonical_origin=ORIGIN,
             iam_key=secrets.token_urlsafe(32),
             security_state_capacity=2048,

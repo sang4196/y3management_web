@@ -119,6 +119,10 @@ AB3–AB5 확정: 후속 활성 계정 reset 링크30분, 운영 Master/Branch A
 
 2026-10-16 MFA M1/M2: 관리자 계정의 복수 Passkey 등록과 로그인 시 하나 사용을 허용한다. 같은 Organization의 다른 정상 Master만 관리자 Passkey 분실의 본인 확인·기존 Passkey/모든 AuthSession 폐기·일회용 링크 재등록을 처리한다. Branch Admin/타 조직 접근·비밀번호 reset/차단 해제·회수 역할 복원·MFA 미충족 운영 접근으로 확대하지 않는다. AB5 모든 Master 로그인 불가 비상 복구와 생체 원본/개인키 비수집을 유지한다. 추가 등록/삭제·마지막 인증수단 보호와 실제 권한/철회·원자성/재사용/실패·브라우저 검증은 후속 계획이다([승인](product-decisions.md#review-20261016-mfa-m-batch); V-135 미구성·미실행).
 
+2026-10-18 MFA M3–M6: 첫 등록은 설치/본인 최초 설정의 신뢰 경로로 제한하고 정상 MFA 로그인한 본인에게 추가 등록을 허용한다. 마지막 Passkey 본인 삭제는 금지하며 다른 유효 key가 남아야 삭제 가능하다. M2 분실 재등록 링크는30분, 추가 Master 신규 발급은 같은 조직 정상 Master 전용이다. AB4/AB5·현재 인가/철회·감사/마지막 Master 보호를 유지한다. 구체 계약과 실제 등록/로그인·삭제/복구/추가 Master의 보안/원자성/경합 검증은 증분별 후속이다([승인](product-decisions.md#review-20261018-mfa-m3-m6); V-135 계획, 구현/실제 검증 완료 아님).
+
+2026-10-18 MFA M7/M8: 본인 Passkey 삭제 성공은 현재 기기 포함 전 로그인 철회와 함께 처리한다. 마지막 key 삭제는 금지하며 실패 시 key/로그인을 보존하는 원자성·경합은 후속 검증한다. Master 본인 관리자 reset은 금지하고 C3 현재 암호 확인 본인 변경/다른 정상 Master reset·AB5를 유지한다. 해당 후속 구현/실제 검증은 미완료다([승인](product-decisions.md#review-20261018-mfa-m7-m8)).
+
 <a id="nfr-002"></a>
 ## NFR-002. 업무 데이터 정합성
 

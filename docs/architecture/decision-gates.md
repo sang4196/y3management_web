@@ -1,5 +1,9 @@
 # 결정 게이트
 
+2026-10-18 M7/M8 부분 해결: [승인](../product/product-decisions.md#review-20261018-mfa-m7-m8)으로 본인 Passkey 삭제 성공의 전 로그인 종료, Master 본인 관리자 비밀번호 재설정 금지가 확정됐다. 마지막 key 삭제 금지·C3/다른 정상 Master·AB5 경계를 유지한다. 삭제/철회 원자성·동시 마지막 key 보호와 관리자 reset의 실제 인가는 후속 증분 검증 대상이며 OPEN/운영 게이트를 닫지 않는다.
+
+2026-10-18 ARCH-002/F02/O03 부분 해결: [M3–M6](../product/product-decisions.md#review-20261018-mfa-m3-m6)으로 설치/본인 최초 설정의 첫 Passkey 등록·정상 MFA 본인 추가 등록, 다른 유효 key가 없으면 본인 삭제 금지, 분실 재등록 링크30분, 같은 조직 정상 Master만 추가 Master 신규 발급이 확정됐다. 이 네 정책은 재질문하지 않는다. 등록/삭제/복구의 구체 계약·보안 상태/철회·감사/UoW/경합·실제 검증·운영 확인/전달·AB5/보존은 후속이다. 22 OPEN/8 CLOSED와 운영 게이트를 유지한다.
+
 2026-10-16 ARCH-002/O03 부분 해결: [MFA M1/M2](../product/product-decisions.md#review-20261016-mfa-m-batch)로 관리자 복수 Passkey 등록/로그인 시 하나 사용과, 같은 조직 다른 정상 Master에 의한 관리자 본인 확인·기존 Passkey/전 로그인 철회·일회용 재등록 링크 처리를 승인했다. AB4/AB5·기존 계정/역할 상태·마지막 Master 보호를 유지한다. 추가 등록/삭제·마지막 인증수단 보호·재등록 링크 수명/소비·운영 확인/전달·감사/철회 원자성/경합·실제 WebAuthn 검증은 별도 진입 조건이다. ARCH-002/004 OPEN·22 OPEN/8 CLOSED를 유지하고 MFA 구현/운영 게이트를 닫지 않는다.
 
 최신 부분 해결: [2026-10-13 AB 승인](../product/product-decisions.md#review-20261013-ab-batch)의 AB1–AB6 모두 1번이다. 월 정산 대상은 적용 기본급/월별 지정·유효 PT/보상대기 지원 PT/추가실적 등으로 자동 선정하며, 한 달 전체 Trainer 비활성·명시 기본급0·무활동·정정 대기 없는 경우 새 정산 확정 의무에서 제외한다. 기존 이력/미완료와 비활성만으로 기본급을 자동0으로 바꾸지 않음은 유지한다. 후속 reset 링크30분·운영 관리자 비밀번호 뒤 Passkey·업무책임자 승인/별도 운영담당자 비상 복구·Chrome/Edge/Safari 최신2개 안정 주버전을 선택했다. K3/X1 첫 IAM/별도 구현 지시·구체 계약 PROPOSED와 22 OPEN/8 CLOSED는 유지한다.

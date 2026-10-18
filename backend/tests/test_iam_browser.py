@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Real trusted HTTPS browser acceptance; no certificate bypass or global trust writes."""
 
 import hashlib
@@ -17,6 +18,7 @@ import pytest
 from tests.browser_result import REQUIRED, validate_browser_report
 from tests.conftest import _qa_write, qa_register_process, qa_root, qa_stop_process
 from tests.test_iam import child_env, iam  # noqa: F401
+from tests.test_iam_mfa import mfa  # noqa: F401
 from y3management.config import Settings
 from y3management.database import Database
 
@@ -25,6 +27,17 @@ pytestmark = pytest.mark.postgres
 
 def test_actual_https_browser(iam: tuple[Settings, Database, str], tmp_path: Path) -> None:  # noqa: F811
     settings, _, password = iam
+    run_browser(settings, password, tmp_path)
+
+
+def test_actual_https_mfa_browser(mfa: tuple[Settings, Database, str, str], tmp_path: Path) -> None:
+    settings, _, password, token = mfa
+    run_browser(settings, password, tmp_path, token)
+
+
+def run_browser(
+    settings: Settings, password: str, tmp_path: Path, token: str | None = None
+) -> None:
     root = tmp_path / "https-browser"
     root.mkdir(mode=0o700)
 
@@ -132,14 +145,20 @@ def test_actual_https_browser(iam: tuple[Settings, Database, str], tmp_path: Pat
     env["Y3_CANONICAL_ORIGIN"] = origin
     inputs = {
         "origin": origin,
+        "enrollmentToken": token,
         "masterPassword": password,
         "branchPassword": "브라우저 가상 암호 " + secrets.token_urlsafe(24),
     }
     (root / "input.json").write_text(json.dumps(inputs))
     (root / "input.json").chmod(0o600)
-    shutil.copy(Path(__file__).parent / "browser/s1.cjs", root / "browser.cjs")
     shutil.copy(
-        Path(__file__).parent / "browser/required-checks.json", root / "required-checks.json"
+        Path(__file__).parent / ("browser/mfa.cjs" if token else "browser/s1.cjs"),
+        root / "browser.cjs",
+    )
+    shutil.copy(
+        Path(__file__).parent
+        / ("browser/mfa-checks.json" if token else "browser/required-checks.json"),
+        root / "required-checks.json",
     )
     log = (root / "server.log").open("wb")
     server = subprocess.Popen(
@@ -274,23 +293,27 @@ def test_actual_https_browser(iam: tuple[Settings, Database, str], tmp_path: Pat
         ]
         result = subprocess.run(args, capture_output=True, timeout=90)
         (root / "browser.log").write_bytes(result.stdout + result.stderr)
-        assert result.returncode == 0, (
-            "Actual HTTPS browser failed; inspect fixed-code owned browser log"
-        )
+        stage_match = re.search(rb"MFA_BROWSER_FAILED stage=([a-z-]+)", result.stderr)
+        safe_stage = stage_match.group(1).decode() if stage_match else "unspecified"
+        assert result.returncode == 0, "Actual HTTPS browser failed at " + safe_stage
         report = json.loads((root / "browser-results.json").read_text())
         # Keep only the current safe verdict; raw logs/profiles/credentials are disposable.
         checks = report.get("checks", {})
         version = str(report.get("browser", ""))
+        required = json.loads((root / "required-checks.json").read_text()) if token else REQUIRED
         safe: dict[str, object] = {
             "checks": {
-                name: isinstance(checks, dict) and checks.get(name) is True for name in REQUIRED
+                name: isinstance(checks, dict) and checks.get(name) is True for name in required
             },
             "browser": version if re.fullmatch(r"\d+(\.\d+){1,3}", version) else "unknown",
             "scope": "actual trusted HTTPS browser",
             "run_id": root.parents[2].name,
         }
-        _qa_write(qa_root() / "latest-browser.json", safe)
-        validate_browser_report(report)
+        _qa_write(qa_root() / ("latest-mfa-browser.json" if token else "latest-browser.json"), safe)
+        if token:
+            assert set(checks) == set(required) and all(checks[name] is True for name in required)
+        else:
+            validate_browser_report(report)
         assert trust() == before
         print("Browser evidence: " + str(root / "browser-results.json"))
     finally:
