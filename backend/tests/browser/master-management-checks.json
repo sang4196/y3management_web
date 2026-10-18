@@ -1,0 +1,14 @@
+[
+  "disable",
+  "old_cookie_disabled",
+  "restore",
+  "old_cookie_not_revived",
+  "original_factors_login",
+  "normalized_noop",
+  "rename",
+  "old_cookie_renamed",
+  "old_id_denied",
+  "new_id_existing_uv_login",
+  "keys_preserved",
+  "actor_survives"
+]

@@ -41,7 +41,14 @@ def run_browser(
     root = tmp_path / "https-browser"
     root.mkdir(mode=0o700)
     if token:
-        for name in ("management.cjs", "management-checks.json", "reset.cjs", "reset-checks.json"):
+        for name in (
+            "management.cjs",
+            "management-checks.json",
+            "reset.cjs",
+            "reset-checks.json",
+            "master-management.cjs",
+            "master-management-checks.json",
+        ):
             shutil.copyfile(Path(__file__).parent / "browser" / name, root / name)
 
     def command(args: list[str]) -> None:
@@ -335,6 +342,22 @@ def run_browser(
                     "run_id": safe["run_id"],
                     "scope": "actual trusted HTTPS password reset browser",
                 },
+            )
+            master_management = report.get("masterManagement", {})
+            master_expected = json.loads((root / "master-management-checks.json").read_text())
+            _qa_write(
+                qa_root() / "latest-master-management-browser.json",
+                {
+                    "checks": {
+                        name: master_management.get(name) is True for name in master_expected
+                    },
+                    "browser": safe["browser"],
+                    "run_id": safe["run_id"],
+                    "scope": "actual trusted HTTPS other-Master management browser",
+                },
+            )
+            assert set(master_management) == set(master_expected) and all(
+                master_management[k] is True for k in master_expected
             )
             assert set(reset) == set(reset_expected) and all(
                 reset[k] is True for k in reset_expected

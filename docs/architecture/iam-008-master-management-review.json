@@ -1,0 +1,179 @@
+{
+  "status": "PASS_LIMITED_LOCAL_IAM_OTHER_MASTER_MANAGEMENT",
+  "date": "2026-10-18",
+  "reviewed_at_utc": "2026-10-18T10:28:16.773619+00:00",
+  "scope": "IAM-008 same-Organization other normal MFA Master disable/restore and ACTIVE Login ID change",
+  "base_commit": "a78e2ac3dd7534816d036f3f80cc7069db07f445",
+  "branch": "codex/iam-master-management",
+  "tested_source": {
+    "freeze_revision": 3,
+    "files": 155,
+    "nonignored_backend_files": 103,
+    "manifest_map_digest": "86673dd2edff74058c922ddc668ba74e996664e63386f404dc0cf69f12af1e1e",
+    "manifest_encoding": "SHA256 sorted compact JSON file-to-SHA256 map",
+    "manifest_file_sha256": "608cd2cb6caf34bea9c17ca166a4824aeeb2692c9bbfff78a1d2bc2edb44aba5",
+    "changed15_files_from_base_sha256": {
+      "backend/README.md": "e832ff28633661ca5d32ca32327a6bb95080e1922852c189966cd0afb27bf8f8",
+      "backend/src/y3management/http.py": "833b11248bc03aecc4b65ac56094639c47c757da560bb38360ddd37201fb90de",
+      "backend/src/y3management/iam/infrastructure.py": "b49ef84ac18ce94765cf9e9f0449d6e319b08d618e93156905ee13a1b25df401",
+      "backend/src/y3management/iam/public.py": "3d61df7c375967b32a17d3590e01d326e7c8a091f7314ae8b01ba4234e0d517c",
+      "backend/src/y3management/use_cases.py": "8f1b6f9c526065cdf8a27236243973bfb7ce29a702e2702f3201195dd7b5be18",
+      "backend/tests/browser/master-management-checks.json": "f3a991aff4c472fecc991c11e0c6f5c673d8ca43c38d5b638ed981736cbb8bdd",
+      "backend/tests/browser/master-management.cjs": "10f11ad832dbece248a2099c7cf1759251f8a9465a968cab7ef45d17e35bfe1f",
+      "backend/tests/browser/mfa.cjs": "688111950fb6debbf3fa19d1ac7f44865c9a103f8835654d4879af93e03f1f47",
+      "backend/tests/test_iam_browser.py": "1c2fbec23fb134e8e6df29373af5da0e088df12308c0eb49c39924c05f2fd2c4",
+      "backend/tests/test_iam_master_management.py": "3aa217aefe656f171b156549d4ab6f5de938f527a268cb861cef15905cdbfbff",
+      "backend/tests/test_iam_master_management_guards.py": "c18c7c0c30f2a359421606141a09815bd53bb096cdc2abdcdff0b9449e81da48",
+      "backend/tests/test_iam_master_management_races.py": "47f58067e4ad52304b205d0a80894fb1709af43f48fb0a124a3ba82a8b9780d0",
+      "backend/tests/test_iam_master_privacy.py": "f0daf2b5c23f4fe0290852bfe0a5dc883d8c4bcab1644b1e0c16490db43ee3c9",
+      "docs/architecture/iam-008-master-management-design.md": "e9060f6a70253634e50b279d7975c112c5b82c97e89680e0327d6be005c172a5",
+      "docs/architecture/iam-008-master-management-results.md": "f8f7f72eb9d14969958f5da6cc694afdd2f80376b2889399b953f3c0df00974b"
+    },
+    "all_other_frozen_files_match_base": true,
+    "source_and_protected62_before_after_match": true
+  },
+  "accepted_behavior": [
+    "Other current password_uv Master manages same-Organization existing Master; existing BA-only contracts remain unchanged",
+    "Real disable/restore/ID changes advance target version/epoch and revoke all target sessions and old setup/login/add/reset/recovery authority atomically with required typed audit",
+    "Original password/key rows including tombstones/keyset/grants/Scope/pending generations/stable C2 retained; restore never revives old sessions or authority",
+    "Strict version precedes normalized ID no-op; no-op has no effects; old ID reservations preserved and reusable only by original account",
+    "Final current actor check supplies a distinct surviving Master witness; pending target restoration is not a claim of factor readiness; explicit MFA mode required"
+  ],
+  "verification": {
+    "method": "FRESH_SINGLE_FINAL_SOURCE_CANONICAL_COMMANDS",
+    "fast": {
+      "passed": 96,
+      "exit": 0,
+      "run_id": "auto-33c5104708ce43dfa2107ba035b1024a",
+      "ruff": true,
+      "format_files": 76,
+      "mypy_files": 65,
+      "import_contracts_kept": 7,
+      "import_contracts_broken": 0
+    },
+    "postgres": {
+      "selected": 327,
+      "passed": 327,
+      "exit": 0,
+      "run_id": "auto-38e823985f1a4a90b2200cdde732e5f3",
+      "elapsed_seconds": 1796.618,
+      "new_Master_management": 81,
+      "existing_replayed": 246,
+      "single_whole_execution": true,
+      "node_set_sha256": "0a8bf7e4eef266556d2b8d48e650d89405e9695b83e7b8d1e403d0e802cb04bb",
+      "node_set_encoding": "SHA256 sorted node IDs joined by LF with trailing LF"
+    },
+    "actual_collection": {
+      "total": 423,
+      "fast": 96,
+      "postgres": 327
+    },
+    "failed_skipped_xfailed_xpassed_errors_incomplete": 0,
+    "warnings": {
+      "count": 2,
+      "state": "Existing dependency deprecations retained without suppression"
+    },
+    "native": {
+      "browser": "Chromium151.0.7922.34",
+      "run_id": "auto-38e823985f1a4a90b2200cdde732e5f3",
+      "same_current_whole_execution": true,
+      "checks": {
+        "latest-browser.json": {
+          "checks": 58,
+          "all_exact_true": true,
+          "manifest": "backend/tests/browser/required-checks.json",
+          "manifest_sha256": "a9f0262f0825c64c0e9fbcc72d98d63895b0906c4da946fc6b217b675454d002"
+        },
+        "latest-mfa-browser.json": {
+          "checks": 20,
+          "all_exact_true": true,
+          "manifest": "backend/tests/browser/mfa-checks.json",
+          "manifest_sha256": "acb9bffee97507b22c87ba6ef07c13f33a780cfd6ef6deabe36e6ca40638c7b6"
+        },
+        "latest-management-browser.json": {
+          "checks": 15,
+          "all_exact_true": true,
+          "manifest": "backend/tests/browser/management-checks.json",
+          "manifest_sha256": "9f31e5570c956985c3e9603069bdf9155afcdd377e7808944fe363e86350ab02"
+        },
+        "latest-reset-browser.json": {
+          "checks": 11,
+          "all_exact_true": true,
+          "manifest": "backend/tests/browser/reset-checks.json",
+          "manifest_sha256": "3cbcfaa4fe180e4e05cc7ba8a4aebb0886ee9bfa290595cabd9d5af990cf96c2"
+        },
+        "latest-master-management-browser.json": {
+          "checks": 12,
+          "all_exact_true": true,
+          "manifest": "backend/tests/browser/master-management-checks.json",
+          "manifest_sha256": "f3a991aff4c472fecc991c11e0c6f5c673d8ca43c38d5b638ed981736cbb8bdd"
+        }
+      },
+      "total_boolean_checks": 116,
+      "pytest_nodes_within_postgres327": 2,
+      "TLS_chain_hostname_validated": true,
+      "certificate_bypass": false,
+      "chromium_sandbox": true,
+      "global_trust_before_after_equal": true,
+      "physical_mobile_all_platform_acceptance": false
+    },
+    "previous_segmented_or_developer_targeted_evidence_reused_as_current_whole": false,
+    "root_runtime_tests_executed": false,
+    "independent_result_sha256": "54ba4bebc532c99fb16134ae2a2974ea61f38df6334afe713ab93595c80540ef",
+    "independent_source_evidence_sha256": "367709cedffd404eed6f6cfeb6cdfcde1597d46946be41e37e34762fbd72d599"
+  },
+  "reviewed_findings": [
+    {
+      "id": "MM-PRIV-001",
+      "resolution": "SQL-only comparison digests and actual helper error-path unbound canary; fast privacy2 passed"
+    },
+    {
+      "id": "MM-BROWSER-RELOGIN-001",
+      "resolution": "Actual HTML relogin retains and sends revoked cookie; only UV replaces AUTH; cumulative password-stage assertion and copied-old-cookie401 retained"
+    },
+    {
+      "id": "MM-TEST-LATELOGIN-001",
+      "resolution": "Two new login race barriers follow the real server verifier; management commits before release; final current-authority401 confirmed in whole327"
+    }
+  ],
+  "unresolved_findings": [],
+  "development_history": "Initial fixture/hash-import failures and pre-verifier79/two-case supersession are development history. Final source reran every selected test; no partial result counted as the whole acceptance.",
+  "preserved": {
+    "migrations0001_to0007": true,
+    "dependencies_lock": true,
+    "Product_OPEN": {
+      "OPEN": 22,
+      "CLOSED": 8
+    },
+    "Product_decisions": {
+      "OPEN": 1,
+      "CLOSED": 26
+    },
+    "ADR_statuses_full_module_proposals_AGENTS_prior_acceptance": true
+  },
+  "post_runtime_document_only_update": {
+    "paths": [
+      "docs/architecture/README.md",
+      "docs/architecture/validation-plan.md",
+      "docs/architecture/iam-008-master-management-results.md",
+      "docs/architecture/iam-008-master-management-review.json"
+    ],
+    "application_tests_browser_tools_backend_docs_migrations_dependencies_unchanged_since_execution": true,
+    "runtime_rerun_for_prose_only_change": false
+  },
+  "cleanup": {
+    "independent_automatic_roots": 4,
+    "all_owned_removed": true,
+    "unreconciled": [],
+    "owned_process_schema_profile_NSS_TLS_and_raw_logs_handled_by_existing_fixtures": true,
+    "shared_Compose_DB_volume_corpus_global_locks_preserved": true,
+    "active_AB5_decision_review_notes_retained": "Pending human choices only; completed runtime materials need not be archived"
+  },
+  "remaining_gates": [
+    "AB5 emergency recovery target state, revocation scope and approval confirmation choices; no implementation yet",
+    "Self management/promotion/demotion/composite roles and Workforce/other business modules outside this increment",
+    "Operational identity, delivery, records and production acceptance",
+    "Physical authenticators/mobile/all supported browsers and responsive UI acceptance"
+  ],
+  "commit_flow": "Dedicated committer final diff/security/authorization review then detailed Korean commit and normal push to this codex branch only; no main merge/force/deploy"
+}

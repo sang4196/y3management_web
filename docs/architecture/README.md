@@ -1,5 +1,22 @@
 # Architecture 및 현재 개발 단계
 
+2026-10-18 최신 인수: **IAM-008 다른 Master 차단·복구·Login ID 변경의 제한된 로컬 개발 인수 PASS**.
+현재 정상 MFA Master가 같은 Organization의 다른 Master를 관리한다. 자기 대상은 이번 증분에서 제외하며,
+원래 암호·Passkey·관리 Scope·실패 제한을 보존하고 실제 변경 시 대상의 기존 로그인과 대기 인증 증명을 철회한다.
+[계약](iam-008-master-management-design.md), [실행 결과](iam-008-master-management-results.md),
+[설계자 판정](iam-008-master-management-review.json)을 따른다.
+
+동결155개 소스로 독립 fast **96개**와 필수 PostgreSQL **전체327개**를 새로 실행해 모두 통과했다.
+이번 PG는 신규81개와 기존246개를 포함한 **단일 전체 실행**이며, 이전 증분의 분할 검증을 재사용하지 않았다.
+같은 실행의 신뢰 HTTPS58·native MFA20·관리15·reset11·새 Master 관리12항목이 모두 true였다.
+검토에서 발견한 비밀 포함 가능 테스트 locals, 철회 cookie 재로그인, 서명 검증 이후 경합의 검증 공백을
+소스 동결 전에 보완하고 이번 전체 검사로 확인했다. 소스/보호62개·HEAD/index 일치와 자동 실행4개 정리를 대조했다.
+새 migration·의존성 변경 없이 기존0001–0007과 Product/ADR 상태를 유지했다.
+
+전담 변경 검토·한글 커밋·일반 push 절차를 따른다. 다음 AB5 비상 복구의 대상 상태·철회 범위·승인 확인 방식은
+사용자 결정 대기이며 구현하지 않았다. 실물/모바일/지원 브라우저 전체·운영 본인 확인/전달/기록·production과
+복합 역할/Workforce·PT·정산은 이번 인수 범위가 아니다. 아래 각 증분의 최신/미완료 표현은 당시 이력이다.
+
 2026-10-18 최신 인수: **IAM-006/007 관리자 인증수단 관리·비밀번호 재설정의 제한된 로컬 인수 PASS(분할 검증)**.
 본인 Passkey 목록/마지막 키 보호/삭제 시 모든 로그인 종료(M7), 정상 Master의 추가 Master 발급,
 다른 정상 Master의 관리자 Passkey 복구와 ACTIVE 관리자 비밀번호 재설정(M8 본인 reset 금지)을 구현했다.

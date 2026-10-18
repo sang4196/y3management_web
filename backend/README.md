@@ -375,3 +375,24 @@ POST한다. 시작 즉시 옛 비밀번호와 모든 로그인이 무효화된�
 재발급한다. 본인 관리자 reset과 진행 중인 key recovery 중첩은 지원하지 않는다. C3 본인
 암호 변경은 유지한다. 양쪽 요인을 잃었다면 M2와 reset을 순서대로 완료하며 중간 대상
 로그인은 필요 없다. 운영 비상 복구 AB5는 별도다. [구현 계약](../docs/architecture/iam-007-password-reset-design.md).
+
+### 다른 Master 계정 관리 (IAM-008, 독립 인수 전)
+
+`iam_mode=mfa`에서 현재 정상 Master는 같은 조직의 다른 Master를 관리한다.
+기존 `GET /api/v1/admin/master-accounts/{id}`로 현재 version을 확인한 뒤
+`PATCH .../status`에 `expected_version`, `status:DISABLED`, `POST .../restore`에
+`expected_version`, `PATCH .../login-id`에 `expected_version`, `login_id`를 전달한다.
+차단·ID 변경은 ACTIVE, 복구는 DISABLED에만 허용된다. 자기 대상과 역할 승격/강등은
+이번 범위 밖이다. 기존 Branch Admin 관리 API의 대상 범위는 유지한다.
+
+실제 변경은 대상의 모든 기존 로그인과 대기 setup/login/add/reset/recovery 증명을
+철회한다. 암호·Passkey·grant·C2와 pending 사실은 보존한다. 복구 ACTIVE는 로그인 준비
+완료를 뜻하지 않는다. pending 요인은 기존 목적별 재발급·완료가 필요하다. 동일 ID
+정규화 no-op은 현재 version 검증 뒤 반환하며 세션/source/감사를 변경하지 않는다.
+COMMIT 결과 불명확 시 최소 상태를 다시 조회하고 최신 version으로 명시 요청한다.
+자동 재시도나 옛 세션 복원은 하지 않는다.
+
+[계약](../docs/architecture/iam-008-master-management-design.md)과
+[개발 검증 결과](../docs/architecture/iam-008-master-management-results.md)를 참고한다.
+새 migration/의존성은 없다. native 검증은 기존 58/20/15/11 manifest를 유지하며
+`tests/browser/master-management-checks.json`의 12개 항목을 별도로 검사한다.

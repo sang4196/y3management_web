@@ -439,6 +439,33 @@ def attach(app: FastAPI, settings: Settings) -> None:
     def get_master(request: Request, ident: UUID) -> dict[str, object]:
         return account_json(service(request).get_master(read(request), ident))
 
+    @router.patch("/admin/master-accounts/{ident}/status")
+    def disable_master(request: Request, ident: UUID, body: Disable) -> dict[str, object]:
+        auth, nonce = write(request)
+        return account_json(
+            service(request).manage_master(
+                auth, nonce, ident, body.expected_version, "account_disable"
+            )
+        )
+
+    @router.post("/admin/master-accounts/{ident}/restore")
+    def restore_master(request: Request, ident: UUID, body: Version) -> dict[str, object]:
+        auth, nonce = write(request)
+        return account_json(
+            service(request).manage_master(
+                auth, nonce, ident, body.expected_version, "account_restore"
+            )
+        )
+
+    @router.patch("/admin/master-accounts/{ident}/login-id")
+    def rename_master(request: Request, ident: UUID, body: LoginIDChange) -> dict[str, object]:
+        auth, nonce = write(request)
+        return account_json(
+            service(request).manage_master(
+                auth, nonce, ident, body.expected_version, "login_id_change", body.login_id
+            )
+        )
+
     @router.post("/admin/master-accounts/{ident}/activation", status_code=201)
     def reissue_master(request: Request, ident: UUID, body: Version) -> dict[str, object]:
         auth, nonce = write(request)

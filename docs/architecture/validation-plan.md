@@ -1,5 +1,15 @@
 # 후속 검증 계획
 
+2026-10-18 IAM-008 실제 인수 범위: [실행 결과](iam-008-master-management-results.md)와
+[설계자 판정](iam-008-master-management-review.json)의 독립 fast96 및 필수PG **전체327 PASS**를 확인했다.
+동일 동결155개 소스에서 신규 Master 관리81개와 기존 회귀246개를 한 번에 실행했으며
+실패/skip/xfail/xpass/error/incomplete는0이다. 이전 증분의 분할 근거를 재사용하지 않았다.
+같은 PG 실행의 신뢰 HTTPS58/MFA20/관리15/reset11/새 Master12항목은 정확한 manifest 집합으로 모두 true였다.
+기존 migration0001–7·의존성·Product/ADR/기존 인수 기록 보존, 보호62개와 HEAD/index,
+자동 실행4개 정리를 대조했다. root는 실행 자료와 소스를 검토했으며 별도 runtime 재실행을 주장하지 않는다.
+이번 증분은 다른 정상 Master 차단/복구·ACTIVE Login ID 변경에 한정하며 AB5/운영/실물·전체 브라우저/
+다른 업무와 아래 전체 PROPOSED 계획의 인수를 뜻하지 않는다. 이후 문서 수치/미완료 표현은 해당 시점 이력이다.
+
 2026-10-18 IAM-006/007 실제 인수 범위: [결과](iam-007-password-reset-results.md)와
 [설계자 판정](iam-007-password-reset-review.json)의 최종 fast91 및 PG246 항목 분할 성공 근거를 확인했다.
 후보3 필수PG245 전체는 **244 passed/기존 무작위 키 선택 테스트1 failed/exit1**이었다.

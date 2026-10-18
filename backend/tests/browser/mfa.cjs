@@ -42,9 +42,12 @@ let stage='start';
  return {id:c.id,rawId:enc(c.rawId),type:c.type,response:{clientDataJSON:enc(c.response.clientDataJSON),
  authenticatorData:enc(c.response.authenticatorData),signature:enc(c.response.signature),
  ...(c.response.userHandle?{userHandle:enc(c.response.userHandle)}:{})}};},{options,wanted,weak});}
- async function login(who,password,id,wanted){const r=await api(who.p,'/auth/login',{login_id:id,password});
+ async function login(who,password,id,wanted){
+ const before=(await who.context.cookies()).find(c=>c.name==='__Host-y3-auth')?.value;
+ const r=await api(who.p,'/auth/login',{login_id:id,password});
  if(r.status!==200)throw Error();
- checks.password_stage_no_auth=(checks.password_stage_no_auth??true)&&!(await who.context.cookies()).some(c=>c.name==='__Host-y3-auth')&&
+ const after=(await who.context.cookies()).find(c=>c.name==='__Host-y3-auth')?.value;
+ checks.password_stage_no_auth=(checks.password_stage_no_auth??true)&&before===after&&
  (await api(who.p,'/auth/me')).status===401;
  const credential=await assertion(who.p,r.body.publicKey,wanted);
  const result=await api(who.p,'/auth/login/passkey/verify',{credential},r.body.csrf_token);
@@ -88,14 +91,16 @@ let stage='start';
  await api(branch.p,'/auth/logout',{});
  checks.logout_reuse_denied=(await branch.context.request.get(cfg.origin+'/api/v1/auth/me',
  {headers:{Cookie:'__Host-y3-auth='+saved.value}})).status()===401;
- let reset;stage='management';const management=await require(path.join(R,'management.cjs'))({page,api,login,master,branch,branchKey,second,cfg,setStage:s=>{stage=s;},onReset:async actors=>{reset=await require(path.join(R,'reset.cjs'))({...actors,api,login,cfg,setStage:s=>{stage=s;}});}});
+ let reset,masterManagement;stage='management';const management=await require(path.join(R,'management.cjs'))({page,api,login,master,branch,branchKey,second,cfg,setStage:s=>{stage=s;},onReset:async actors=>{reset=await require(path.join(R,'reset.cjs'))({...actors,api,login,cfg,setStage:s=>{stage=s;}});masterManagement=await require(path.join(R,'master-management.cjs'))({...actors,api,login,cfg,setStage:s=>{stage=s;}});}});
  stage='uv-negative';const options=await api(branch.p,'/auth/login',
  {login_id:'browser.branch',password:cfg.branchPassword});
  await branch.cdp.send('WebAuthn.setUserVerified',{authenticatorId:branch.authenticatorId,isUserVerified:false});
  const weak=await assertion(branch.p,options.body.publicKey,undefined,true);
  checks.uv_false_denied=(await api(branch.p,'/auth/login/passkey/verify',{credential:weak},
  options.body.csrf_token)).status===401;
- fs.writeFileSync(path.join(R,'browser-results.json'),JSON.stringify({checks,management,reset,browser:browser.version()}));
+ fs.writeFileSync(path.join(R,'browser-results.json'),JSON.stringify({checks,management,reset,masterManagement,browser:browser.version()}));
+ const mm=JSON.parse(fs.readFileSync(path.join(R,'master-management-checks.json')));
+ if(Object.keys(masterManagement).length!==mm.length||mm.some(k=>masterManagement[k]!==true))throw Error();
  const rr=JSON.parse(fs.readFileSync(path.join(R,'reset-checks.json')));
  if(Object.keys(reset).length!==rr.length||rr.some(k=>reset[k]!==true))throw Error();
  const mr=JSON.parse(fs.readFileSync(path.join(R,'management-checks.json')));

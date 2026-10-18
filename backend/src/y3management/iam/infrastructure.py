@@ -650,6 +650,33 @@ class IAM:
         for ident in list(rows):
             self.s.execute(text("DELETE FROM iam_sessions WHERE id=:i"), {"i": ident})
 
+    def master_management(self, caller: Caller, ident: UUID) -> Account:
+        account = self.master_onboarding(caller, ident)
+        if caller.account_id == ident:
+            raise Rejected(404, "not_found")
+        return account
+
+    def revoke_management_sources(self, ident: UUID) -> None:
+        # Installation, Accounts and all affected Sessions are already locked.
+        for table in (
+            "iam_credentials",
+            "iam_mfa_contexts",
+            "iam_recovery_credentials",
+            "iam_reset_credentials",
+        ):
+            self.s.execute(
+                text(f"SELECT id FROM {table} WHERE account_id=:a ORDER BY id FOR UPDATE"),
+                {"a": ident},
+            ).all()
+            extra = ",password_hash=NULL" if table == "iam_mfa_contexts" else ""
+            self.s.execute(
+                text(f"UPDATE {table} SET consumed=true{extra} WHERE account_id=:a"),
+                {"a": ident},
+            )
+        self.s.execute(
+            text("UPDATE iam_sessions SET revoked=true WHERE account_id=:a"), {"a": ident}
+        )
+
     def master_onboarding(self, caller: Caller, ident: UUID) -> Account:
         self.require_master(caller)
         account = self._account(ident)

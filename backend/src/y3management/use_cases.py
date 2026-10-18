@@ -4,6 +4,7 @@ import logging
 import re
 from collections.abc import Callable
 from dataclasses import asdict, replace
+from typing import Literal
 from uuid import UUID
 
 from y3management.audit.public import Event
@@ -368,6 +369,40 @@ class Service:
                 final = w.iam.authenticate(auth, management=True, target=ident, touch=True)
                 w.iam.csrf(final, nonce)
                 w.audit.append(event("login_id_change", final.caller, ident, before, after))
+            return after
+
+    def manage_master(
+        self,
+        auth: str | None,
+        nonce: str | None,
+        ident: UUID,
+        version: int,
+        action: Literal["account_disable", "account_restore", "login_id_change"],
+        identifier: str | None = None,
+    ) -> Account:
+        self.require_mfa()
+        if action == "login_id_change":
+            identifier = normalize_login(identifier or "")
+        with self.uow.open() as w:
+            actor = w.iam.authenticate(auth, management=True, target=ident, touch=False)
+            w.iam.csrf(actor, nonce)
+            before = w.iam.master_management(actor.caller, ident)
+            if before.version != version:
+                raise Rejected(409, "conflict")
+            if action == "login_id_change":
+                assert identifier is not None
+                after = w.iam.change_login_id(before, identifier)
+            elif action == "account_disable":
+                after = w.iam.change(before, None, True)
+            else:
+                w.iam.lock_credentials(ident)
+                after = w.iam.restore(before)
+            if after.version != before.version:
+                w.iam.revoke_management_sources(ident)
+                final = w.iam.authenticate(auth, management=True, target=ident, touch=True)
+                w.iam.csrf(final, nonce)
+                w.iam.master_management(final.caller, ident)
+                w.audit.append(event(action, final.caller, ident, before, after))
             return after
 
     def change_password(
