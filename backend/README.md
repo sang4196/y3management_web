@@ -339,3 +339,39 @@ MFA 모드에서 새 설치 CLI에는 `--enrollment-file /절대경로/개인폴
 이고 실제 HTTPS 검사는 `tests/test_iam_browser.py::test_actual_https_mfa_browser`다.
 기존 pytest의 소유 run/schema/process 정리 절차를 그대로 사용한다.
 자세한 계약은 [IAM-005 MFA-A](../docs/architecture/iam-005-mfa-a-design.md)에 있다.
+
+### IAM-006 MFA 관리·정상 Master 복구 개발 계약
+
+`iam_mode=mfa`에서 본인 `/api/v1/auth/passkeys` 목록·삭제, 같은 조직 정상 Master의
+`/api/v1/admin/master-accounts` 신규 발급·조회·설정 재발급, 다른 관리자의
+`/api/v1/admin/accounts/{id}/passkey-recovery` 복구 시작·조회·재발급을 제공한다.
+삭제는 다른 유효 키가 남을 때만 허용하며 현재 포함 모든 로그인을 종료한다.
+`/passkeys`는 이 효과를 삭제 전에 설명하는 로컬 검수 화면이다.
+복구 링크는 `/recover#token=...`에서 즉시 fragment를 제거하고 새 UV 키만 등록한다.
+비밀번호는 보존되며 완료 후 기존 비밀번호와 새 키로 다시 로그인한다.
+링크 원본을 로그·이슈·공유 결과에 복사하지 않는다. ACK 불명확 시 최소 상태 확인 뒤
+명시적으로 재발급하며 옛 키/세션을 복원하지 않는다.
+
+새 forward revision은 `0006_iam_mfa_management`다. 이전0001–0005를 수정하지 않으며
+철회·복구·감사 사실이 남은 downgrade는 거부한다. 만료된 setup/recovery source의
+GC는 잠긴 하위 context가 남으면 건너뛰고 다음 실행에서 정리한다. 임의 운영 보존기간을
+정한 것이 아니다. 기존 QA 고유 실행·자기 자원 정리 절차를 그대로 사용한다.
+
+실제 개발 검사와 독립 전체 인수는 [IAM-006 결과](../docs/architecture/iam-006-mfa-management-results.md),
+최소 API/인가·원자성·실패 경계는 [IAM-006 설계](../docs/architecture/iam-006-mfa-management-design.md)를
+확인한다. 정상 Master 기반 복구는 모든 Master 분실의 AB5나 production 운영 허가가 아니다.
+
+
+### 관리자 비밀번호 재설정 (IAM-007, 결합 후보 인수 대기)
+
+현재 정상 MFA Master는 같은 조직의 다른 ACTIVE Master/Branch Admin에 대해
+`GET /api/v1/admin/accounts/{id}/password-reset`의 version/generation을 확인하고,
+같은 경로에 `expected_account_version`, `expected_generation`, `identity_confirmed:true`로
+POST한다. 시작 즉시 옛 비밀번호와 모든 로그인이 무효화된다. 반환 링크는 본인 확인 후
+개인 전달하며 일반 로그·이슈에 복사하지 않는다. `/reset#token=...`에서 대상이 직접 새 암호를
+설정한 다음 기존 Passkey와 새 암호로 로그인한다. 자동 로그인은 없다.
+
+만료/전달 실패는 pending 상태를 조회한 뒤 `/reissue`에 현재 version/generation으로 명시
+재발급한다. 본인 관리자 reset과 진행 중인 key recovery 중첩은 지원하지 않는다. C3 본인
+암호 변경은 유지한다. 양쪽 요인을 잃었다면 M2와 reset을 순서대로 완료하며 중간 대상
+로그인은 필요 없다. 운영 비상 복구 AB5는 별도다. [구현 계약](../docs/architecture/iam-007-password-reset-design.md).

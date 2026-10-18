@@ -25,6 +25,16 @@ class Event:
     branch_name: str | None = None
     before_login_id: str | None = None
     after_login_id: str | None = None
+    key_id: UUID | None = None
+    before_key_set_version: int | None = None
+    after_key_set_version: int | None = None
+    before_recovery_generation: int | None = None
+    after_recovery_generation: int | None = None
+
+    before_reset_generation: int | None = None
+    after_reset_generation: int | None = None
+    before_password_ready: bool | None = None
+    after_password_ready: bool | None = None
 
 
 class AuditPort(Protocol):

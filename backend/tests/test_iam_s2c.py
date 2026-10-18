@@ -447,6 +447,8 @@ def test_login_id_migration_guards(world: World, guard: str) -> None:
                 {"k": b"k" * 32, "a": world.ident},
             )
             s.commit()
+    with world.db.session() as s:
+        before_revision = s.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
     before = facts(world.db)
     result = migrate("downgrade", "0003_iam_password")
     if guard == "unused":
@@ -457,7 +459,7 @@ def test_login_id_migration_guards(world: World, guard: str) -> None:
     assert facts(world.db) == before
     with world.db.session() as s:
         revision = s.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-    assert revision == "0005_iam_mfa"
+    assert revision == before_revision
 
 
 @pytest.mark.parametrize("competitor", ["disable", "scope", "password", "claim", "rename"])

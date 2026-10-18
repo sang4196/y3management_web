@@ -28,16 +28,39 @@ class Security:
         self.s.execute(text("SELECT id FROM iam_security_control WHERE id=1 FOR UPDATE")).one()
         now = self.now()
         # Consumed/expired transient children only, SKIP LOCKED avoids business lock waits.
-        for table in ("iam_mfa_contexts", "iam_preparations", "iam_credentials"):
+        for table, reference in (
+            ("iam_mfa_contexts", None),
+            ("iam_preparations", None),
+            ("iam_credentials", "source_id"),
+            ("iam_recovery_credentials", "recovery_id"),
+            ("iam_reset_credentials", None),
+        ):
+            children = (
+                f" AND NOT EXISTS (SELECT 1 FROM iam_mfa_contexts c WHERE c.{reference}=t.id)"
+                if reference
+                else ""
+            )
             rows = self.s.execute(
                 text(
-                    f"SELECT id FROM {table} WHERE consumed OR expires_at<=:n "
-                    "ORDER BY id FOR UPDATE SKIP LOCKED"
+                    f"SELECT id FROM {table} t WHERE (consumed OR expires_at<=:n)"
+                    + children
+                    + " ORDER BY id FOR UPDATE OF t SKIP LOCKED"
                 ),
                 {"n": now},
             ).scalars()
             for ident in list(rows):
-                self.s.execute(text("DELETE FROM iam_security_states WHERE id=:id"), {"id": ident})
+                # Source UPDATE lock prevents new FK references. Recheck with a fresh
+                # statement snapshot after the lock, including an insertion that committed
+                # between the candidate snapshot and lock acquisition. Never cascade into
+                # a child skipped above: retain the parent until a subsequent GC pass.
+                remaining = (
+                    f" AND NOT EXISTS (SELECT 1 FROM iam_mfa_contexts c WHERE c.{reference}=:id)"
+                    if reference
+                    else ""
+                )
+                self.s.execute(
+                    text("DELETE FROM iam_security_states WHERE id=:id" + remaining), {"id": ident}
+                )
         self.s.execute(
             text("""DELETE FROM iam_security_states WHERE kind='attempt' AND
            (expires_at<=:n OR id IN (SELECT id FROM iam_attempts WHERE outcome='success'))"""),
@@ -61,10 +84,13 @@ class Security:
         )
         self.s.execute(
             text("""DELETE FROM iam_security_states s
-          WHERE s.kind IN ('preparation','credential','session_slot','mfa')
+          WHERE s.kind IN ('preparation','credential','session_slot','mfa',
+                           'recovery','password_reset')
           AND s.created_at<=:lease_end
           AND NOT EXISTS (SELECT 1 FROM iam_preparations p WHERE p.id=s.id)
           AND NOT EXISTS (SELECT 1 FROM iam_credentials c WHERE c.id=s.id)
+          AND NOT EXISTS (SELECT 1 FROM iam_reset_credentials r WHERE r.id=s.id)
+          AND NOT EXISTS (SELECT 1 FROM iam_recovery_credentials r WHERE r.id=s.id)
           AND NOT EXISTS (SELECT 1 FROM iam_mfa_contexts m WHERE m.id=s.id)
           AND NOT EXISTS (SELECT 1 FROM iam_sessions a WHERE a.id=s.id)"""),
             {"lease_end": now - timedelta(seconds=30)},
@@ -106,6 +132,8 @@ class Security:
             text(
                 "DELETE FROM iam_security_states s WHERE id=:id "
                 "AND NOT EXISTS (SELECT 1 FROM iam_credentials c WHERE c.id=s.id) "
+                "AND NOT EXISTS (SELECT 1 FROM iam_recovery_credentials r WHERE r.id=s.id) "
+                "AND NOT EXISTS (SELECT 1 FROM iam_reset_credentials r WHERE r.id=s.id) "
                 "AND NOT EXISTS (SELECT 1 FROM iam_sessions a WHERE a.id=s.id) "
                 "AND NOT EXISTS (SELECT 1 FROM iam_preparations p WHERE p.id=s.id) "
                 "AND NOT EXISTS (SELECT 1 FROM iam_mfa_contexts m WHERE m.id=s.id)"

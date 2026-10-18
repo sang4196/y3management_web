@@ -171,6 +171,15 @@ def test_mfa_downgrade_preserves_each_fact(
             s.execute(text("DELETE FROM iam_security_states WHERE kind='mfa'"))
             if seed != "audit":
                 s.execute(text("DELETE FROM audit_events WHERE action='passkey_register'"))
+            if seed == "audit":
+                # Isolate the original 0005 action guard, not 0006 metadata preservation.
+                s.execute(
+                    text(
+                        "UPDATE audit_events SET key_id=NULL,before_key_set_version=NULL,"
+                        "after_key_set_version=NULL,before_recovery_generation=NULL,"
+                        "after_recovery_generation=NULL WHERE action='passkey_register'"
+                    )
+                )
             if seed != "key":
                 s.execute(text("DELETE FROM iam_passkeys"))
             s.commit()
@@ -215,7 +224,8 @@ def test_downgrade_waits_for_inflight_mfa_allocation(
                             text(
                                 "SELECT EXISTS(SELECT 1 FROM pg_stat_activity "
                                 "WHERE datname=current_database() AND wait_event_type='Lock' "
-                                "AND query LIKE 'LOCK TABLE iam_accounts%')"
+                                "AND (query LIKE 'LOCK TABLE iam_accounts%' "
+                                "OR query LIKE 'LOCK TABLE iam_security_control%'))"
                             )
                         ).scalar_one()
                     )

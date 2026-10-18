@@ -3,11 +3,22 @@
 import logging
 import re
 from collections.abc import Callable
+from dataclasses import asdict, replace
 from uuid import UUID
 
 from y3management.audit.public import Event
 from y3management.contracts import HashAdmissionRejected, Rejected
-from y3management.iam.public import Account, Caller, Ceremony, Preparation, Reservation, Setup
+from y3management.iam.public import (
+    Account,
+    Caller,
+    Ceremony,
+    KeyList,
+    Preparation,
+    RecoveryState,
+    Reservation,
+    ResetState,
+    Setup,
+)
 from y3management.organization.public import Branch, BranchPage
 from y3management.uow import UnitOfWork
 
@@ -452,6 +463,7 @@ class Service:
         auth: str | None,
         *,
         additional: bool,
+        recovery: bool = False,
     ) -> None:
         self.require_mfa()
         initial = None
@@ -460,13 +472,16 @@ class Service:
                 initial = w.iam.authenticate(auth, touch=False)
         with self.uow.open() as w:
             proof = w.mfa.verify_registration(token, nonce, payload)
+        allowed = {"recovery"} if recovery else ({"add"} if additional else {"install", "setup"})
+        if proof.purpose not in allowed:
+            raise Rejected(401, "invalid_ceremony")
         with self.uow.open() as w:
             current = w.iam.authenticate(auth, management=True) if additional else None
             if current is not None and initial is not None:
                 w.iam.csrf(current, initial.csrf)
                 if current.session_id != initial.session_id:
                     raise Rejected(401, "unauthorized")
-            account = w.mfa.register(token, nonce, proof, current)
+            account, changes = w.mfa.register(token, nonce, proof, current)
             if proof.purpose == "setup":
                 w.audit.append(
                     Event(
@@ -486,14 +501,15 @@ class Service:
                 )
             w.audit.append(
                 Event(
-                    "passkey_register",
+                    "recovery_complete" if recovery else "passkey_register",
                     account.organization_id,
                     current.caller.account_id if current else None,
                     account.id,
                     actor_role="ADMIN" if current else "CREDENTIAL_HOLDER",
-                    actor_scope="SELF" if current else "ONBOARDING",
+                    actor_scope="SELF" if current else ("RECOVERY" if recovery else "ONBOARDING"),
                     after_state=account.state,
                     after_version=account.version,
+                    **asdict(changes),
                 )
             )
 
@@ -599,3 +615,229 @@ class Service:
             if isinstance(error, Rejected) and error.status == 401:
                 self.fail_mfa(reservation)
             raise
+
+    def passkeys(self, auth: str | None) -> KeyList:
+        self.require_mfa()
+        with self.uow.open() as w:
+            current = w.iam.authenticate(auth, management=True)
+            return w.mfa.keys(current.caller.account_id)
+
+    def delete_passkey(
+        self, auth: str | None, nonce: str | None, key_id: UUID, version: int
+    ) -> None:
+        self.require_mfa()
+        with self.uow.open() as w:
+            initial = w.iam.authenticate(auth, touch=False)
+            w.iam.csrf(initial, nonce)
+        with self.uow.open() as w:
+            current = w.iam.authenticate(auth, management=True, target=initial.caller.account_id)
+            w.iam.csrf(current, nonce)
+            before, after, changes = w.mfa.delete_key(current.caller.account_id, key_id, version)
+            w.audit.append(
+                replace(
+                    event("passkey_delete", current.caller, after.id, before, after),
+                    **asdict(changes),
+                )
+            )
+
+    def issue_master(
+        self, auth: str | None, nonce: str | None, identifier: str
+    ) -> tuple[Account, Setup]:
+        self.require_mfa()
+        identifier = normalize_login(identifier)
+        with self.uow.open() as w:
+            initial = w.iam.authenticate(auth, touch=False)
+            w.iam.csrf(initial, nonce)
+            w.iam.require_master(initial.caller)
+        with self.uow.open() as w:
+            slot = w.security.allocate("credential")
+        try:
+            with self.uow.open() as w:
+                current = w.iam.authenticate(auth, management=True)
+                w.iam.csrf(current, nonce)
+                account = w.iam.issue_master(current.caller, identifier)
+                account, setup = w.iam.setup(account, slot, reissue=False)
+                w.audit.append(event("account_issue", current.caller, account.id, after=account))
+                return account, setup
+        except Exception:
+            self._release_login_slot(slot)
+            raise
+
+    def get_master(self, auth: str | None, ident: UUID) -> Account:
+        self.require_mfa()
+        with self.uow.open() as w:
+            current = w.iam.authenticate(auth)
+            return w.iam.master_onboarding(current.caller, ident)
+
+    def lookup_master(self, auth: str | None, nonce: str | None, identifier: str) -> Account:
+        self.require_mfa()
+        with self.uow.open() as w:
+            current = w.iam.authenticate(auth)
+            w.iam.csrf(current, nonce)
+            return w.iam.lookup_master(current.caller, normalize_login(identifier))
+
+    def reissue_master(
+        self, auth: str | None, nonce: str | None, ident: UUID, version: int
+    ) -> tuple[Account, Setup]:
+        self.require_mfa()
+        with self.uow.open() as w:
+            initial = w.iam.authenticate(auth, touch=False)
+            w.iam.csrf(initial, nonce)
+            w.iam.master_onboarding(initial.caller, ident)
+        with self.uow.open() as w:
+            slot = w.security.allocate("credential")
+        try:
+            with self.uow.open() as w:
+                current = w.iam.authenticate(auth, management=True, target=ident)
+                w.iam.csrf(current, nonce)
+                before = w.iam.master_onboarding(current.caller, ident)
+                if before.version != version:
+                    raise Rejected(409, "conflict")
+                after, setup = w.iam.setup(before, slot, reissue=True)
+                w.audit.append(event("setup_reissue", current.caller, ident, before, after))
+                return after, setup
+        except Exception:
+            self._release_login_slot(slot)
+            raise
+
+    def recovery_state(self, auth: str | None, ident: UUID) -> RecoveryState:
+        self.require_mfa()
+        with self.uow.open() as w:
+            current = w.iam.authenticate(auth, management=True, target=ident)
+            return w.mfa.recovery_state(current.caller, ident)
+
+    def recover(
+        self,
+        auth: str | None,
+        nonce: str | None,
+        ident: UUID,
+        version: int,
+        key_version: int,
+        identity_confirmed: bool,
+        *,
+        reissue: bool,
+    ) -> Setup:
+        self.require_mfa()
+        if identity_confirmed is not True:
+            raise Rejected(422, "identity_confirmation_required")
+        with self.uow.open() as w:
+            initial = w.iam.authenticate(auth, management=True, target=ident, touch=False)
+            w.iam.csrf(initial, nonce)
+            w.mfa.recovery_state(initial.caller, ident)
+        with self.uow.open() as w:
+            slot = w.security.allocate("recovery")
+        try:
+            with self.uow.open() as w:
+                current = w.iam.authenticate(auth, management=True, target=ident)
+                w.iam.csrf(current, nonce)
+                before, after, result, changes = w.mfa.start_recovery(
+                    current.caller, ident, version, key_version, slot, reissue=reissue
+                )
+                w.audit.append(
+                    replace(
+                        event(
+                            "recovery_reissue" if reissue else "recovery_start",
+                            current.caller,
+                            ident,
+                            before,
+                            after,
+                        ),
+                        **asdict(changes),
+                    )
+                )
+                return result
+        except Exception:
+            self._release_login_slot(slot)
+            raise
+
+    def begin_recovery(self, token: str, preauth: str | None, nonce: str | None) -> Ceremony:
+        self.require_mfa()
+        with self.uow.open() as w:
+            w.iam.preparation(preauth, nonce)
+        with self.uow.open() as w:
+            slot = w.security.allocate("mfa")
+        try:
+            with self.uow.open() as w:
+                result = w.mfa.begin_recovery(token, slot)
+                w.iam.preparation(preauth, nonce, consume=True)
+                return result
+        except Exception:
+            self._release_login_slot(slot)
+            raise
+
+    def reset_state(self, auth: str | None, ident: UUID) -> ResetState:
+        self.require_mfa()
+        with self.uow.open() as w:
+            current = w.iam.authenticate(auth, management=True, target=ident)
+            return w.mfa.reset_state(current.caller, ident)
+
+    def reset_password(
+        self,
+        auth: str | None,
+        nonce: str | None,
+        ident: UUID,
+        version: int,
+        generation: int,
+        identity_confirmed: bool,
+        *,
+        reissue: bool,
+    ) -> Setup:
+        self.require_mfa()
+        if identity_confirmed is not True:
+            raise Rejected(422, "identity_confirmation_required")
+        with self.uow.open() as w:
+            initial = w.iam.authenticate(auth, management=True, target=ident, touch=False)
+            w.iam.csrf(initial, nonce)
+            w.mfa.reset_state(initial.caller, ident)
+        with self.uow.open() as w:
+            slot = w.security.allocate("password_reset")
+        try:
+            with self.uow.open() as w:
+                current = w.iam.authenticate(auth, management=True, target=ident)
+                w.iam.csrf(current, nonce)
+                before, after, result, changes = w.mfa.start_reset(
+                    current.caller, ident, version, generation, slot, reissue=reissue
+                )
+                w.audit.append(
+                    replace(
+                        event(
+                            "password_reset_reissue" if reissue else "password_reset_start",
+                            current.caller,
+                            ident,
+                            before,
+                            after,
+                        ),
+                        **asdict(changes),
+                    )
+                )
+                return result
+        except Exception:
+            self._release_login_slot(slot)
+            raise
+
+    def complete_reset(
+        self, token: str, password: str, preauth: str | None, nonce: str | None
+    ) -> None:
+        self.require_mfa()
+        with self.uow.open() as w:
+            w.iam.preparation(preauth, nonce)
+        with self.uow.open() as w:
+            proof = w.mfa.prepare_reset(token, password)
+            before, after, changes = w.mfa.complete_reset(proof)
+            w.iam.preparation(preauth, nonce, consume=True)
+            w.audit.append(
+                Event(
+                    "password_reset_complete",
+                    after.organization_id,
+                    after.id,
+                    after.id,
+                    before_state=before.state,
+                    after_state=after.state,
+                    before_branch=before.branch_id,
+                    after_branch=after.branch_id,
+                    actor_scope="PASSWORD_RESET",
+                    before_version=before.version,
+                    after_version=after.version,
+                    **asdict(changes),
+                )
+            )

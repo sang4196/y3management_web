@@ -40,6 +40,9 @@ def run_browser(
 ) -> None:
     root = tmp_path / "https-browser"
     root.mkdir(mode=0o700)
+    if token:
+        for name in ("management.cjs", "management-checks.json", "reset.cjs", "reset-checks.json"):
+            shutil.copyfile(Path(__file__).parent / "browser" / name, root / name)
 
     def command(args: list[str]) -> None:
         result = subprocess.run(args, capture_output=True, timeout=30)
@@ -311,6 +314,32 @@ def run_browser(
         }
         _qa_write(qa_root() / ("latest-mfa-browser.json" if token else "latest-browser.json"), safe)
         if token:
+            management = report.get("management", {})
+            expected = json.loads((root / "management-checks.json").read_text())
+            _qa_write(
+                qa_root() / "latest-management-browser.json",
+                {
+                    "checks": {name: management.get(name) is True for name in expected},
+                    "browser": safe["browser"],
+                    "run_id": safe["run_id"],
+                    "scope": "actual trusted HTTPS management browser",
+                },
+            )
+            reset = report.get("reset", {})
+            reset_expected = json.loads((root / "reset-checks.json").read_text())
+            _qa_write(
+                qa_root() / "latest-reset-browser.json",
+                {
+                    "checks": {name: reset.get(name) is True for name in reset_expected},
+                    "browser": safe["browser"],
+                    "run_id": safe["run_id"],
+                    "scope": "actual trusted HTTPS password reset browser",
+                },
+            )
+            assert set(reset) == set(reset_expected) and all(
+                reset[k] is True for k in reset_expected
+            )
+            assert set(management) == set(expected) and all(management[k] is True for k in expected)
             assert set(checks) == set(required) and all(checks[name] is True for name in required)
         else:
             validate_browser_report(report)

@@ -143,7 +143,7 @@ def iam(postgres_database: Database) -> Iterator[tuple[Settings, Database, str]]
 def csrf(client: TestClient) -> str:
     response = client.get("/api/v1/auth/csrf", headers={"X-Y3-Client": "test", "Origin": ORIGIN})
     assert response.status_code == 200
-    return str(response.json()["csrf_token"])
+    return SyntheticSecret(response.json()["csrf_token"])
 
 
 def login(client: TestClient, identifier: str, password: str) -> str:

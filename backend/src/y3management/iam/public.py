@@ -92,6 +92,9 @@ class IAMPort(Protocol):
     def scoped_account(self, caller: Caller, ident: UUID) -> Account: ...
     def lookup(self, caller: Caller, identifier: str) -> Account: ...
     def issue(self, caller: Caller, identifier: str, branch: UUID) -> Account: ...
+    def master_onboarding(self, caller: Caller, ident: UUID) -> Account: ...
+    def lookup_master(self, caller: Caller, identifier: str) -> Account: ...
+    def issue_master(self, caller: Caller, identifier: str) -> Account: ...
     def setup(
         self, account: Account, state_id: UUID, *, reissue: bool
     ) -> tuple[Account, Setup]: ...
@@ -140,7 +143,95 @@ class RegistrationProof:
     purpose: str
 
 
+@dataclass(frozen=True)
+class KeyChange:
+    key_id: UUID | None
+    before_key_set_version: int
+    after_key_set_version: int
+    before_recovery_generation: int
+    after_recovery_generation: int
+
+
+@dataclass(frozen=True)
+class RecoveryState:
+    account_id: UUID
+    account_version: int
+    key_set_version: int
+    recovery_pending: bool
+    generation: int
+    expires_at: datetime | None
+
+
+@dataclass(frozen=True)
+class Passkey:
+    key_id: UUID
+    created_at: datetime
+    device_type: str
+    backed_up: bool
+
+
+@dataclass(frozen=True)
+class KeyList:
+    items: tuple[Passkey, ...]
+    key_set_version: int
+
+
+@dataclass(frozen=True)
+class ResetState:
+    account_id: UUID
+    account_version: int
+    password_reset_pending: bool
+    generation: int
+    expires_at: datetime | None
+
+
+@dataclass(frozen=True)
+class ResetChange:
+    before_reset_generation: int
+    after_reset_generation: int
+    before_password_ready: bool
+    after_password_ready: bool
+
+
+@dataclass(frozen=True, repr=False)
+class ResetProof:
+    source_id: UUID
+    account_id: UUID
+    security_version: int
+    generation: int
+
+
 class MFAPort(Protocol):
+    def reset_state(self, caller: Caller, ident: UUID) -> ResetState: ...
+    def start_reset(
+        self,
+        caller: Caller,
+        ident: UUID,
+        version: int,
+        generation: int,
+        slot: UUID,
+        *,
+        reissue: bool,
+    ) -> tuple[Account, Account, Setup, ResetChange]: ...
+    def prepare_reset(self, token: str, password: str) -> ResetProof: ...
+    def complete_reset(self, proof: ResetProof) -> tuple[Account, Account, ResetChange]: ...
+
+    def recovery_state(self, caller: Caller, ident: UUID) -> RecoveryState: ...
+    def start_recovery(
+        self,
+        caller: Caller,
+        ident: UUID,
+        version: int,
+        key_version: int,
+        slot: UUID,
+        *,
+        reissue: bool,
+    ) -> tuple[Account, Account, Setup, KeyChange]: ...
+    def begin_recovery(self, token: str, slot: UUID) -> Ceremony: ...
+    def keys(self, ident: UUID) -> KeyList: ...
+    def delete_key(
+        self, ident: UUID, key_id: UUID, version: int
+    ) -> tuple[Account, Account, KeyChange]: ...
     def failure_subject(self, reservation: Reservation) -> Account | None: ...
     def installation(self, account: Account, state_id: UUID) -> Setup: ...
     def begin_install(self, token: str) -> Ceremony: ...
@@ -159,7 +250,7 @@ class MFAPort(Protocol):
         nonce: str | None,
         proof: RegistrationProof,
         authentication: Authentication | None,
-    ) -> Account: ...
+    ) -> tuple[Account, KeyChange]: ...
     def authenticate(
         self, token: str | None, nonce: str | None, payload: str, sid: UUID
     ) -> tuple[str, Account]: ...

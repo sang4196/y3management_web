@@ -103,6 +103,30 @@ class Version(Input):
     expected_version: int = Field(gt=0, strict=True)
 
 
+class KeyVersion(Input):
+    expected_key_set_version: int = Field(ge=0, strict=True)
+
+
+class RecoveryRequest(KeyVersion):
+    expected_account_version: int = Field(gt=0, strict=True)
+    identity_confirmed: bool = Field(strict=True)
+
+
+class ResetRequest(Input):
+    expected_account_version: int = Field(gt=0, strict=True)
+    expected_generation: int = Field(ge=0, strict=True)
+    identity_confirmed: bool = Field(strict=True)
+
+
+class ResetComplete(Input):
+    reset_token: str = Field(min_length=40, max_length=128, repr=False)
+    new_password: str = Field(min_length=1, max_length=512, repr=False)
+
+
+class RecoveryToken(Input):
+    recovery_token: str = Field(min_length=40, max_length=128, repr=False)
+
+
 class Access(Version):
     branch_id: UUID
 
@@ -246,6 +270,44 @@ def attach(app: FastAPI, settings: Settings) -> None:
             )
         )
 
+    @router.get("/auth/passkeys")
+    def passkey_list(request: Request) -> dict[str, object]:
+        return asdict(service(request).passkeys(read(request)))
+
+    @router.delete("/auth/passkeys/{key_id}")
+    def passkey_delete(request: Request, key_id: UUID, body: KeyVersion) -> Response:
+        auth, nonce = write(request)
+        service(request).delete_passkey(auth, nonce, key_id, body.expected_key_set_version)
+        response = Response(status_code=204)
+        for name in (AUTH, PREAUTH, CEREMONY):
+            clear(response, name)
+        return response
+
+    @router.post("/auth/passkeys/recovery/options")
+    def recovery_options(request: Request, body: RecoveryToken) -> Response:
+        _, nonce = write(request)
+        return ceremony_response(
+            service(request).begin_recovery(
+                body.recovery_token, request.cookies.get(PREAUTH), nonce
+            )
+        )
+
+    @router.post("/auth/passkeys/recovery/verify")
+    def recovery_verify(request: Request, body: PasskeyResponse) -> Response:
+        auth, nonce = write(request)
+        service(request).register_passkey(
+            request.cookies.get(CEREMONY),
+            nonce,
+            json.dumps(body.credential),
+            auth,
+            additional=False,
+            recovery=True,
+        )
+        response = Response(status_code=204)
+        for name in (AUTH, PREAUTH, CEREMONY):
+            clear(response, name)
+        return response
+
     @router.post("/auth/passkeys/options")
     def additional_options(request: Request) -> Response:
         auth, nonce = write(request)
@@ -363,6 +425,96 @@ def attach(app: FastAPI, settings: Settings) -> None:
             "expires_at": setup.expires_at.isoformat(),
         }
 
+    @router.post("/admin/master-accounts", status_code=201)
+    def issue_master(request: Request, body: Lookup) -> dict[str, object]:
+        auth, nonce = write(request)
+        return issued(service(request).issue_master(auth, nonce, body.login_id))
+
+    @router.post("/admin/master-accounts/lookup")
+    def lookup_master(request: Request, body: Lookup) -> dict[str, object]:
+        auth, nonce = write(request)
+        return account_json(service(request).lookup_master(auth, nonce, body.login_id))
+
+    @router.get("/admin/master-accounts/{ident}")
+    def get_master(request: Request, ident: UUID) -> dict[str, object]:
+        return account_json(service(request).get_master(read(request), ident))
+
+    @router.post("/admin/master-accounts/{ident}/activation", status_code=201)
+    def reissue_master(request: Request, ident: UUID, body: Version) -> dict[str, object]:
+        auth, nonce = write(request)
+        return issued(service(request).reissue_master(auth, nonce, ident, body.expected_version))
+
+    @router.get("/admin/accounts/{ident}/password-reset")
+    def reset_state(request: Request, ident: UUID) -> dict[str, object]:
+        return asdict(service(request).reset_state(read(request), ident))
+
+    def reset_result(
+        request: Request, ident: UUID, body: ResetRequest, *, reissue: bool
+    ) -> dict[str, object]:
+        auth, nonce = write(request)
+        result = service(request).reset_password(
+            auth,
+            nonce,
+            ident,
+            body.expected_account_version,
+            body.expected_generation,
+            body.identity_confirmed,
+            reissue=reissue,
+        )
+        return {
+            "reset_link": settings.canonical_origin + "/reset#token=" + result.token,
+            "expires_at": result.expires_at.isoformat(),
+        }
+
+    @router.post("/admin/accounts/{ident}/password-reset", status_code=201)
+    def reset_start(request: Request, ident: UUID, body: ResetRequest) -> dict[str, object]:
+        return reset_result(request, ident, body, reissue=False)
+
+    @router.post("/admin/accounts/{ident}/password-reset/reissue", status_code=201)
+    def reset_reissue(request: Request, ident: UUID, body: ResetRequest) -> dict[str, object]:
+        return reset_result(request, ident, body, reissue=True)
+
+    @router.post("/auth/password-reset/complete", status_code=204)
+    def reset_complete(request: Request, body: ResetComplete) -> Response:
+        _, nonce = write(request)
+        service(request).complete_reset(
+            body.reset_token, body.new_password, request.cookies.get(PREAUTH), nonce
+        )
+        response = Response(status_code=204)
+        for name in (AUTH, PREAUTH, CEREMONY):
+            clear(response, name)
+        return response
+
+    @router.get("/admin/accounts/{ident}/passkey-recovery")
+    def recovery_state(request: Request, ident: UUID) -> dict[str, object]:
+        return asdict(service(request).recovery_state(read(request), ident))
+
+    def recover_result(
+        request: Request, ident: UUID, body: RecoveryRequest, *, reissue: bool
+    ) -> dict[str, object]:
+        auth, nonce = write(request)
+        result = service(request).recover(
+            auth,
+            nonce,
+            ident,
+            body.expected_account_version,
+            body.expected_key_set_version,
+            body.identity_confirmed,
+            reissue=reissue,
+        )
+        return {
+            "recovery_link": settings.canonical_origin + "/recover#token=" + result.token,
+            "expires_at": result.expires_at.isoformat(),
+        }
+
+    @router.post("/admin/accounts/{ident}/passkey-recovery", status_code=201)
+    def recover(request: Request, ident: UUID, body: RecoveryRequest) -> dict[str, object]:
+        return recover_result(request, ident, body, reissue=False)
+
+    @router.post("/admin/accounts/{ident}/passkey-recovery/reissue", status_code=201)
+    def recover_reissue(request: Request, ident: UUID, body: RecoveryRequest) -> dict[str, object]:
+        return recover_result(request, ident, body, reissue=True)
+
     @router.post("/admin/accounts", status_code=201)
     def issue(request: Request, body: Issue) -> dict[str, object]:
         auth, nonce = write(request)
@@ -451,7 +603,8 @@ required></label>
 <body data-flow="{flow}"><form id="mfa">
 <label>로그인 ID <input id="identifier" autocomplete="username"></label>
 <label>비밀번호 <input id="password" type="password" autocomplete="current-password"></label>
-<button>계속</button></form><p id="result"></p><script src="/mfa.js"></script></body>"""
+<button>계속</button></form><ul id="keys"></ul><p id="result"></p>
+<script src="/mfa.js"></script></body>"""
 
     @app.get("/enroll", response_class=HTMLResponse)
     def enroll_page(request: Request) -> str:
@@ -466,7 +619,22 @@ required></label>
     @app.get("/passkeys", response_class=HTMLResponse)
     def keys_page(request: Request) -> str:
         read(request)
-        return mfa_page("add")
+        return mfa_page("add").replace(
+            '<ul id="keys">',
+            "<p>삭제하면 서비스에 등록된 Passkey가 해제되고 현재 기기를 포함한 "
+            "모든 로그인이 종료됩니다. 남은 Passkey로 다시 로그인해야 합니다.</p>"
+            '<ul id="keys">',
+        )
+
+    @app.get("/reset", response_class=HTMLResponse)
+    def reset_page(request: Request) -> str:
+        read(request)
+        return mfa_page("reset")
+
+    @app.get("/recover", response_class=HTMLResponse)
+    def recovery_page(request: Request) -> str:
+        read(request)
+        return mfa_page("recovery")
 
     @app.get("/mfa.js")
     def mfa_script(request: Request) -> Response:
@@ -481,22 +649,48 @@ const flow=document.body.dataset.flow;
 const form=document.getElementById('mfa'),out=document.getElementById('result');
 const id=document.getElementById('identifier'),pw=document.getElementById('password');
 id.parentElement.hidden=flow!=='login';
-pw.parentElement.hidden=!['login','setup'].includes(flow);
-if(flow==='setup')pw.autocomplete='new-password';
+pw.parentElement.hidden=!['login','setup','reset'].includes(flow);
+if(['setup','reset'].includes(flow))pw.autocomplete='new-password';
 const decode=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
 const encode=b=>btoa(String.fromCharCode(...new Uint8Array(b)))
 .replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
 async function post(path,csrf,body){const r=await fetch('/api/v1'+path,{method:'POST',
 headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(body)});
 if(!r.ok)throw Error();return r;}
+async function listKeys(){
+if(flow!=='add')return;
+const response=await fetch('/api/v1/auth/passkeys',{headers:{'X-Y3-Client':'mfa'}});
+if(!response.ok){out.textContent='다시 로그인해 주세요.';return;}
+const snapshot=await response.json(),list=document.getElementById('keys');list.replaceChildren();
+for(const item of snapshot.items){
+const li=document.createElement('li'),button=document.createElement('button');
+li.textContent='등록: '+item.created_at+' ';button.textContent='삭제';
+button.disabled=snapshot.items.length<2;
+button.addEventListener('click',async()=>{button.disabled=true;
+try{const p=await fetch('/api/v1/auth/csrf',{headers:{'X-Y3-Client':'mfa'}});
+if(!p.ok)throw Error();const nonce=(await p.json()).csrf_token;
+const r=await fetch('/api/v1/auth/passkeys/'+item.key_id,{method:'DELETE',
+headers:{'Content-Type':'application/json','X-CSRF-Token':nonce},
+body:JSON.stringify({expected_key_set_version:snapshot.key_set_version})});
+if(!r.ok)throw Error();list.replaceChildren();form.hidden=true;
+out.textContent='키를 삭제하고 모든 로그인을 종료했습니다. 남은 키로 다시 로그인해 주세요.';
+}catch{out.textContent='삭제할 수 없습니다. 다시 로그인하여 목록을 확인해 주세요.';}});
+li.append(button);list.append(li);}}
+listKeys().catch(()=>{out.textContent='목록을 불러올 수 없습니다.';});
 form.addEventListener('submit',async e=>{e.preventDefault();
 form.querySelector('button').disabled=true;
 try{
 const p=await fetch('/api/v1/auth/csrf',{headers:{'X-Y3-Client':'mfa'}});if(!p.ok)throw Error();
 const csrf=(await p.json()).csrf_token;
+if(flow==='reset'){
+await post('/auth/password-reset/complete',csrf,{reset_token:token,new_password:pw.value});
+token=null;form.hidden=true;
+out.textContent='비밀번호를 설정했습니다. 새 비밀번호와 기존 Passkey로 로그인해 주세요.';
+return;}
 const path=flow==='login'?'/auth/login':flow==='add'?'/auth/passkeys/options':
-'/auth/passkeys/enrollment/options';
+flow==='recovery'?'/auth/passkeys/recovery/options':'/auth/passkeys/enrollment/options';
 const body=flow==='login'?{login_id:id.value,password:pw.value}:flow==='add'?{}:
+flow==='recovery'?{recovery_token:token}:
 {setup_token:token,...(flow==='setup'?{new_password:pw.value}:{})};
 const result=await (await post(path,csrf,body)).json();pw.value='';
 const options=result.publicKey;options.challenge=decode(options.challenge);
@@ -509,8 +703,9 @@ const response={clientDataJSON:encode(credential.response.clientDataJSON)};
 for(const key of ['attestationObject','authenticatorData','signature','userHandle'])
 if(credential.response[key])response[key]=encode(credential.response[key]);
 await post(flow==='login'?'/auth/login/passkey/verify':flow==='add'?'/auth/passkeys/verify':
-'/auth/passkeys/enrollment/verify',result.csrf_token,{credential:{id:credential.id,
+flow==='recovery'?'/auth/passkeys/recovery/verify':'/auth/passkeys/enrollment/verify',result.csrf_token,{credential:{id:credential.id,
 rawId:encode(credential.rawId),type:credential.type,response}});
-token=null;out.textContent=flow==='login'?'로그인되었습니다.':'Passkey가 등록되었습니다.';
+token=null;await listKeys();
+out.textContent=flow==='login'?'로그인되었습니다.':'Passkey가 등록되었습니다.';
 }catch{out.textContent='인증할 수 없습니다. 입력 또는 설정 링크를 확인하고 다시 시도해 주세요.';}
 finally{pw.value='';form.querySelector('button').disabled=false;}});})();"""

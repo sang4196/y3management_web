@@ -135,7 +135,9 @@ class IAM:
         row = (
             self.s.execute(
                 text(
-                    "SELECT id,state,password_hash,security_version FROM iam_accounts "
+                    "SELECT id,state,password_hash,security_version,recovery_pending,"
+                    "password_reset_pending "
+                    "FROM iam_accounts "
                     "WHERE login_id=:login"
                 ),
                 {"login": identifier},
@@ -148,9 +150,19 @@ class IAM:
         ) != reservation.security_version:
             # Never verify a credential against a principal not admitted by this reservation.
             raise Rejected(503, "unavailable")
-        encoded = str(row["password_hash"]) if row and row["state"] == "ACTIVE" else None
+        encoded = (
+            str(row["password_hash"])
+            if row and row["state"] == "ACTIVE" and not row["password_reset_pending"]
+            else None
+        )
         valid, upgrade = self.passwords.verify(password, encoded)
-        if not valid or row is None or encoded is None:
+        if (
+            not valid
+            or row is None
+            or encoded is None
+            or row["recovery_pending"]
+            or row["password_reset_pending"]
+        ):
             return None
         if upgrade:
             self._upgrades[row["id"]] = upgrade
@@ -180,6 +192,8 @@ class IAM:
         marker = hmac.digest(self.key, str(row["password_hash"]).encode(), "sha256")
         if (
             row["state"] != "ACTIVE"
+            or row["recovery_pending"]
+            or row["password_reset_pending"]
             or row["security_version"] != proof.security_version
             or not hmac.compare_digest(marker, proof.credential_marker)
         ):
@@ -269,7 +283,8 @@ class IAM:
         row = (
             self.s.execute(
                 text(
-                    "SELECT s.*,a.state,a.security_version AS current_version "
+                    "SELECT s.*,a.state,a.recovery_pending,a.password_reset_pending,"
+                    "a.security_version AS current_version "
                     "FROM iam_sessions s JOIN iam_accounts a ON a.id=s.account_id "
                     "WHERE s.id=:id"
                 ),
@@ -282,11 +297,23 @@ class IAM:
         if (
             row is None
             or (self.mode == "mfa" and row["assurance"] != "password_uv")
+            or row["recovery_pending"]
+            or row["password_reset_pending"]
             or row["revoked"]
             or row["state"] != "ACTIVE"
             or row["security_version"] != row["current_version"]
             or row["expires_at"] <= now
             or row["last_activity"] + timedelta(minutes=30) <= now
+        ):
+            raise Rejected(401, "unauthorized")
+        if (
+            self.mode == "mfa"
+            and not self.s.execute(
+                text(
+                    "SELECT 1 FROM iam_passkeys WHERE account_id=:a AND revoked_at IS NULL LIMIT 1"
+                ),
+                {"a": hint.account_id},
+            ).first()
         ):
             raise Rejected(401, "unauthorized")
         account = self._account(hint.account_id)
@@ -514,7 +541,8 @@ class IAM:
         row = (
             self.s.execute(
                 text(
-                    "SELECT login_id,state,password_hash,security_version "
+                    "SELECT login_id,state,password_hash,security_version,"
+                    "recovery_pending,password_reset_pending "
                     "FROM iam_accounts WHERE id=:a"
                 ),
                 {"a": ident},
@@ -522,7 +550,7 @@ class IAM:
             .mappings()
             .one()
         )
-        if row["state"] != "ACTIVE":
+        if row["state"] != "ACTIVE" or row["recovery_pending"] or row["password_reset_pending"]:
             raise Rejected(401, "unauthorized")
         encoded = str(row["password_hash"])
         valid, _ = self.passwords.verify(current_password, encoded)
@@ -537,7 +565,11 @@ class IAM:
         # Account and every affected session are already locked in the canonical order.
         row = (
             self.s.execute(
-                text("SELECT state,password_hash,security_version FROM iam_accounts WHERE id=:a"),
+                text(
+                    "SELECT state,password_hash,security_version,recovery_pending,"
+                    "password_reset_pending "
+                    "FROM iam_accounts WHERE id=:a"
+                ),
                 {"a": proof.account_id},
             )
             .mappings()
@@ -546,6 +578,8 @@ class IAM:
         marker = hmac.digest(self.key, str(row["password_hash"]).encode(), "sha256")
         if (
             row["state"] != "ACTIVE"
+            or row["recovery_pending"]
+            or row["password_reset_pending"]
             or row["security_version"] != proof.security_version
             or not hmac.compare_digest(marker, proof.credential_marker)
         ):
@@ -615,3 +649,39 @@ class IAM:
         ).scalars()
         for ident in list(rows):
             self.s.execute(text("DELETE FROM iam_sessions WHERE id=:i"), {"i": ident})
+
+    def master_onboarding(self, caller: Caller, ident: UUID) -> Account:
+        self.require_master(caller)
+        account = self._account(ident)
+        if account.organization_id != caller.organization_id or not account.master:
+            raise Rejected(404, "not_found")
+        return account
+
+    def lookup_master(self, caller: Caller, identifier: str) -> Account:
+        self.require_master(caller)
+        ident = self.s.execute(
+            text("SELECT id FROM iam_accounts WHERE organization_id=:o AND login_id=:l"),
+            {"o": caller.organization_id, "l": identifier},
+        ).scalar_one_or_none()
+        if ident is None:
+            raise Rejected(404, "not_found")
+        return self.master_onboarding(caller, ident)
+
+    def issue_master(self, caller: Caller, identifier: str) -> Account:
+        self.require_master(caller)
+        ident = uuid4()
+        self.s.execute(
+            text(
+                "INSERT INTO iam_accounts(id,organization_id,login_id,state) "
+                "VALUES(:id,:o,:l,'PENDING_SETUP')"
+            ),
+            {"id": ident, "o": caller.organization_id, "l": identifier},
+        )
+        self.s.execute(
+            text("INSERT INTO iam_login_ids VALUES(:l,:id)"), {"l": identifier, "id": ident}
+        )
+        self.s.execute(
+            text("INSERT INTO iam_admin_grants VALUES(:id,:o,'ORGANIZATION',NULL)"),
+            {"id": ident, "o": caller.organization_id},
+        )
+        return self._account(ident)

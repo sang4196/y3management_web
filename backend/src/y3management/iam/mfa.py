@@ -5,7 +5,7 @@ import secrets
 from datetime import timedelta
 from typing import Any
 from urllib.parse import urlsplit
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import text
 from webauthn import (
@@ -31,10 +31,18 @@ from y3management.iam.infrastructure import IAM, digest
 from y3management.iam.public import (
     Account,
     Authentication,
+    Caller,
     Ceremony,
+    KeyChange,
+    KeyList,
     LoginProof,
+    Passkey,
+    RecoveryState,
     RegistrationProof,
     Reservation,
+    ResetChange,
+    ResetProof,
+    ResetState,
     Setup,
 )
 
@@ -109,6 +117,10 @@ class MFA:
                 or source["row_version"] != account["row_version"]
             ):
                 raise Rejected(401, "invalid_ceremony")
+        if row["recovery_id"] is not None:
+            self.recovery_source(row["recovery_id"], account)
+        elif account["recovery_pending"] or account["password_reset_pending"]:
+            raise Rejected(401, "invalid_ceremony")
         return dict(row)
 
     def create(self, ident: UUID, state_id: UUID, purpose: str, **values: Any) -> str:
@@ -138,6 +150,7 @@ class MFA:
             password_hash=None,
             marker=None,
             source_id=None,
+            recovery_id=None,
             session_id=None,
             attempt_id=None,
             budget_key=None,
@@ -165,7 +178,7 @@ class MFA:
             for v in self.s.execute(
                 text(
                     "SELECT credential_id FROM iam_passkeys WHERE "
-                    "account_id=:a ORDER BY credential_id"
+                    "account_id=:a AND revoked_at IS NULL ORDER BY credential_id"
                 ),
                 {"a": account.id},
             ).scalars()
@@ -204,7 +217,8 @@ class MFA:
         if (
             row["purpose"] != "install"
             or self.s.execute(
-                text("SELECT 1 FROM iam_passkeys WHERE account_id=:a"), {"a": row["account_id"]}
+                text("SELECT 1 FROM iam_passkeys WHERE account_id=:a AND revoked_at IS NULL"),
+                {"a": row["account_id"]},
             ).first()
         ):
             raise Rejected(401, "invalid_ceremony")
@@ -300,6 +314,7 @@ class MFA:
         self.bind_reservation(account, reservation)
         if (
             account["state"] != "ACTIVE"
+            or account["password_reset_pending"]
             or account["security_version"] != proof.security_version
             or not hmac.compare_digest(
                 proof.credential_marker,
@@ -348,7 +363,10 @@ class MFA:
         payload: str,
     ) -> RegistrationProof:
         before = self.context(token, nonce or "")
-        if before["purpose"] not in ("install", "setup", "add") or before["challenge"] is None:
+        if (
+            before["purpose"] not in ("install", "setup", "add", "recovery")
+            or before["challenge"] is None
+        ):
             raise Rejected(401, "invalid_ceremony")
         try:
             parsed = parse_registration_credential_json(payload)
@@ -381,11 +399,13 @@ class MFA:
         nonce: str | None,
         proof: RegistrationProof,
         authentication: Authentication | None,
-    ) -> Account:
+    ) -> tuple[Account, KeyChange]:
         row = self.context(token, nonce or "", lock=True)
+        before = self.account(row["account_id"])
+        key_id = uuid4()
         if (row["purpose"] == "add") != (authentication is not None):
             raise Rejected(401, "invalid_ceremony")
-        if row["purpose"] not in ("install", "setup", "add"):
+        if row["purpose"] not in ("install", "setup", "add", "recovery"):
             raise Rejected(401, "invalid_ceremony")
         if row["purpose"] == "add":
             if (
@@ -395,7 +415,8 @@ class MFA:
             ):
                 raise Rejected(401, "unauthorized")
         elif self.s.execute(
-            text("SELECT 1 FROM iam_passkeys WHERE account_id=:a"), {"a": row["account_id"]}
+            text("SELECT 1 FROM iam_passkeys WHERE account_id=:a AND revoked_at IS NULL"),
+            {"a": row["account_id"]},
         ).first():
             raise Rejected(409, "conflict")
         if (
@@ -407,10 +428,11 @@ class MFA:
         self.s.execute(
             text(
                 "INSERT INTO iam_passkeys "
-                "(credential_id,account_id,public_key,sign_count,device_type,backed_up) "
-                "VALUES(:id,:a,:key,:count,:device,:backup)"
+                "(key_id,credential_id,account_id,public_key,sign_count,device_type,backed_up) "
+                "VALUES(:key_id,:id,:a,:key,:count,:device,:backup)"
             ),
             {
+                "key_id": key_id,
                 "id": proof.credential_id,
                 "a": row["account_id"],
                 "key": proof.public_key,
@@ -418,6 +440,10 @@ class MFA:
                 "device": proof.device_type,
                 "backup": proof.backed_up,
             },
+        )
+        self.s.execute(
+            text("UPDATE iam_accounts SET key_set_version=key_set_version+1 WHERE id=:a"),
+            {"a": row["account_id"]},
         )
         if row["purpose"] == "setup":
             self.s.execute(
@@ -431,8 +457,21 @@ class MFA:
                 text("UPDATE iam_credentials SET consumed=true WHERE account_id=:a"),
                 {"a": row["account_id"]},
             )
+        if row["purpose"] == "recovery":
+            self.s.execute(
+                text(
+                    "UPDATE iam_accounts SET recovery_pending=false,"
+                    "row_version=row_version+1,security_version=security_version+1 "
+                    "WHERE id=:a"
+                ),
+                {"a": row["account_id"]},
+            )
+            self.s.execute(
+                text("UPDATE iam_recovery_credentials SET consumed=true WHERE account_id=:a"),
+                {"a": row["account_id"]},
+            )
         self.consume(row)
-        return self.iam._account(row["account_id"])
+        return self.iam._account(row["account_id"]), self.key_change(before, key_id)
 
     def authenticate(
         self, token: str | None, nonce: str | None, payload: str, sid: UUID
@@ -452,7 +491,10 @@ class MFA:
                 raise ValueError()
             credential = (
                 self.s.execute(
-                    text("SELECT * FROM iam_passkeys WHERE credential_id=:id AND account_id=:a"),
+                    text(
+                        "SELECT * FROM iam_passkeys WHERE credential_id=:id AND account_id=:a "
+                        "AND revoked_at IS NULL"
+                    ),
                     {"id": parsed.raw_id, "a": before["account_id"]},
                 )
                 .mappings()
@@ -501,9 +543,11 @@ class MFA:
         )
         if (
             account["state"] != "ACTIVE"
+            or account["password_reset_pending"]
             or bytes(row["challenge"]) != bytes(before["challenge"])
             or current["sign_count"] != credential["sign_count"]
             or current["account_id"] != row["account_id"]
+            or current["revoked_at"] is not None
             or attempt is None
             or not hmac.compare_digest(bytes(attempt["key"]), bytes(row["budget_key"]))
             or attempt["outcome"] != "pending"
@@ -549,3 +593,395 @@ class MFA:
     def revoke_undelivered(self, sid: UUID) -> None:
         # No account-wide revocation: only the server-generated unreturned session id.
         self.s.execute(text("UPDATE iam_sessions SET revoked=true WHERE id=:id"), {"id": sid})
+
+    def keys(self, ident: UUID) -> KeyList:
+        self.enabled()
+        account = self.account(ident)
+        rows = self.s.execute(
+            text(
+                "SELECT key_id,created_at,device_type,backed_up FROM iam_passkeys "
+                "WHERE account_id=:a AND revoked_at IS NULL ORDER BY key_id"
+            ),
+            {"a": ident},
+        ).mappings()
+        return KeyList(tuple(Passkey(**dict(row)) for row in rows), account["key_set_version"])
+
+    def revoke_authority(self, ident: UUID) -> None:
+        # Caller already owns Account and sorted affected sessions. Keep C2 untouched.
+        self.s.execute(
+            text("UPDATE iam_sessions SET revoked=true WHERE account_id=:a"), {"a": ident}
+        )
+        self.s.execute(
+            text(
+                "UPDATE iam_mfa_contexts SET consumed=true,password_hash=NULL WHERE account_id=:a"
+            ),
+            {"a": ident},
+        )
+
+    def delete_key(
+        self, ident: UUID, key_id: UUID, version: int
+    ) -> tuple[Account, Account, KeyChange]:
+        self.enabled()
+        account = self.account(ident)
+        keys = (
+            self.s.execute(
+                text(
+                    "SELECT key_id FROM iam_passkeys WHERE account_id=:a "
+                    "AND revoked_at IS NULL ORDER BY key_id FOR UPDATE"
+                ),
+                {"a": ident},
+            )
+            .scalars()
+            .all()
+        )
+        if key_id not in keys:
+            raise Rejected(404, "not_found")
+        if account["key_set_version"] != version or len(keys) < 2:
+            raise Rejected(409, "conflict")
+        before = self.iam._account(ident)
+        self.s.execute(
+            text("UPDATE iam_passkeys SET revoked_at=:n WHERE key_id=:id"),
+            {"n": self.iam.now(), "id": key_id},
+        )
+        self.s.execute(
+            text(
+                "UPDATE iam_accounts SET key_set_version=key_set_version+1,"
+                "security_version=security_version+1,row_version=row_version+1 "
+                "WHERE id=:a"
+            ),
+            {"a": ident},
+        )
+        self.revoke_authority(ident)
+        return before, self.iam._account(ident), self.key_change(account, key_id)
+
+    def recovery_target(self, caller: Caller, ident: UUID) -> Account:
+        self.enabled()
+        self.iam.require_master(caller)
+        account = self.iam._account(ident)
+        if (
+            account.organization_id != caller.organization_id
+            or ident == caller.account_id
+            or not (account.master or account.branch_id is not None)
+        ):
+            raise Rejected(404, "not_found")
+        if account.state != "ACTIVE":
+            raise Rejected(409, "conflict")
+        return account
+
+    def recovery_state(self, caller: Caller, ident: UUID) -> RecoveryState:
+        target = self.recovery_target(caller, ident)
+        account = self.account(ident)
+        expiry = self.s.execute(
+            text(
+                "SELECT expires_at FROM iam_recovery_credentials "
+                "WHERE account_id=:a AND generation=:g AND NOT consumed "
+                "AND row_version=:v"
+            ),
+            {"a": ident, "g": account["recovery_generation"], "v": target.version},
+        ).scalar_one_or_none()
+        return RecoveryState(
+            ident,
+            target.version,
+            account["key_set_version"],
+            account["recovery_pending"],
+            account["recovery_generation"],
+            expiry,
+        )
+
+    def start_recovery(
+        self,
+        caller: Caller,
+        ident: UUID,
+        version: int,
+        key_version: int,
+        slot: UUID,
+        *,
+        reissue: bool,
+    ) -> tuple[Account, Account, Setup, KeyChange]:
+        before = self.recovery_target(caller, ident)
+        account = self.account(ident)
+        if (
+            before.version != version
+            or account["key_set_version"] != key_version
+            or account["password_reset_pending"]
+            or bool(account["recovery_pending"]) != reissue
+        ):
+            raise Rejected(409, "conflict")
+        self.s.execute(
+            text("SELECT key_id FROM iam_passkeys WHERE account_id=:a ORDER BY key_id FOR UPDATE"),
+            {"a": ident},
+        ).all()
+        self.s.execute(
+            text(
+                "UPDATE iam_passkeys SET revoked_at=:n WHERE account_id=:a AND revoked_at IS NULL"
+            ),
+            {"a": ident, "n": self.iam.now()},
+        )
+        self.s.execute(
+            text(
+                "UPDATE iam_accounts SET recovery_pending=true,"
+                "recovery_generation=recovery_generation+1,"
+                "key_set_version=key_set_version+1,"
+                "row_version=row_version+1,security_version=security_version+1 "
+                "WHERE id=:a"
+            ),
+            {"a": ident},
+        )
+        self.s.execute(
+            text("UPDATE iam_recovery_credentials SET consumed=true WHERE account_id=:a"),
+            {"a": ident},
+        )
+        self.revoke_authority(ident)
+        current = self.account(ident)
+        expiry = self.s.execute(
+            text("SELECT expires_at FROM iam_security_states WHERE id=:id AND kind='recovery'"),
+            {"id": slot},
+        ).scalar_one()
+        if expiry <= self.iam.now():
+            raise Rejected(503, "unavailable")
+        raw = secrets.token_urlsafe(32)
+        self.s.execute(
+            text(
+                "INSERT INTO iam_recovery_credentials "
+                "(id,account_id,digest,row_version,generation,expires_at) "
+                "VALUES(:id,:a,:d,:v,:g,:e)"
+            ),
+            {
+                "id": slot,
+                "a": ident,
+                "d": digest(raw),
+                "v": current["row_version"],
+                "g": current["recovery_generation"],
+                "e": expiry,
+            },
+        )
+        return before, self.iam._account(ident), Setup(raw, expiry), self.key_change(account, None)
+
+    def recovery_source(self, ident: UUID, account: dict[str, Any]) -> dict[str, Any]:
+        source = (
+            self.s.execute(
+                text("SELECT * FROM iam_recovery_credentials WHERE id=:id"), {"id": ident}
+            )
+            .mappings()
+            .first()
+        )
+        if (
+            source is None
+            or source["consumed"]
+            or source["expires_at"] <= self.iam.now()
+            or source["account_id"] != account["id"]
+            or source["row_version"] != account["row_version"]
+            or source["generation"] != account["recovery_generation"]
+            or not account["recovery_pending"]
+            or account["state"] != "ACTIVE"
+            or account["password_reset_pending"]
+        ):
+            raise Rejected(401, "invalid_ceremony")
+        return dict(source)
+
+    def begin_recovery(self, token: str, slot: UUID) -> Ceremony:
+        self.enabled()
+        hint = self.s.execute(
+            text("SELECT id,account_id FROM iam_recovery_credentials WHERE digest=:d"),
+            {"d": digest(token)},
+        ).first()
+        if hint is None:
+            raise Rejected(401, "invalid_ceremony")
+        account = self.account(hint.account_id)
+        source = self.recovery_source(hint.id, account)
+        self.s.execute(
+            text(
+                "UPDATE iam_mfa_contexts SET consumed=true,password_hash=NULL "
+                "WHERE account_id=:a AND purpose='recovery'"
+            ),
+            {"a": hint.account_id},
+        )
+        raw = self.create(
+            hint.account_id, slot, "recovery", recovery_id=hint.id, deadline=source["expires_at"]
+        )
+        return self.options(raw)
+
+    def key_change(self, before: dict[str, Any], key_id: UUID | None) -> KeyChange:
+        after = self.account(before["id"])
+        return KeyChange(
+            key_id,
+            before["key_set_version"],
+            after["key_set_version"],
+            before["recovery_generation"],
+            after["recovery_generation"],
+        )
+
+    def reset_state(self, caller: Caller, ident: UUID) -> ResetState:
+        target = self.recovery_target(caller, ident)
+        account = self.account(ident)
+        expiry = self.s.execute(
+            text(
+                "SELECT expires_at FROM iam_reset_credentials WHERE account_id=:a "
+                "AND generation=:g AND row_version=:v AND NOT consumed"
+            ),
+            {"a": ident, "g": account["reset_generation"], "v": target.version},
+        ).scalar_one_or_none()
+        return ResetState(
+            ident,
+            target.version,
+            account["password_reset_pending"],
+            account["reset_generation"],
+            expiry,
+        )
+
+    def reset_change(self, before: dict[str, Any]) -> ResetChange:
+        after = self.account(before["id"])
+        return ResetChange(
+            before["reset_generation"],
+            after["reset_generation"],
+            before["password_hash"] is not None,
+            after["password_hash"] is not None,
+        )
+
+    def start_reset(
+        self,
+        caller: Caller,
+        ident: UUID,
+        version: int,
+        generation: int,
+        slot: UUID,
+        *,
+        reissue: bool,
+    ) -> tuple[Account, Account, Setup, ResetChange]:
+        before = self.recovery_target(caller, ident)
+        account = self.account(ident)
+        has_key = self.s.execute(
+            text(
+                "SELECT EXISTS(SELECT 1 FROM iam_passkeys WHERE account_id=:a AND "
+                "revoked_at IS NULL)"
+            ),
+            {"a": ident},
+        ).scalar_one()
+        if (
+            before.version != version
+            or account["reset_generation"] != generation
+            or account["recovery_pending"]
+            or not has_key
+            or account["password_reset_pending"] != reissue
+        ):
+            raise Rejected(409, "conflict")
+        # The final normal MFA Master is distinct from the target, and remains usable.
+        # Installation + ordered Accounts/Sessions were acquired by authenticate.
+        self.s.execute(
+            text(
+                "UPDATE iam_accounts SET password_hash=NULL,password_reset_pending=true,"
+                "reset_generation=reset_generation+1,row_version=row_version+1,"
+                "security_version=security_version+1 WHERE id=:a"
+            ),
+            {"a": ident},
+        )
+        self.revoke_authority(ident)
+        self.s.execute(
+            text("UPDATE iam_credentials SET consumed=true WHERE account_id=:a"), {"a": ident}
+        )
+        self.s.execute(
+            text("UPDATE iam_reset_credentials SET consumed=true WHERE account_id=:a"), {"a": ident}
+        )
+        current = self.account(ident)
+        expiry = self.s.execute(
+            text(
+                "SELECT expires_at FROM iam_security_states WHERE id=:id AND kind='password_reset'"
+            ),
+            {"id": slot},
+        ).scalar_one()
+        if expiry <= self.iam.now():
+            raise Rejected(503, "unavailable")
+        raw = secrets.token_urlsafe(32)
+        self.s.execute(
+            text(
+                "INSERT INTO iam_reset_credentials "
+                "(id,account_id,digest,row_version,security_version,generation,expires_at) "
+                "VALUES(:id,:a,:d,:v,:s,:g,:e)"
+            ),
+            {
+                "id": slot,
+                "a": ident,
+                "d": digest(raw),
+                "v": current["row_version"],
+                "s": current["security_version"],
+                "g": current["reset_generation"],
+                "e": expiry,
+            },
+        )
+        return before, self.iam._account(ident), Setup(raw, expiry), self.reset_change(account)
+
+    def reset_source(self, ident: UUID, account: dict[str, Any], *, lock: bool) -> dict[str, Any]:
+        source = (
+            self.s.execute(
+                text(
+                    "SELECT * FROM iam_reset_credentials WHERE id=:id"
+                    + (" FOR UPDATE" if lock else "")
+                ),
+                {"id": ident},
+            )
+            .mappings()
+            .first()
+        )
+        if (
+            source is None
+            or source["consumed"]
+            or source["expires_at"] <= self.iam.now()
+            or source["account_id"] != account["id"]
+            or source["row_version"] != account["row_version"]
+            or source["security_version"] != account["security_version"]
+            or source["generation"] != account["reset_generation"]
+            or not account["password_reset_pending"]
+            or account["recovery_pending"]
+            or account["state"] != "ACTIVE"
+        ):
+            raise Rejected(401, "invalid_reset")
+        target = self.iam._account(account["id"])
+        if not (target.master or target.branch_id is not None):
+            raise Rejected(401, "invalid_reset")
+        return dict(source)
+
+    def prepare_reset(self, token: str, password: str) -> ResetProof:
+        self.enabled()
+        hint = self.s.execute(
+            text("SELECT id,account_id FROM iam_reset_credentials WHERE digest=:d"),
+            {"d": digest(token)},
+        ).first()
+        if hint is None:
+            raise Rejected(401, "invalid_reset")
+        account = self.account(hint.account_id, lock=False)
+        self.reset_source(hint.id, account, lock=False)
+        # Bounded Argon2 with no business row locks; final proof revalidation below.
+        self.iam._upgrades[hint.account_id] = self.iam.passwords.create(
+            password, account["login_id"]
+        )
+        return ResetProof(
+            hint.id, hint.account_id, account["security_version"], account["reset_generation"]
+        )
+
+    def complete_reset(self, proof: ResetProof) -> tuple[Account, Account, ResetChange]:
+        self.iam.installation_lock()
+        account = self.account(proof.account_id)
+        self.s.execute(
+            text("SELECT id FROM iam_sessions WHERE account_id=:a ORDER BY id FOR UPDATE"),
+            {"a": proof.account_id},
+        ).all()
+        self.reset_source(proof.source_id, account, lock=True)
+        if (
+            proof.security_version != account["security_version"]
+            or proof.generation != account["reset_generation"]
+        ):
+            raise Rejected(401, "invalid_reset")
+        before = self.iam._account(proof.account_id)
+        self.s.execute(
+            text(
+                "UPDATE iam_accounts SET password_hash=:h,password_reset_pending=false,"
+                "row_version=row_version+1,security_version=security_version+1 WHERE id=:a"
+            ),
+            {"h": self.iam._upgrades.pop(proof.account_id), "a": proof.account_id},
+        )
+        self.revoke_authority(proof.account_id)
+        self.s.execute(
+            text("UPDATE iam_reset_credentials SET consumed=true WHERE account_id=:a"),
+            {"a": proof.account_id},
+        )
+        return before, self.iam._account(proof.account_id), self.reset_change(account)

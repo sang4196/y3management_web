@@ -1,5 +1,25 @@
 # Architecture 및 현재 개발 단계
 
+2026-10-18 최신 인수: **IAM-006/007 관리자 인증수단 관리·비밀번호 재설정의 제한된 로컬 인수 PASS(분할 검증)**.
+본인 Passkey 목록/마지막 키 보호/삭제 시 모든 로그인 종료(M7), 정상 Master의 추가 Master 발급,
+다른 정상 Master의 관리자 Passkey 복구와 ACTIVE 관리자 비밀번호 재설정(M8 본인 reset 금지)을 구현했다.
+[관리 계약](iam-006-mfa-management-design.md), [재설정 계약](iam-007-password-reset-design.md),
+[개발·독립 결과](iam-007-password-reset-results.md), [설계자 인수](iam-007-password-reset-review.json)를 따른다.
+
+최종 fast **91개**와 실제 PostgreSQL **246개 검증 항목의 성공 근거**를 대조했다.
+PG는 후보3 전체245 실행의 **244 passed/키 선택 테스트1 failed/exit1**을 보존하고,
+앱과 다른105개 파일을 유지한 채 해당 테스트만 고쳐 후보4의 두 UUID 정렬 경우를 독립 통과시킨 분할 검증이다.
+최종 수집337=fast91+PG246의 정확한 항목 집합·다른 함수 AST·소스 해시·정리를 확인했다.
+**최종 소스로 PG246 전체를 한 번에 실행해 통과했다는 뜻은 아니다.**
+동일 앱/브라우저 소스의 실제 신뢰 HTTPS58·native MFA20·관리15·reset11은 모두 true였다.
+소스/명령 오류·중단 이력과 원래 실패를 숨기지 않았고, 검증 중/후 실행 자료는 소유권 확인 후 정리했다.
+새0006/0007만 추가했으며 기존0001–0005·Product/ADR/의존성은 보존했다.
+
+전담 최종 변경 검토·한글 커밋·일반 push를 거쳐, 이미 승인된 다른 Master 차단/복구와
+ACTIVE 다른 Master Login ID 변경을 다음 증분으로 진행한다. 이 후속과 AB5 비상 복구,
+운영 본인 확인/전달/기록 정책·실물/모바일/지원 브라우저 전체·production은 아직 인수하지 않았다.
+아래 MFA-A 및 이전 날짜의 현재/미완료 표현은 해당 시점의 이력이다.
+
 2026-10-18 최신 인수: **IAM MFA-A 최초/복수 Passkey 등록·비밀번호+UV 로그인의 제한된 로컬 개발 인수 PASS**.
 보호 CLI의 최초 Master 준비, Master가 실제 발급한 Branch Admin의 본인 설정, 정상 MFA 본인의 추가 키 등록과
 각 키 로그인·Backend 지점 제한을 검증했다. [구현 계약](iam-005-mfa-a-design.md),

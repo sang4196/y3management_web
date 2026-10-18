@@ -18,7 +18,7 @@ let stage='start';
  checks.secure_context=await master.p.evaluate(()=>isSecureContext);
  checks.fragment_removed=await master.p.evaluate(()=>location.hash==='');
  const registered=master.p.waitForResponse(r=>r.url().endsWith('/auth/passkeys/enrollment/verify'));
- stage='first-enroll';await master.p.locator('button').click();
+ stage='first-enroll';await master.p.locator('#mfa button').click();
  checks.first_key_form=(await registered).status()===204;
  checks.fragment_absent_request_urls=!leaked;
  checks.no_auto_login=!(await master.context.cookies()).some(c=>c.name==='__Host-y3-auth');
@@ -61,7 +61,7 @@ let stage='start';
  await master.context.clearCookies();master=additional;
  await master.p.goto(cfg.origin+'/passkeys');
  const added=master.p.waitForResponse(r=>r.url().endsWith('/auth/passkeys/verify'));
- await master.p.locator('button').click();checks.additional_key_form=(await added).status()===204;
+ await master.p.locator('#mfa button').click();checks.additional_key_form=(await added).status()===204;
  const second=(await master.cdp.send('WebAuthn.getCredentials',{authenticatorId:master.authenticatorId})).credentials
  .find(c=>c.credentialId!==first.credentialId);
  await api(master.p,'/auth/logout',{});
@@ -88,13 +88,18 @@ let stage='start';
  await api(branch.p,'/auth/logout',{});
  checks.logout_reuse_denied=(await branch.context.request.get(cfg.origin+'/api/v1/auth/me',
  {headers:{Cookie:'__Host-y3-auth='+saved.value}})).status()===401;
+ let reset;stage='management';const management=await require(path.join(R,'management.cjs'))({page,api,login,master,branch,branchKey,second,cfg,setStage:s=>{stage=s;},onReset:async actors=>{reset=await require(path.join(R,'reset.cjs'))({...actors,api,login,cfg,setStage:s=>{stage=s;}});}});
  stage='uv-negative';const options=await api(branch.p,'/auth/login',
  {login_id:'browser.branch',password:cfg.branchPassword});
  await branch.cdp.send('WebAuthn.setUserVerified',{authenticatorId:branch.authenticatorId,isUserVerified:false});
- const weak=await assertion(branch.p,options.body.publicKey,branchKey.credentialId,true);
+ const weak=await assertion(branch.p,options.body.publicKey,undefined,true);
  checks.uv_false_denied=(await api(branch.p,'/auth/login/passkey/verify',{credential:weak},
  options.body.csrf_token)).status===401;
- fs.writeFileSync(path.join(R,'browser-results.json'),JSON.stringify({checks,browser:browser.version()}));
+ fs.writeFileSync(path.join(R,'browser-results.json'),JSON.stringify({checks,management,reset,browser:browser.version()}));
+ const rr=JSON.parse(fs.readFileSync(path.join(R,'reset-checks.json')));
+ if(Object.keys(reset).length!==rr.length||rr.some(k=>reset[k]!==true))throw Error();
+ const mr=JSON.parse(fs.readFileSync(path.join(R,'management-checks.json')));
+ if(Object.keys(management).length!==mr.length||mr.some(k=>management[k]!==true))throw Error();
  if(Object.keys(checks).length!==required.length||required.some(k=>checks[k]!==true))throw Error();
  }catch{console.error('MFA_BROWSER_FAILED stage='+stage);process.exitCode=1;}
  finally{if(browser)await browser.close();}})();
