@@ -581,6 +581,6 @@ def test_migration_roundtrip_and_durable_history_guard(
     with db.session() as s:
         assert (
             s.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-            == "0009_iam_emergency_handoff"
+            == "0010_workforce_initial"
         )
         assert s.execute(text("SELECT count(*) FROM iam_emergency_cases")).scalar_one() == 1

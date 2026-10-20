@@ -7,6 +7,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -207,9 +208,13 @@ def test_downgrade_waits_for_inflight_mfa_allocation(
     with db.session() as allocation:
         security = Security(allocation, settings.iam_key.get_secret_value(), 2048, 128)
         security.allocate("mfa")
+        allocator_pid = allocation.execute(text("SELECT pg_backend_pid()")).scalar_one()
+        migration_app = "mfa-downgrade-" + uuid4().hex
+        env = child_env(settings)
+        env["PGAPPNAME"] = migration_app
         process = subprocess.Popen(
             [sys.executable, "-m", "alembic", "downgrade", "0004_iam_login_id"],
-            env=child_env(settings),
+            env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
@@ -224,9 +229,11 @@ def test_downgrade_waits_for_inflight_mfa_allocation(
                             text(
                                 "SELECT EXISTS(SELECT 1 FROM pg_stat_activity "
                                 "WHERE datname=current_database() AND wait_event_type='Lock' "
-                                "AND (query LIKE 'LOCK TABLE iam_accounts%' "
-                                "OR query LIKE 'LOCK TABLE iam_security_control%'))"
-                            )
+                                "AND application_name=:application_name "
+                                "AND pid<>:allocator_pid "
+                                "AND :allocator_pid=ANY(pg_blocking_pids(pid)))"
+                            ),
+                            {"application_name": migration_app, "allocator_pid": allocator_pid},
                         ).scalar_one()
                     )
                 if waiting:

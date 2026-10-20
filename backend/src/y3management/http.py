@@ -7,6 +7,9 @@ from urllib.parse import urlsplit
 from uuid import UUID
 
 from fastapi import APIRouter, FastAPI, Query, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.responses import HTMLResponse, JSONResponse, Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -15,6 +18,7 @@ from y3management.config import Settings
 from y3management.contracts import Rejected
 from y3management.iam.public import Account, Ceremony, EmergencySnapshot, HandoffRequest, Setup
 from y3management.use_cases import Service
+from y3management.workforce.public import RegisterTrainer
 
 AUTH = "__Host-y3-auth"
 PREAUTH = "__Host-y3-preauth"
@@ -59,6 +63,17 @@ class BodyLimit:
 
 class Input(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+
+class TrainerInput(Input):
+    operation_id: UUID
+    name: str = Field(strict=True, max_length=200)
+    phone: str = Field(strict=True, max_length=128)
+    home_branch_id: UUID
+    rate_percent: int = Field(strict=True, ge=0, le=100)
+    fixed_amount_won: str = Field(strict=True, max_length=1024)
+    base_salary_won: str = Field(strict=True, max_length=1024)
+    base_salary_start_month: str = Field(strict=True, max_length=7)
 
 
 class HandoffSnapshot(Input):
@@ -232,6 +247,18 @@ def attach(app: FastAPI, settings: Settings) -> None:
             "default-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
         )
         return response
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(request: Request, error: RequestValidationError) -> Response:
+        if request.url.path.startswith(
+            (
+                "/api/v1/admin/trainers",
+                "/api/v1/admin/trainer-registrations",
+                "/api/v1/admin/trainer-home-candidates",
+            )
+        ):
+            return JSONResponse({"detail": "invalid_request"}, status_code=422)
+        return await request_validation_exception_handler(request, error)
 
     @app.exception_handler(Rejected)
     async def rejected(request: Request, error: Rejected) -> JSONResponse:
@@ -703,6 +730,70 @@ def attach(app: FastAPI, settings: Settings) -> None:
         auth, nonce = write(request)
         return account_json(service(request).restore(auth, nonce, ident, body.expected_version))
 
+    def workforce_query(request: Request, allowed: set[str]) -> None:
+        if any(k not in allowed for k in request.query_params):
+            raise Rejected(422, "invalid_request")
+
+    @router.post("/admin/trainers")
+    def register_trainer(request: Request, body: TrainerInput) -> Response:
+        workforce_query(request, set())
+        auth, nonce = write(request)
+        result = service(request).register_trainer(
+            auth, nonce, RegisterTrainer(**body.model_dump())
+        )
+        return JSONResponse(
+            jsonable_encoder(
+                {"operation_id": result.operation_id, "trainer": asdict(result.trainer)}
+            ),
+            status_code=201 if result.created else 200,
+        )
+
+    @router.get("/admin/trainer-registrations/{operation}")
+    def trainer_registration(request: Request, operation: UUID) -> dict[str, object]:
+        workforce_query(request, set())
+        result = service(request).trainer_registration(read(request), operation)
+        return {"operation_id": result.operation_id, "trainer": asdict(result.trainer)}
+
+    @router.get("/admin/trainers/{ident}")
+    def trainer(request: Request, ident: UUID) -> dict[str, object]:
+        workforce_query(request, set())
+        return asdict(service(request).trainer(read(request), ident))
+
+    @router.get("/admin/trainers")
+    def trainers(request: Request, offset: int = 0, limit: int = 25) -> dict[str, object]:
+        workforce_query(request, {"offset", "limit"})
+        return asdict(service(request).trainers(read(request), offset, limit))
+
+    @router.get("/admin/trainer-home-candidates")
+    def trainer_candidates(request: Request, offset: int = 0, limit: int = 25) -> dict[str, object]:
+        workforce_query(request, {"offset", "limit"})
+        return {
+            "items": [
+                asdict(c) for c in service(request).trainer_candidates(read(request), offset, limit)
+            ]
+        }
+
+    @app.get("/trainers", response_class=HTMLResponse)
+    def trainers_page(request: Request) -> str:
+        read(request)
+        return workforce_page()
+
+    @app.get("/trainers.js")
+    def trainers_script(request: Request) -> Response:
+        read(request)
+        return Response(WORKFORCE_SCRIPT, media_type="application/javascript")
+
+    @app.get("/trainers.css")
+    def trainers_style(request: Request) -> Response:
+        read(request)
+        return Response(
+            """*{box-sizing:border-box}body{max-width:44rem;margin:auto;padding:1rem;
+font-family:system-ui,sans-serif}label{display:block;margin:.8rem 0}input,select{display:block;
+width:100%;min-width:0;padding:.6rem}fieldset{min-width:0}button{padding:.7rem;margin:.3rem}
+p,li{overflow-wrap:anywhere}h1{font-size:1.6rem}""",
+            media_type="text/css",
+        )
+
     app.include_router(router)
 
     @app.get("/activate", response_class=HTMLResponse)
@@ -884,3 +975,137 @@ out.textContent=flow==='login'?'로그인되었습니다.':flow==='emergency'?
 '복구했습니다. 비밀번호와 새 Passkey로 로그인해 주세요.':'Passkey가 등록되었습니다.';
 }catch{out.textContent='인증할 수 없습니다. 입력 또는 설정 링크를 확인하고 다시 시도해 주세요.';}
 finally{pw.value='';form.querySelector('button').disabled=false;}});})();"""
+
+
+def workforce_page() -> str:
+    return """<!doctype html><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/trainers.css"><title>Trainer 등록</title>
+<h1>Trainer 등록</h1><form id="trainer-form" method="post" action="/api/v1/admin/trainers">
+<fieldset id="fields" disabled>
+<label>이름
+<input id="name" required></label>
+
+
+<label>전화번호
+<input id="phone" type="tel" required></label>
+
+
+<label>Home Branch
+<select id="home_branch_id" required><option value="">선택</option></select></label>
+
+<label>Rate (%)
+<input id="rate_percent" type="text" inputmode="numeric" required></label>
+
+
+<label>Fixed Amount (원)
+<input id="fixed_amount_won" type="text" inputmode="numeric" required></label>
+
+
+<label>시작 월부터 적용되는 기본급 설정 (원)
+<input id="base_salary_won" type="text" inputmode="numeric" required></label>
+
+
+<label>기본급 적용 시작 월 (YYYY-MM)
+<input id="base_salary_start_month" type="text" required></label>
+
+
+<button id="submit" disabled>등록</button></fieldset></form>
+<button id="status" disabled>이번 등록 결과 확인</button><button id="new" disabled>새 등록</button>
+<p id="result" role="status"></p><h2>등록된 Trainer</h2><ul id="trainers"></ul>
+<script src="/trainers.js"></script>"""
+
+
+WORKFORCE_SCRIPT = """(()=>{'use strict';
+
+const $=id=>document.getElementById(id),out=$('result');
+let operation=crypto.randomUUID();
+
+let busy=false;
+
+async function listing(){const r=await fetch('/api/v1/admin/trainers');
+if(!r.ok)throw Error();
+
+const data=await r.json();
+$('trainers').replaceChildren();
+for(const t of data.items){
+const li=document.createElement('li');
+li.textContent=t.name+' ('+t.home_branch_id+')';
+$('trainers').append(li);
+}}
+$('trainer-form').addEventListener('submit',async e=>{e.preventDefault();
+if(busy)return;
+busy=true;
+
+try{const body={operation_id:operation};
+for(const id of ['name','phone','home_branch_id',
+'fixed_amount_won','base_salary_won','base_salary_start_month'])body[id]=$(id).value;
+
+if(!/^(0|[1-9][0-9]?)$|^100$/.test($('rate_percent').value))throw Error();
+
+body.rate_percent=Number($('rate_percent').value);
+
+for(const id of ['fixed_amount_won','base_salary_won'])
+if(!/^(0|[1-9][0-9]{0,1023})$/.test(body[id]))throw Error();
+
+if(Array.from(body.name).length>200||Array.from(body.phone).length>128)throw Error();
+
+if(!/^[0-9]{4}-(0[1-9]|1[0-2])$/.test(body.base_salary_start_month))throw Error();
+
+
+const c=await fetch('/api/v1/auth/csrf',{headers:{'X-Y3-Client':'workforce'}});
+if(!c.ok)throw Error();
+
+const r=await fetch('/api/v1/admin/trainers',{method:'POST',
+headers:{'Content-Type':'application/json','X-CSRF-Token':(await c.json()).csrf_token},
+body:JSON.stringify(body)});
+
+if(!r.ok){
+out.textContent=r.status===503?'결과 확인 후 같은 요청으로 재시도하세요.':
+'등록할 수 없습니다 ('+r.status+').';
+return;
+}
+const data=await r.json();
+out.textContent='등록 확인: '+data.trainer.id+' (계정 미발급)';
+await listing();
+
+}catch{out.textContent='입력 또는 현재 인증을 확인하세요.';
+}finally{busy=false;
+}});
+
+$('status').addEventListener('click',async()=>{try{
+const r=await fetch('/api/v1/admin/trainer-registrations/'+operation);
+out.textContent=r.ok?'등록 확인: '+(await r.json()).trainer.id:'등록 결과를 확인할 수 없습니다.';
+}catch{out.textContent='연결을 확인하세요.';
+}});
+
+$('new').addEventListener('click',()=>{if(busy)return;
+operation=crypto.randomUUID();
+
+$('trainer-form').reset();
+out.textContent='새 등록';
+});
+
+async function init(){try{
+for(let offset=0;;offset+=100){
+const r=await fetch('/api/v1/admin/trainer-home-candidates?limit=100&offset='+offset);
+if(!r.ok)throw Error();
+
+const candidates=(await r.json()).items;
+for(const b of candidates){const o=document.createElement('option');
+o.value=b.id;
+o.textContent=b.name;
+$('home_branch_id').append(o);
+}
+if(candidates.length<100)break;
+}
+await listing();
+$('fields').disabled=false;
+$('submit').disabled=false;
+$('status').disabled=false;
+$('new').disabled=false;
+
+}catch{out.textContent='현재 관리자 로그인이 필요합니다.';
+}}init();
+})();
+"""

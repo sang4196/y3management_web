@@ -5,7 +5,12 @@ from uuid import UUID
 from y3management.contracts import Rejected
 from y3management.iam.public import Caller
 from y3management.organization.infrastructure import Organization as Repository
-from y3management.organization.public import Branch, BranchPage
+from y3management.organization.public import (
+    AssignmentCandidate,
+    Branch,
+    BranchPage,
+    ScopedBranchFact,
+)
 
 
 class Organization:
@@ -40,3 +45,26 @@ class Organization:
 
     def get_branch(self, caller: Caller, branch_id: UUID) -> Branch:
         return self._repo.get_branch(caller.organization_id, self._scope(caller), branch_id)
+
+    def lock_scoped_branch(self, caller: Caller, ident: UUID) -> ScopedBranchFact:
+        scope = self._scope(caller)
+        if scope is not None and scope != ident:
+            raise Rejected(404, "not_found")
+        return self._repo.lock_scoped_branch(caller.organization_id, ident)
+
+    def require_assignable(self, fact: ScopedBranchFact) -> None:
+        if not fact.active:
+            raise Rejected(409, "branch_inactive")
+
+    def confirm_scoped_branch(self, caller: Caller, fact: ScopedBranchFact) -> None:
+        if self.lock_scoped_branch(caller, fact.branch_id) != fact:
+            raise Rejected(409, "conflict")
+
+    def assignment_candidates(
+        self, caller: Caller, offset: int, limit: int
+    ) -> tuple[AssignmentCandidate, ...]:
+        if offset < 0 or not 1 <= limit <= 100:
+            raise Rejected(422, "invalid_request")
+        return self._repo.assignment_candidates(
+            caller.organization_id, self._scope(caller), offset, limit
+        )

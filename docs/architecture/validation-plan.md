@@ -1,5 +1,20 @@
 # 후속 검증 계획
 
+2026-10-21 WORKFORCE-001 실제 인수 범위: [결과](workforce-001-initial-registration-results.md)와
+[설계자 판정](workforce-001-initial-registration-review.json)의 독립 fast122·필수PG **전체419 PASS**를 확인했다.
+최종 candidate3 동결210개/Backend133개·보호180개 revision4에서 기존391개와 신규28개를 새 단일 PG 실행으로
+검증했고 실패/error/skip/xfail/xpass/incomplete는0이다. 같은 run의8개 native manifest 총188항목은 모두 true이며
+브라우저 pytest5건 안의 항목이므로 테스트 건수에 더하지 않는다. 실제 JUnit419개와 보완한 기존 관찰 두 사례의
+passed를 대조했다. 최소 verdict를 남긴 뒤 비공개 원본 JUnit은 제거했다.
+최초204 passed/1 failed/214 미완료와 재현 실패 두 건을 지우지 않는다. SQL prefix 대신 정확한 소유 연결의
+PGAPPNAME/pg_blocking_pids를 관찰하도록 기존 테스트만 보완했다. 원래 allocation/commit/거절/이력/정리는 유지했다.
+그 뒤 최종 전체 실행에서 두 사례와 신규 등록·현재 Scope/G1·필수 저장/감사 rollback·정확한 큰 금액·최종 DB 시간
+만료·경합·실제 COMMIT ACK 상실·0010 정보 손실 보호·실제 UI/no-JS/chunked 경계를 확인했다.
+전체 소스/HEAD/index/trust 불변과 소유 자동 환경4개 정리를 확인했다. 추가 관찰413개 schema/14개 process의
+잔존 없음은 전체 fixture 정리 guard를 보충하는 근거이며 관찰 목록만으로 완전한 자원 목록을 주장하지 않는다.
+root의 이후 수정은 단계/결과/판정 문서뿐이며 Backend133개의 테스트된 바이트를 유지한다. I1/I2·일반 수정·상태/이동·
+PT/정산·production·실물/지원 브라우저 전체·보존과 아래 PROPOSED 전체 검증 계획의 인수로 확대하지 않는다.
+
 2026-10-21 IAM-010 실제 인수 범위: [결과](iam-010-emergency-handoff-results.md)와
 [설계자 판정](iam-010-emergency-handoff-review.json)의 독립 fast105·필수PG **전체391 PASS**를 확인했다.
 동결194개/Backend120개·보호172개 revision3 기준의 새 단일 전체 실행이며 신규27개와 기존364개가 포함된다.

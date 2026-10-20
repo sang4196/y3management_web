@@ -21,6 +21,9 @@ from y3management.iam.security import Security
 from y3management.organization.application import Organization
 from y3management.organization.infrastructure import Organization as OrganizationRepository
 from y3management.organization.public import OrganizationPort
+from y3management.workforce.application import Workforce
+from y3management.workforce.infrastructure import Repository as WorkforceRepository
+from y3management.workforce.public import WorkforcePort
 
 
 @dataclass(frozen=True)
@@ -32,6 +35,7 @@ class Work:
     mfa: MFAPort
     emergency: EmergencyPort
     handoff: HandoffPort
+    workforce: WorkforcePort
 
 
 class UnitOfWork:
@@ -69,6 +73,7 @@ class UnitOfWork:
                     MFA(iam, self.settings.canonical_origin),
                     Emergency(MFA(iam, self.settings.canonical_origin)),
                     Handoff(Emergency(MFA(iam, self.settings.canonical_origin))),
+                    Workforce(WorkforceRepository(session)),
                 )
                 try:
                     yield work

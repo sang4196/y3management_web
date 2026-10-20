@@ -206,9 +206,13 @@ def test_reset_downgrade_waits_for_inflight_allocation(
     with db.session() as allocation:
         security = Security(allocation, settings.iam_key.get_secret_value(), 2048, 128)
         security.allocate("password_reset")
+        allocator_pid = allocation.execute(text("SELECT pg_backend_pid()")).scalar_one()
+        migration_app = "reset-downgrade-" + uuid4().hex
+        env = child_env(settings)
+        env["PGAPPNAME"] = migration_app
         process = subprocess.Popen(
             [sys.executable, "-m", "alembic", "downgrade", "0006_iam_mfa_management"],
-            env=child_env(settings),
+            env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
@@ -223,9 +227,11 @@ def test_reset_downgrade_waits_for_inflight_allocation(
                             text(
                                 "SELECT EXISTS(SELECT 1 FROM pg_stat_activity "
                                 "WHERE datname=current_database() AND wait_event_type='Lock' "
-                                "AND (query LIKE 'LOCK TABLE iam_accounts%' "
-                                "OR query LIKE 'LOCK TABLE iam_security_control%'))"
-                            )
+                                "AND application_name=:application_name "
+                                "AND pid<>:allocator_pid "
+                                "AND :allocator_pid=ANY(pg_blocking_pids(pid)))"
+                            ),
+                            {"application_name": migration_app, "allocator_pid": allocator_pid},
                         ).scalar_one()
                     )
                 if waiting:

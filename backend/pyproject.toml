@@ -63,7 +63,7 @@ include_external_packages = true
 name = "Foundation dependency direction"
 type = "layers"
 containers = ["y3management"]
-layers = ["main", "application", "cli", "operating", "http", "use_cases", "uow", "organization", "iam", "audit", "runtime", "ownership", "database", "config", "contracts"]
+layers = ["main", "application", "cli", "operating", "http", "use_cases", "uow", "workforce", "organization", "iam", "audit", "runtime", "ownership", "database", "config", "contracts"]
 exhaustive = true
 
 [[tool.importlinter.contracts]]
@@ -76,29 +76,35 @@ forbidden_modules = ["fastapi", "starlette"]
 name = "Use cases depend only on module public contracts"
 type = "forbidden"
 source_modules = ["y3management.use_cases", "y3management.http"]
-forbidden_modules = ["y3management.iam.mfa", "y3management.iam.infrastructure", "y3management.iam.security", "y3management.iam.passwords", "y3management.organization.infrastructure", "y3management.audit.infrastructure"]
+forbidden_modules = ["y3management.iam.mfa", "y3management.iam.infrastructure", "y3management.iam.security", "y3management.iam.passwords", "y3management.organization.infrastructure", "y3management.audit.infrastructure", "y3management.workforce.application", "y3management.workforce.infrastructure", "y3management.workforce.validation"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 name = "Public contracts are independent of infrastructure and HTTP"
 type = "forbidden"
-source_modules = ["y3management.iam.public", "y3management.organization.public", "y3management.audit.public"]
+source_modules = ["y3management.iam.public", "y3management.organization.public", "y3management.audit.public", "y3management.workforce.public"]
 forbidden_modules = ["sqlalchemy", "fastapi", "starlette", "psycopg"]
 
 [[tool.importlinter.contracts]]
 name = "IAM does not read other module internals"
 type = "forbidden"
 source_modules = ["y3management.iam"]
-forbidden_modules = ["y3management.organization", "y3management.audit"]
+forbidden_modules = ["y3management.organization", "y3management.audit", "y3management.workforce"]
 
 [[tool.importlinter.contracts]]
 name = "Organization depends only on IAM public facts"
 type = "forbidden"
 source_modules = ["y3management.organization"]
-forbidden_modules = ["y3management.iam.mfa", "y3management.iam.infrastructure", "y3management.iam.security", "y3management.iam.passwords", "y3management.audit"]
+forbidden_modules = ["y3management.iam.mfa", "y3management.iam.infrastructure", "y3management.iam.security", "y3management.iam.passwords", "y3management.audit", "y3management.workforce"]
 
 [[tool.importlinter.contracts]]
 name = "Audit does not read business modules"
 type = "forbidden"
 source_modules = ["y3management.audit"]
-forbidden_modules = ["y3management.iam", "y3management.organization"]
+forbidden_modules = ["y3management.iam", "y3management.organization", "y3management.workforce"]
+
+[[tool.importlinter.contracts]]
+name = "Workforce uses public identity and branch facts only"
+type = "forbidden"
+source_modules = ["y3management.workforce"]
+forbidden_modules = ["y3management.iam.infrastructure", "y3management.iam.mfa", "y3management.iam.security", "y3management.iam.passwords", "y3management.iam.emergency", "y3management.iam.handoff", "y3management.organization.application", "y3management.organization.infrastructure", "y3management.audit"]

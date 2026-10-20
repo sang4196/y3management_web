@@ -481,3 +481,19 @@ both 발급·링크 만료 후 다른 정상 Master가 복귀한 경우의 정�
 상태 조회로 확인한다. 수신자는 기존 `/emergency-recover`에서 직접 요인을 준비한다.
 운영 CLI의 권한·수동 승인·all-unavailable 조건과 일반 reset/recovery guard는 유지한다.
 [계약](../docs/architecture/iam-010-emergency-handoff-design.md)을 따른다.
+
+## WORKFORCE-001 최초 등록
+
+현재 관리자 MFA 로그인 후 `/trainers`에서 이름·전화·Home·Rate·Fixed Amount·Base Salary·
+명시 시작 월을 함께 입력한다. 계정은 발급하지 않는다. 금액은 정확한 정수 문자열이며
+빈 값은 0이 아니다. 기존 8192-byte 요청 예산과 CSRF/HTTPS를 유지한다.
+새 등록은 활성 Home만, 기존 조회/동일 operation replay는 비활성 Home도 현재 Scope 아래
+허용한다. 결과 불명 시 operation 상태 조회/같은 명령 재시도를 사용하고 새 operation으로
+자동 재시도하지 않는다. 최초 생성자/snapshot/두 typed 감사는 replay에서 보존한다.
+
+신규 migration `0010_workforce_initial`은 파일명과 구별되는 22자 revision이다. 기존
+0001–0009/env는 유지한다. 신규 업무 이력 또는 비활성/변경된 Branch 사실이 있으면
+downgrade를 거부한다. 자세한 계약은
+[WORKFORCE-001](../docs/architecture/workforce-001-initial-registration-design.md)을 따른다.
+검증은 기존 소유 QA fixture를 사용한다. `test_workforce*.py`의 정책/PG/native 검사를
+구분하고 전체 독립 회귀 결과와 개발 부분 검증을 혼동하지 않는다.

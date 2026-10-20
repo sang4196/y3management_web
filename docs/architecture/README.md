@@ -1,5 +1,25 @@
 # Architecture 및 현재 개발 단계
 
+2026-10-21 최신 인수: **WORKFORCE-001 Trainer 최초 등록 로컬 인수 PASS**.
+[계약](workforce-001-initial-registration-design.md), [결과](workforce-001-initial-registration-results.md),
+[설계자 판정](workforce-001-initial-registration-review.json)을 따른다.
+현재 MFA Master/Branch Admin이 실제 Home 관리 범위에서 필수 이름·전화·세 보상값·기본급 시작 월을 입력하면
+Trainer/최초 snapshot/operation/두 typed 감사를 한 UoW로 확정한다. G1의 비활성 Home 기존 조회/replay는 유지하고
+신규 배정은 활성 Home만 허용한다. 정확한 금액 문자열·명시0·설정 지속·권한·실패 rollback/중복 방지를 검증했다.
+
+최종 동결210개/Backend133개·보호180개 revision4에서 독립 fast **122개**, PostgreSQL **전체419개**를 통과했다.
+새 단일 PG 실행에 기존391개와 신규28개가 포함되며 실패/error/skip/xfail/xpass/incomplete는0이다.
+같은 실행의 실제 HTTPS/native58/20/15/11/12/23/17/32항목 총188개가 모두 true였다(브라우저 pytest5건 안의 항목).
+최초204 passed/1 failed/214 미완료와 재현 실패 두 건은 보존한다. 실제 잠금을 놓친 기존 SQL prefix 관찰을
+소유 연결의 PGAPPNAME/pg_blocking_pids로 보완했고 원래 이력·거절·정리 조건은 유지했다.
+기존0001–0009/env/의존성과 제품 runtime을 보완 과정에서 바꾸지 않았다. 최종 소스/HEAD/index/trust 일치와
+자동 환경4개 정리를 확인했다. 설계자는 runtime을 추가 실행하지 않고 소스와 실행 근거를 검토했다.
+
+다음 I1은 실제 Trainer의 계정 발급·본인 설정·로그인이다. 발급 대상 활성 조건, Trainer당 계정/미설정 재발급,
+비활성 Home 신규 발급의 세 운영 선택은 사용자 답변 대기이며 구현하지 않았다. I2 역할/겸임·상태/이동·PT/정산과
+production/실물/전체 브라우저·보존은 미인수다. 아래 과거 증분의 현재/미완료 설명은 당시 이력이다.
+전체 모듈/데이터 PROPOSED, Product OPEN/ADR 상태와 개발→독립 테스트→설계자 검토→전담 한글 커밋·일반 push를 유지한다.
+
 2026-10-21 최신 인수: **IAM-010 정상 Master의 기존 비상 복구 인계·명시 재발급 로컬 인수 PASS**.
 [R4 승인](../product/product-decisions.md#review-20261020-ab5-r4)에 따라 같은 조직의 다른 현재 정상 MFA Master가
 최신 미완료 운영 사건의 링크 만료 후 인계한다. 원래 대상·요인·운영 승인 이력을 보존하고 새 발급의 실제 관리자를 기록한다.

@@ -7,7 +7,7 @@ from dataclasses import asdict, replace
 from typing import Literal
 from uuid import UUID
 
-from y3management.audit.public import Event
+from y3management.audit.public import Event, InitialCompensationSet, TrainerRegistered
 from y3management.contracts import CommitPhase, HashAdmissionRejected, Rejected
 from y3management.iam.public import (
     Account,
@@ -26,8 +26,14 @@ from y3management.iam.public import (
     ResetState,
     Setup,
 )
-from y3management.organization.public import Branch, BranchPage
+from y3management.organization.public import AssignmentCandidate, Branch, BranchPage
 from y3management.uow import UnitOfWork
+from y3management.workforce.public import (
+    ManagedTrainer,
+    RegisterTrainer,
+    RegistrationResult,
+    TrainerPage,
+)
 
 
 def normalize_login(value: str) -> str:
@@ -1032,3 +1038,112 @@ class Service:
             return result
         finally:
             self.emergency_release(slot)
+
+    def register_trainer(
+        self, auth: str | None, nonce: str | None, command: RegisterTrainer
+    ) -> RegistrationResult:
+        self.require_mfa()
+        with self.uow.open() as w:
+            c = w.workforce.normalize(command)
+            a = w.iam.authenticate(auth, management=True, touch=False)
+            w.iam.csrf(a, nonce)
+            hint = w.workforce.hint(a.caller, c.operation_id)
+            branch = w.organization.lock_scoped_branch(
+                a.caller, hint.home_branch_id if hint else c.home_branch_id
+            )
+            if hint is None:
+                w.organization.require_assignable(branch)
+            result = w.workforce.register(a.caller, branch, c)
+            if result.created:
+                change = TrainerRegistered(
+                    a.caller.organization_id,
+                    c.operation_id,
+                    result.trainer.id,
+                    a.caller.account_id,
+                    "MASTER" if a.caller.master else "BRANCH_ADMIN",
+                    None if a.caller.master else a.caller.branch_id,
+                    branch.branch_id,
+                )
+                w.audit.append_trainer_registered(change)
+                w.audit.append_initial_compensation(
+                    InitialCompensationSet(
+                        change,
+                        c.rate_percent,
+                        c.fixed_amount_won,
+                        c.base_salary_won,
+                        c.base_salary_start_month,
+                    )
+                )
+            final = w.iam.authenticate(auth, management=True, touch=False)
+            w.iam.csrf(final, nonce)
+            w.organization.confirm_scoped_branch(final.caller, branch)
+            if result.created:
+                w.organization.require_assignable(branch)
+            w.workforce.confirm(final.caller, result)
+            w.iam.authenticate(auth, management=True)
+        return result
+
+    def trainer_registration(self, auth: str | None, operation: UUID) -> RegistrationResult:
+        self.require_mfa()
+        with self.uow.open() as w:
+            a = w.iam.authenticate(auth, management=True, touch=False)
+            hint = w.workforce.hint(a.caller, operation)
+            if hint is None:
+                raise Rejected(404, "not_found")
+            branch = w.organization.lock_scoped_branch(a.caller, hint.home_branch_id)
+            trainer = w.workforce.get(a.caller, hint.trainer_id)
+            if trainer.home_branch_id != branch.branch_id:
+                raise Rejected(409, "conflict")
+            final = w.iam.authenticate(auth, management=True, touch=False)
+            w.organization.confirm_scoped_branch(final.caller, branch)
+            result = RegistrationResult(operation, trainer, False)
+            w.workforce.confirm(final.caller, result)
+        return result
+
+    def trainer(self, auth: str | None, ident: UUID) -> ManagedTrainer:
+        self.require_mfa()
+        with self.uow.open() as w:
+            a = w.iam.authenticate(auth, management=True, touch=False)
+            hint = w.workforce.identity(a.caller.organization_id, ident)
+            branch = w.organization.lock_scoped_branch(a.caller, hint.home_branch_id)
+            trainer = w.workforce.get(a.caller, ident)
+            if trainer.home_branch_id != branch.branch_id:
+                raise Rejected(409, "conflict")
+            final = w.iam.authenticate(auth, management=True, touch=False)
+            w.organization.confirm_scoped_branch(final.caller, branch)
+            if w.workforce.get(final.caller, ident) != trainer:
+                raise Rejected(409, "conflict")
+        return trainer
+
+    def trainers(self, auth: str | None, offset: int, limit: int) -> TrainerPage:
+        self.require_mfa()
+        with self.uow.open() as w:
+            a = w.iam.authenticate(auth, management=True, touch=False)
+            page = w.workforce.list(a.caller, offset, limit)
+            branches = tuple(
+                w.organization.lock_scoped_branch(a.caller, ident)
+                for ident in sorted({t.home_branch_id for t in page.items}, key=str)
+            )
+            for t in sorted(page.items, key=lambda t: str(t.id)):
+                if w.workforce.get(a.caller, t.id) != t:
+                    raise Rejected(409, "conflict")
+            final = w.iam.authenticate(auth, management=True, touch=False)
+            for branch in branches:
+                w.organization.confirm_scoped_branch(final.caller, branch)
+            if w.workforce.list(final.caller, offset, limit) != page:
+                raise Rejected(409, "conflict")
+        return page
+
+    def trainer_candidates(
+        self, auth: str | None, offset: int, limit: int
+    ) -> tuple[AssignmentCandidate, ...]:
+        self.require_mfa()
+        with self.uow.open() as w:
+            a = w.iam.authenticate(auth, management=True, touch=False)
+            candidates = w.organization.assignment_candidates(a.caller, offset, limit)
+            facts = tuple(w.organization.lock_scoped_branch(a.caller, c.id) for c in candidates)
+            final = w.iam.authenticate(auth, management=True, touch=False)
+            for fact in facts:
+                w.organization.confirm_scoped_branch(final.caller, fact)
+                w.organization.require_assignable(fact)
+        return candidates

@@ -6,7 +6,12 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from y3management.contracts import Rejected
-from y3management.organization.public import Branch, BranchPage
+from y3management.organization.public import (
+    AssignmentCandidate,
+    Branch,
+    BranchPage,
+    ScopedBranchFact,
+)
 
 
 class Organization:
@@ -26,7 +31,10 @@ class Organization:
     def create_branch(self, organization_id: UUID, code: str, name: str) -> Branch:
         ident = uuid4()
         self.s.execute(
-            text("INSERT INTO organization_branches VALUES(:id,:org,:code,:name)"),
+            text(
+                "INSERT INTO organization_branches(id, organization_id, code, name) "
+                "VALUES(:id, :org, :code, :name)"
+            ),
             {"id": ident, "org": organization_id, "code": code, "name": name},
         )
         return Branch(ident, code, name)
@@ -72,3 +80,28 @@ class Organization:
         if row is None:
             raise Rejected(404, "not_found")
         return Branch(*row)
+
+    def lock_scoped_branch(self, org: UUID, ident: UUID) -> ScopedBranchFact:
+        row = self.s.execute(
+            text(
+                "SELECT organization_id, id, active, row_version FROM "
+                "organization_branches WHERE organization_id=:o AND id=:i FOR SHARE"
+            ),
+            {"o": org, "i": ident},
+        ).first()
+        if row is None:
+            raise Rejected(404, "not_found")
+        return ScopedBranchFact(*row)
+
+    def assignment_candidates(
+        self, org: UUID, branch: UUID | None, offset: int, limit: int
+    ) -> tuple[AssignmentCandidate, ...]:
+        rows = self.s.execute(
+            text(
+                "SELECT id, code, name, row_version FROM organization_branches WHERE "
+                "organization_id=:o AND active AND (CAST(:b AS uuid) IS NULL OR id=:b) "
+                "ORDER BY id OFFSET :off LIMIT :lim"
+            ),
+            {"o": org, "b": branch, "off": offset, "lim": limit},
+        )
+        return tuple(AssignmentCandidate(*row) for row in rows)

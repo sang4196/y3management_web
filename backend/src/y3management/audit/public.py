@@ -1,5 +1,7 @@
 """Allowlisted audit command, with no arbitrary payload or secret fields."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Protocol
 from uuid import UUID
@@ -46,4 +48,27 @@ class Event:
 
 
 class AuditPort(Protocol):
+    def append_trainer_registered(self, event: TrainerRegistered) -> None: ...
+    def append_initial_compensation(self, event: InitialCompensationSet) -> None: ...
+
     def append(self, event: Event) -> None: ...
+
+
+@dataclass(frozen=True)
+class TrainerRegistered:
+    organization_id: UUID
+    operation_id: UUID
+    trainer_id: UUID
+    actor_id: UUID
+    actor_role: str
+    actor_branch: UUID | None
+    target_home: UUID
+
+
+@dataclass(frozen=True, repr=False)
+class InitialCompensationSet:
+    registration: TrainerRegistered
+    rate: int
+    fixed: str
+    base: str
+    month: str

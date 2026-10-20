@@ -1,5 +1,7 @@
 """Organization facts and scoped read contracts."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Protocol
 from uuid import UUID
@@ -21,8 +23,31 @@ class BranchPage:
 
 
 class OrganizationPort(Protocol):
+    def lock_scoped_branch(self, caller: Caller, ident: UUID) -> ScopedBranchFact: ...
+    def require_assignable(self, fact: ScopedBranchFact) -> None: ...
+    def confirm_scoped_branch(self, caller: Caller, fact: ScopedBranchFact) -> None: ...
+    def assignment_candidates(
+        self, caller: Caller, offset: int, limit: int
+    ) -> tuple[AssignmentCandidate, ...]: ...
+
     def create_initial(self, name: str) -> UUID: ...
     def create_branch(self, caller: Caller, code: str, name: str) -> Branch: ...
     def require_branch(self, caller: Caller, branch_id: UUID) -> None: ...
     def list_branches(self, caller: Caller, offset: int, limit: int) -> BranchPage: ...
     def get_branch(self, caller: Caller, branch_id: UUID) -> Branch: ...
+
+
+@dataclass(frozen=True)
+class ScopedBranchFact:
+    organization_id: UUID
+    branch_id: UUID
+    active: bool
+    version: int
+
+
+@dataclass(frozen=True)
+class AssignmentCandidate:
+    id: UUID
+    code: str
+    name: str
+    version: int

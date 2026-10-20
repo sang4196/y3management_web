@@ -7,7 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from y3management.audit.public import Event
+from y3management.audit.public import Event, InitialCompensationSet, TrainerRegistered
 from y3management.contracts import Rejected
 
 
@@ -38,3 +38,34 @@ class Audit:
             )
         except SQLAlchemyError:
             raise Rejected(503, "unavailable") from None
+
+    def append_trainer_registered(self, event: TrainerRegistered) -> None:
+        self._workforce(event, None)
+
+    def append_initial_compensation(self, event: InitialCompensationSet) -> None:
+        self._workforce(event.registration, event)
+
+    def _workforce(self, event: TrainerRegistered, values: InitialCompensationSet | None) -> None:
+        from datetime import date
+        from decimal import Decimal
+
+        args = {
+            **asdict(event),
+            "id": uuid4(),
+            "kind": "initial_compensation" if values else "trainer_registered",
+            "rate": values.rate if values else None,
+            "fixed": Decimal(values.fixed) if values else None,
+            "base": Decimal(values.base) if values else None,
+            "month": date.fromisoformat(values.month + "-01") if values else None,
+        }
+        self.s.execute(
+            text(
+                "INSERT INTO audit_workforce_initial_events(id, organization_id, "
+                "operation_id, trainer_id, actor_id, actor_role, actor_branch, "
+                "target_home, version, event_kind, after_rate, after_fixed, after_base, "
+                "after_month) VALUES(:id, :organization_id, :operation_id, :trainer_id, "
+                ":actor_id, :actor_role, :actor_branch, :target_home, 1, :kind, :rate, "
+                ":fixed, :base, :month)"
+            ),
+            args,
+        )
