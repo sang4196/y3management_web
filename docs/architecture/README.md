@@ -1,5 +1,23 @@
 # Architecture 및 현재 개발 단계
 
+2026-10-21 최신 인수: **IAM-010 정상 Master의 기존 비상 복구 인계·명시 재발급 로컬 인수 PASS**.
+[R4 승인](../product/product-decisions.md#review-20261020-ab5-r4)에 따라 같은 조직의 다른 현재 정상 MFA Master가
+최신 미완료 운영 사건의 링크 만료 후 인계한다. 원래 대상·요인·운영 승인 이력을 보존하고 새 발급의 실제 관리자를 기록한다.
+[계약](iam-010-emergency-handoff-design.md), [실행 결과](iam-010-emergency-handoff-results.md),
+[설계자 판정](iam-010-emergency-handoff-review.json)을 따른다.
+
+동결194개 소스에서 독립 fast **105개**와 PostgreSQL **전체391개(신규27+기존364)**를 새 단일 실행으로 통과했다.
+같은 PG 실행의 기존58/20/15/11/12/23 및 새17개 브라우저 항목이 모두 true였다. 새17개는 실제 정상 관리자
+인계/재발급과 both 수신자 UV/재로그인이며, 세 요인 전체는 실제 DB/서버 crypto 검사로 검증했다.
+최종 DB 시각 lease·활동 선갱신 없는 만료·실제 서로 다른 Master 경합·UV 뒤 재발급·COMMIT 응답 유실을 확인했다.
+소스/보호172개·HEAD/index·신뢰 저장소 불변과 자동 환경4개 정리를 대조했다. 기존0001–8/env/의존성을 보존하고
+새0009와 승인된 기존 회귀의 retained-head 기대 상수 한 줄만 변경했다. 과거 AS-IS13개 checkout의 CRLF/Git LF 차이는
+이전 인수 raw SHA와 같고 논리적 변경이 없음을 확인했으며 파일을 변환하지 않았다.
+
+전담 최종 변경 검토·한글 상세 커밋·일반 push 후, 실제 Trainer 로그인의 선행인 최소 Trainer 등록/필수 최초 보상 설정을
+별도 Workforce 계약으로 구체화한다. 그 후속·계정 연결/겸임·PT/정산·실제 운영/보존·실물/전체 브라우저는 아직 인수하지 않았다.
+Product OPEN/ADR/전체 모듈 PROPOSED 상태는 유지한다. 아래 각 증분의 현재/미완료 설명은 당시 이력이다.
+
 2026-10-20 최신 인수: **IAM-009 제한된 AB5 비상 인증요인 복구의 로컬 개발 인수 PASS**.
 [AB5 R1–R3](../product/product-decisions.md#review-20261020-ab5-r1-r3)에 따라 기존 ACTIVE Master 한 명의
 승인된 비밀번호·Passkey·두 요인만 복구한다. 대상의 기존 로그인과 대기 인증만 철회하며 다른 계정·다른 요인·C2를 보존한다.

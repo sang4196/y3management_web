@@ -342,5 +342,37 @@ class EmergencyChange:
     after_password_ready: bool
     emergency_case_id: UUID
     emergency_factors: str
-    executor_ref: str
+    executor_ref: str | None
     approval_mode: str
+    approval_origin_case_id: UUID | None = None
+    previous_case_id: UUID | None = None
+    handoff_kind: str | None = None
+
+
+@dataclass(frozen=True)
+class HandoffRequest:
+    operation_id: UUID
+    supersedes_case_id: UUID
+    expected: EmergencySnapshot
+
+
+@dataclass(frozen=True)
+class HandoffState:
+    operation_id: UUID
+    factors: str
+    expires_at: datetime
+    status: str
+    issuer_kind: str
+    approval_origin_case_id: UUID | None
+    supersedes_case_id: UUID | None
+    snapshot: EmergencySnapshot
+
+
+class HandoffPort(Protocol):
+    def confirm(self, ident: UUID, operation: UUID, slot: UUID) -> None: ...
+
+    def state(self, caller: Caller, ident: UUID, operation: UUID | None) -> HandoffState: ...
+    def validate(self, caller: Caller, ident: UUID, operation: UUID) -> object: ...
+    def issue(
+        self, caller: Caller, ident: UUID, request: HandoffRequest, slot: UUID
+    ) -> tuple[Setup, EmergencyChange]: ...

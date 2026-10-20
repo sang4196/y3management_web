@@ -16,6 +16,8 @@ from y3management.iam.public import (
     EmergencyRequest,
     EmergencySnapshot,
     EmergencyView,
+    HandoffRequest,
+    HandoffState,
     KeyList,
     OperatingRecoveryAuthority,
     Preparation,
@@ -989,3 +991,44 @@ class Service:
             raise Rejected(401, "invalid_ceremony")
         with self.uow.open() as w:
             w.audit.append(Event(**asdict(w.emergency.complete(token, nonce, proof))))
+
+    def handoff_state(
+        self, auth: str | None, ident: UUID, operation: UUID | None = None
+    ) -> HandoffState:
+        self.require_mfa()
+        with self.uow.open() as w:
+            current = w.iam.authenticate(auth, management=True, target=ident, touch=False)
+            return w.handoff.state(current.caller, ident, operation)
+
+    def handoff(
+        self,
+        auth: str | None,
+        nonce: str | None,
+        ident: UUID,
+        request: HandoffRequest,
+        identity_confirmed: bool,
+    ) -> Setup:
+        self.require_mfa()
+        if identity_confirmed is not True:
+            raise Rejected(422, "identity_confirmation_required")
+        with self.uow.open() as w:
+            current = w.iam.authenticate(auth, management=True, target=ident, touch=False)
+            w.iam.csrf(current, nonce)
+            w.handoff.validate(current.caller, ident, request.supersedes_case_id)
+        with self.uow.open() as w:
+            slot = w.security.allocate("emergency", collect=False)
+        try:
+            with self.uow.open() as w:
+                current = w.iam.authenticate(auth, management=True, target=ident, touch=False)
+                w.iam.csrf(current, nonce)
+                result, change = w.handoff.issue(current.caller, ident, request, slot)
+                w.audit.append(Event(**asdict(change)))
+                # No initial touch: even an audit/lock wait cannot rescue an idle session.
+                final = w.iam.authenticate(auth, management=True, target=ident, touch=False)
+                w.iam.csrf(final, nonce)
+                w.iam.master_management(final.caller, ident)
+                w.handoff.confirm(ident, request.operation_id, slot)
+                w.iam.authenticate(auth, management=True, target=ident)
+            return result
+        finally:
+            self.emergency_release(slot)

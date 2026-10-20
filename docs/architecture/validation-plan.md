@@ -1,5 +1,18 @@
 # 후속 검증 계획
 
+2026-10-21 IAM-010 실제 인수 범위: [결과](iam-010-emergency-handoff-results.md)와
+[설계자 판정](iam-010-emergency-handoff-review.json)의 독립 fast105·필수PG **전체391 PASS**를 확인했다.
+동결194개/Backend120개·보호172개 revision3 기준의 새 단일 전체 실행이며 신규27개와 기존364개가 포함된다.
+실패/skip/xfail/xpass/error/incomplete는0이다. 같은 run의58/20/15/11/12/23/17개 exact manifest가 모두 true였다.
+156항목은391개 안의 브라우저 pytest4건에 포함된다. 새17개는 정상 Master 인계·live 재발급/both 수신자 UV·로그인이며
+신규 세 요인별 native3회를 주장하지 않는다. 세 요인 자체는 실제 DB/서버 crypto 검사로 확인했다.
+실제 DB lease와 actor idle 원인을 분리한 늦은 검사, 서로 다른 정상 Master 두 명의 경합, 실제 UV 뒤 재발급,
+COMMIT 성공 뒤 ACK 상실·상태 대사와 승인된 retained-head 한 상수 보정을 이번 전체 실행으로 재검증했다.
+소스/HEAD/index·TLS/hostname/sandbox/전역 trust 불변과 자동 환경4개 정리를 확인했다. 과거 AS-IS13개 원래 줄바꿈 차이는
+현재 raw SHA/이전 인수/정규화된 Git byte를 대조했으며 원본 변경으로 취급하거나 변환하지 않았다.
+root는 소스·실행 자료를 검토했고 별도 runtime을 실행하지 않았다. Workforce 후속·운영/보존·실물/전체 브라우저 및
+아래 PROPOSED 전체 계획을 인수한 것이 아니다. 이후 과거 수치/대기 표현은 당시 이력이다.
+
 2026-10-20 IAM-009 실제 인수 범위: [결과](iam-009-emergency-recovery-results.md)와
 [설계자 판정](iam-009-emergency-recovery-review.json)의 독립 fast105 및 필수PG **전체364 PASS**를 확인했다.
 동결183개·보호72개 기준으로 신규37개와 기존327개를 한 번에 실행했고 실패/skip/xfail/xpass/error/incomplete는0이다.

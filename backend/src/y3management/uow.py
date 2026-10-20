@@ -12,10 +12,11 @@ from y3management.config import Settings
 from y3management.contracts import CommitPhase, CommitUncertain, Rejected
 from y3management.database import Database
 from y3management.iam.emergency import Emergency
+from y3management.iam.handoff import Handoff
 from y3management.iam.infrastructure import IAM
 from y3management.iam.mfa import MFA
 from y3management.iam.passwords import Passwords
-from y3management.iam.public import EmergencyPort, IAMPort, MFAPort, SecurityPort
+from y3management.iam.public import EmergencyPort, HandoffPort, IAMPort, MFAPort, SecurityPort
 from y3management.iam.security import Security
 from y3management.organization.application import Organization
 from y3management.organization.infrastructure import Organization as OrganizationRepository
@@ -30,6 +31,7 @@ class Work:
     security: SecurityPort
     mfa: MFAPort
     emergency: EmergencyPort
+    handoff: HandoffPort
 
 
 class UnitOfWork:
@@ -66,6 +68,7 @@ class UnitOfWork:
                     ),
                     MFA(iam, self.settings.canonical_origin),
                     Emergency(MFA(iam, self.settings.canonical_origin)),
+                    Handoff(Emergency(MFA(iam, self.settings.canonical_origin))),
                 )
                 try:
                     yield work

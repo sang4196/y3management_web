@@ -994,7 +994,8 @@ class MFA:
         self.enabled()
         row = (
             self.s.execute(
-                text("""SELECT e.*,c.organization_id,c.executor_ref,
+                text("""SELECT e.*,c.organization_id,c.executor_ref,c.issuer_kind,
+          c.approval_origin_case_id,c.supersedes,
           c.row_version,c.security_version,c.key_set_version,c.reset_generation,
           c.recovery_generation,c.completed_at FROM iam_emergency_credentials e
           JOIN iam_emergency_cases c ON c.id=e.case_id WHERE e.id=:id"""),
@@ -1008,6 +1009,10 @@ class MFA:
             or row["consumed"]
             or row["expires_at"] <= self.iam.now()
             or row["completed_at"]
+            or self.s.execute(
+                text("SELECT 1 FROM iam_emergency_cases WHERE supersedes=:id"),
+                {"id": row["case_id"]},
+            ).first()
         ):
             raise Rejected(401, "invalid_recovery")
         account = self.account(row["account_id"], lock=False)

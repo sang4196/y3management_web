@@ -26,14 +26,14 @@ class Audit:
                key_id,before_key_set_version,after_key_set_version,
                before_recovery_generation,after_recovery_generation,
                before_reset_generation,after_reset_generation,before_password_ready,after_password_ready,
-               emergency_case_id,emergency_factors,executor_ref,approval_mode)
+               emergency_case_id,emergency_factors,executor_ref,approval_mode,approval_origin_case_id,previous_case_id,handoff_kind)
               VALUES (:id,:organization_id,:actor_id,:target_id,:action,:success,:before_state,
                       :after_state,:before_branch,:after_branch,:actor_role,:actor_scope,:actor_branch,
                       :before_version,:after_version,:branch_code,:branch_name,:request_id,
                       :before_login_id,:after_login_id,:key_id,:before_key_set_version,:after_key_set_version,
                       :before_recovery_generation,:after_recovery_generation,
                       :before_reset_generation,:after_reset_generation,:before_password_ready,:after_password_ready,
-                      :emergency_case_id,:emergency_factors,:executor_ref,:approval_mode)"""),
+                      :emergency_case_id,:emergency_factors,:executor_ref,:approval_mode,:approval_origin_case_id,:previous_case_id,:handoff_kind)"""),
                 {"id": uuid4(), "request_id": self.request_id, **asdict(event)},
             )
         except SQLAlchemyError:

@@ -13,7 +13,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from y3management.config import Settings
 from y3management.contracts import Rejected
-from y3management.iam.public import Account, Ceremony, Setup
+from y3management.iam.public import Account, Ceremony, EmergencySnapshot, HandoffRequest, Setup
 from y3management.use_cases import Service
 
 AUTH = "__Host-y3-auth"
@@ -59,6 +59,25 @@ class BodyLimit:
 
 class Input(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+
+class HandoffSnapshot(Input):
+    row_version: int = Field(ge=1, strict=True)
+    security_version: int = Field(ge=1, strict=True)
+    key_set_version: int = Field(ge=0, strict=True)
+    reset_generation: int = Field(ge=0, strict=True)
+    recovery_generation: int = Field(ge=0, strict=True)
+    password_reset_pending: bool = Field(strict=True)
+    recovery_pending: bool = Field(strict=True)
+    password_ready: bool = Field(strict=True)
+    key_ready: bool = Field(strict=True)
+
+
+class HandoffInput(Input):
+    operation_id: UUID
+    supersedes_case_id: UUID
+    expected: HandoffSnapshot
+    identity_confirmed: bool = Field(strict=True)
 
 
 class Login(Input):
@@ -482,6 +501,40 @@ def attach(app: FastAPI, settings: Settings) -> None:
     def reissue_master(request: Request, ident: UUID, body: Version) -> dict[str, object]:
         auth, nonce = write(request)
         return issued(service(request).reissue_master(auth, nonce, ident, body.expected_version))
+
+    @router.get("/admin/master-accounts/{ident}/emergency-recovery")
+    def handoff_state(request: Request, ident: UUID) -> dict[str, object]:
+        if request.query_params:
+            raise Rejected(422, "invalid_request")
+        return asdict(service(request).handoff_state(read(request), ident))
+
+    @router.get("/admin/master-accounts/{ident}/emergency-recovery/{operation}")
+    def handoff_status(request: Request, ident: UUID, operation: UUID) -> dict[str, object]:
+        if request.query_params:
+            raise Rejected(422, "invalid_request")
+        return asdict(service(request).handoff_state(read(request), ident, operation))
+
+    @router.post("/admin/master-accounts/{ident}/emergency-recovery/handoff", status_code=201)
+    def handoff(request: Request, ident: UUID, body: HandoffInput) -> dict[str, object]:
+        auth, nonce = write(request)
+        result = service(request).handoff(
+            auth,
+            nonce,
+            ident,
+            HandoffRequest(
+                body.operation_id,
+                body.supersedes_case_id,
+                EmergencySnapshot(**body.expected.model_dump()),
+            ),
+            body.identity_confirmed,
+        )
+        return {
+            "operation_id": str(body.operation_id),
+            "recipient_link": settings.canonical_origin
+            + "/emergency-recover#token="
+            + result.token,
+            "expires_at": result.expires_at.isoformat(),
+        }
 
     @router.post("/auth/emergency-recovery/inspect")
     def emergency_inspect(request: Request, body: EmergencyToken) -> dict[str, object]:

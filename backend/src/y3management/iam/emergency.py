@@ -1,7 +1,7 @@
 """IAM-owned emergency state transitions; no fabricated business caller/session."""
 
 import secrets
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -410,7 +410,7 @@ class Emergency:
             text("UPDATE iam_emergency_cases SET completed_at=clock_timestamp() WHERE id=:id"),
             {"id": source["case_id"]},
         )
-        return self.event(
+        change = self.event(
             before,
             self.mfa.account(before["id"]),
             source["case_id"],
@@ -418,6 +418,17 @@ class Emergency:
             source["executor_ref"],
             issue=False,
         )
+        if source["issuer_kind"] == "master_handoff":
+            change = replace(
+                change,
+                approval_mode="current_master",
+                approval_origin_case_id=source["approval_origin_case_id"],
+                previous_case_id=source["supersedes"],
+                handoff_kind="takeover"
+                if source["supersedes"] == source["approval_origin_case_id"]
+                else "reissue",
+            )
+        return change
 
     def event(
         self,
@@ -425,7 +436,7 @@ class Emergency:
         after: dict[str, Any],
         case: UUID,
         factors: str,
-        executor: str,
+        executor: str | None,
         *,
         issue: bool,
     ) -> EmergencyChange:

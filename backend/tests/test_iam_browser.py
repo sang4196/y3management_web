@@ -42,10 +42,11 @@ def run_browser(
     token: str | None = None,
     *,
     emergency_db: Database | None = None,
+    handoff_db: Database | None = None,
 ) -> None:
     root = tmp_path / "https-browser"
     root.mkdir(mode=0o700)
-    if token and emergency_db is None:
+    if token and emergency_db is None and handoff_db is None:
         for name in (
             "management.cjs",
             "management-checks.json",
@@ -169,7 +170,9 @@ def run_browser(
     shutil.copy(
         Path(__file__).parent
         / (
-            "browser/emergency.cjs"
+            "browser/handoff.cjs"
+            if handoff_db
+            else "browser/emergency.cjs"
             if emergency_db
             else ("browser/mfa.cjs" if token else "browser/s1.cjs")
         ),
@@ -178,7 +181,9 @@ def run_browser(
     shutil.copy(
         Path(__file__).parent
         / (
-            "browser/emergency-checks.json"
+            "browser/handoff-checks.json"
+            if handoff_db
+            else "browser/emergency-checks.json"
             if emergency_db
             else ("browser/mfa-checks.json" if token else "browser/required-checks.json")
         ),
@@ -315,7 +320,7 @@ def run_browser(
             str(root / "node-host"),
             str(root / "browser.cjs"),
         ]
-        if emergency_db is not None:
+        if emergency_db is not None or handoff_db is not None:
             from tests.test_iam_emergency import cli_execute, operator, request
 
             browser_process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -323,7 +328,9 @@ def run_browser(
             try:
                 local = settings.model_copy(update={"canonical_origin": origin})
                 private = root / "operator"
-                service, principal, ident = operator(local, emergency_db, private)
+                selected_db = handoff_db if handoff_db is not None else emergency_db
+                assert selected_db is not None
+                service, principal, ident = operator(local, selected_db, private)
                 previous = None
                 from typing import Literal
 
@@ -332,6 +339,8 @@ def run_browser(
                     "passkey",
                     "both",
                 )
+                if handoff_db is not None:
+                    factors = ("both",)
                 for index, factor in enumerate(factors):
                     deadline = time.monotonic() + 60
                     while not (root / f"emergency-issue-ready-{index}").exists():
@@ -342,6 +351,10 @@ def run_browser(
                     execution = request(service, principal, ident, factor, previous)
                     delivery = cli_execute(local, private, execution)
                     previous = execution.operation_id
+                    if handoff_db is not None:
+                        from tests.test_iam_emergency_handoff import expire_case
+
+                        expire_case(handoff_db, execution.operation_id)
                     server = subprocess.Popen(server.args, env=env, stdout=log, stderr=log)
                     qa_register_process(server, port=port)
                     deadline = time.monotonic() + 25
@@ -391,12 +404,14 @@ def run_browser(
             "run_id": root.parents[2].name,
         }
         evidence = (
-            "latest-emergency-browser.json"
+            "latest-handoff-browser.json"
+            if handoff_db
+            else "latest-emergency-browser.json"
             if emergency_db
             else ("latest-mfa-browser.json" if token else "latest-browser.json")
         )
         _qa_write(qa_root() / evidence, safe)
-        if token and emergency_db is None:
+        if token and emergency_db is None and handoff_db is None:
             management = report.get("management", {})
             expected = json.loads((root / "management-checks.json").read_text())
             _qa_write(
@@ -440,7 +455,7 @@ def run_browser(
             )
             assert set(management) == set(expected) and all(management[k] is True for k in expected)
             assert set(checks) == set(required) and all(checks[name] is True for name in required)
-        elif emergency_db is not None:
+        elif emergency_db is not None or handoff_db is not None:
             assert set(checks) == set(required) and all(checks[name] is True for name in required)
         else:
             validate_browser_report(report)

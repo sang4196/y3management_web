@@ -40,6 +40,9 @@ class Event:
     emergency_factors: str | None = None
     executor_ref: str | None = None
     approval_mode: str | None = None
+    approval_origin_case_id: UUID | None = None
+    previous_case_id: UUID | None = None
+    handoff_kind: str | None = None
 
 
 class AuditPort(Protocol):

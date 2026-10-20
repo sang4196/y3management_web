@@ -470,3 +470,14 @@ status 확인 전 전달/맹목 재실행을 하지 않는다.
 both 발급·링크 만료 후 다른 정상 Master가 복귀한 경우의 정상 관리 경로 인계는 별도 R4 후속이다.
 현재 normal M2/reset의 opposite-pending 거부를 완화하지 않으며, 과거 all-unavailable 확인을
 현재 운영 실행 승인으로 재사용하지 않는다. 이 후속은 IAM-009 완료 범위에 포함하지 않는다.
+
+## 기존 비상 복구의 정상 Master 인계 (IAM010)
+
+같은 조직의 다른 현재 정상 MFA Master는 만료된 최신 미완료 운영 사건을
+`/api/v1/admin/master-accounts/{account_id}/emergency-recovery`에서 조회하고,
+하위 `/handoff`에 새 operation ID·명시 parent·전체 snapshot·본인 확인과 정상 CSRF를
+제출한다. 이미 인계된 사건의 유실 링크도 같은 origin/요인 안에서 명시 재발급한다.
+원 token 조회나 자동 재실행은 없다. 응답 유실/commit 불명은 하위 `/{operation_id}`
+상태 조회로 확인한다. 수신자는 기존 `/emergency-recover`에서 직접 요인을 준비한다.
+운영 CLI의 권한·수동 승인·all-unavailable 조건과 일반 reset/recovery guard는 유지한다.
+[계약](../docs/architecture/iam-010-emergency-handoff-design.md)을 따른다.
