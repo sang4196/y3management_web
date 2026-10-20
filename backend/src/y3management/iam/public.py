@@ -1,8 +1,10 @@
 """Immutable IAM values. No database/HTTP objects or password hashes cross here."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol
+from typing import Literal, Protocol
 from uuid import UUID
 
 
@@ -116,8 +118,8 @@ class IAMPort(Protocol):
 
 
 class SecurityPort(Protocol):
-    def allocate(self, kind: str) -> UUID: ...
-    def release(self, ident: UUID) -> None: ...
+    def allocate(self, kind: str, *, collect: bool = True) -> UUID: ...
+    def release(self, ident: UUID, *, collect: bool = True) -> None: ...
     def preparation(self, raw: str | None) -> Preparation: ...
     def reserve(self, login_id: str) -> Reservation: ...
     def finish(self, reservation: Reservation, success: bool) -> None: ...
@@ -257,3 +259,88 @@ class MFAPort(Protocol):
         self, token: str | None, nonce: str | None, payload: str, sid: UUID
     ) -> tuple[str, Account]: ...
     def revoke_undelivered(self, sid: UUID) -> None: ...
+
+
+@dataclass(frozen=True)
+class OperatingRecoveryAuthority:
+    organization_id: UUID
+    executor_ref: str
+    executor_uid: int
+    operations: frozenset[str]
+
+
+@dataclass(frozen=True)
+class EmergencySnapshot:
+    row_version: int
+    security_version: int
+    key_set_version: int
+    reset_generation: int
+    recovery_generation: int
+    password_reset_pending: bool
+    recovery_pending: bool
+    password_ready: bool
+    key_ready: bool
+
+
+@dataclass(frozen=True)
+class EmergencyRequest:
+    operation_id: UUID
+    organization_id: UUID
+    account_id: UUID
+    factors: Literal["password", "passkey", "both"]
+    expected: EmergencySnapshot
+    approval_ref: str
+    owner_ref: str
+    checked_at: datetime
+    approval_valid_until: datetime
+    supersedes: UUID | None = None
+
+
+@dataclass(frozen=True)
+class EmergencyView:
+    operation_id: UUID
+    factors: str
+    expires_at: datetime
+    status: str
+
+
+class EmergencyPort(Protocol):
+    def preflight(self, authority: OperatingRecoveryAuthority, ident: UUID) -> None: ...
+
+    def inspect(self, authority: OperatingRecoveryAuthority, ident: UUID) -> EmergencySnapshot: ...
+    def status(self, authority: OperatingRecoveryAuthority, operation: UUID) -> EmergencyView: ...
+    def issue(
+        self, authority: OperatingRecoveryAuthority, request: EmergencyRequest, slot: UUID
+    ) -> tuple[Setup, EmergencyChange]: ...
+    def recipient(self, token: str) -> EmergencyView: ...
+    def begin(self, token: str, password: str | None, slot: UUID) -> Ceremony: ...
+    def password(self, token: str, password: str) -> EmergencyChange: ...
+    def complete(
+        self, token: str | None, nonce: str | None, proof: RegistrationProof
+    ) -> EmergencyChange: ...
+
+
+@dataclass(frozen=True)
+class EmergencyChange:
+    action: str
+    organization_id: UUID
+    actor_id: UUID | None
+    target_id: UUID
+    actor_role: str
+    actor_scope: str
+    before_state: str
+    after_state: str
+    before_version: int
+    after_version: int
+    before_key_set_version: int
+    after_key_set_version: int
+    before_recovery_generation: int
+    after_recovery_generation: int
+    before_reset_generation: int
+    after_reset_generation: int
+    before_password_ready: bool
+    after_password_ready: bool
+    emergency_case_id: UUID
+    emergency_factors: str
+    executor_ref: str
+    approval_mode: str

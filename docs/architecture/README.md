@@ -1,5 +1,21 @@
 # Architecture 및 현재 개발 단계
 
+2026-10-20 최신 인수: **IAM-009 제한된 AB5 비상 인증요인 복구의 로컬 개발 인수 PASS**.
+[AB5 R1–R3](../product/product-decisions.md#review-20261020-ab5-r1-r3)에 따라 기존 ACTIVE Master 한 명의
+승인된 비밀번호·Passkey·두 요인만 복구한다. 대상의 기존 로그인과 대기 인증만 철회하며 다른 계정·다른 요인·C2를 보존한다.
+[구현 계약](iam-009-emergency-recovery-design.md), [독립 검증 결과](iam-009-emergency-recovery-results.md),
+[설계자 판정](iam-009-emergency-recovery-review.json)을 따른다.
+
+동결183개 소스로 독립 fast **105개** 및 필수 PostgreSQL **전체364개**를 새로 실행해 모두 통과했다.
+신규37개와 기존327개의 단일 PG 실행 안에서 실제 HTTPS/native58·20·15·11·12·23항목이 모두 true였다.
+감사 NULL 제약·인과적 재발급 순서·운영 명령 권한·실제 commit 뒤 응답/인터럽트 처리 및 새 downgrade 잠금 문제를
+동결 전에 수정하고 이번 전체 회귀로 확인했다. 보호72개·HEAD/index 불변과 자동 실행4개 정리를 대조했다.
+기존0001–0007·의존성을 보존하고 새0008만 추가했다. Import Linter의 operating 계층 등록 외 기존 계약은 유지했다.
+
+전담 변경 검토·한글 커밋·일반 push 후, 사용자가 승인한 **R4 정상 Master의 기존 비상 복구 인계**를 별도 계약·증분으로 진행한다.
+R4는 이번 소스에 구현되지 않았다. 실제 운영자 provision/OS 분리·승인 진위/별개 인간·보존·배포·실물/전체 지원 브라우저는
+이번 로컬 인수로 증명하지 않는다. Product OPEN/ADR/모듈 PROPOSED 상태는 유지하며 아래 각 증분은 당시 이력이다.
+
 2026-10-18 최신 인수: **IAM-008 다른 Master 차단·복구·Login ID 변경의 제한된 로컬 개발 인수 PASS**.
 현재 정상 MFA Master가 같은 Organization의 다른 Master를 관리한다. 자기 대상은 이번 증분에서 제외하며,
 원래 암호·Passkey·관리 Scope·실패 제한을 보존하고 실제 변경 시 대상의 기존 로그인과 대기 인증 증명을 철회한다.

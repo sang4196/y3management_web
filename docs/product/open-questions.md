@@ -322,6 +322,8 @@ Backend는 현재 검증된 Caller 역할/Organization·관리 Branch와 실제 
 <a id="arch-002"></a>
 ## ARCH-002. 계정 수명 정책
 
+2026-10-20 부분 해결: [AB5 R1–R3](product-decisions.md#review-20261020-ab5-r1-r3) 모두1번으로 기존 ACTIVE Master 한 명의 인증요인 복구·대상 로그인/대기 인증만 철회·별도 운영담당자의 보호된 수동 승인 확인/기록을 확정했다. 차단 해제/신규 계정/회수 역할 복원·조직 전체 철회·승인 진위 자동 증명은 제외한다. 승인된 구현·독립 검증을 진행하되 운영 자격/확인·전달/기록·실제 운영 인수와 나머지 계정 수명은 남아 ARCH-002는 OPEN을 유지한다. 아래 이전 미정 설명 중 이번 세 선택만 대체한다.
+
 Question / TODO: 승인된 정책을 재질문하지 않고 실제 계정/역할 상태·운영 설치/본인확인·Passkey 등록/분실/복구 및 비상 승인/실행 자격·감사/철회·보존·최소 계약/경합을 구체화한다. AB3 reset 링크30분, AB4 운영 관리자 비밀번호 뒤 사용자 검증 Passkey, AB5 전체 Master 로그인 불가 시 업무책임자 승인/별도 시스템 운영담당자 실행은 확정됐다. K3/X1 S1 관리자 인증/지점 접근 제어·정확한 발급 결과 조회/설정 대기 재발급과 후속 수명/Trainer 분리, Master 분실 시 S1중단·운영 전 MFA/복구 검증 및 기존 현재 인가/마지막 Master 보호/감사는 유지한다. 구체 API/소유권/UoW/잠금은 PROPOSED이며 별도 구현 지시가 필요하다.
 
 Related decisions / requirements: PD-019; PR-001/021/026/028. [결정](product-decisions.md), [요구사항](requirements.md)

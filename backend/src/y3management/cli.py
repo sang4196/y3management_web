@@ -6,16 +6,19 @@ import json
 import os
 import stat
 import sys
+from dataclasses import asdict
 from pathlib import Path
+from uuid import UUID
 
 import uvicorn
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 
-from y3management.config import load_settings
-from y3management.contracts import CommitUncertain
+from y3management.config import Settings, load_settings
+from y3management.contracts import CommitPhase, CommitUncertain
 from y3management.database import Database
 from y3management.iam.public import Setup
+from y3management.operating import authority, execution
 from y3management.ownership import verify_local_target
 from y3management.runtime import ProcessGuard
 from y3management.uow import UnitOfWork
@@ -25,7 +28,8 @@ from y3management.use_cases import Service
 class PrivateEnrollmentFile:
     """Linux descriptor-relative creation: no symlink components or secret stdout."""
 
-    def __init__(self, path: str, origin: str) -> None:
+    def __init__(self, path: str, origin: str, *, emergency: bool = False) -> None:
+        self.route = "/emergency-recover" if emergency else "/enroll"
         target = Path(path)
         if not target.is_absolute() or ".." in target.parts:
             raise ValueError("PRIVATE_ABSOLUTE_PATH_REQUIRED")
@@ -69,7 +73,7 @@ class PrivateEnrollmentFile:
             raise
 
     def deliver(self, setup: Setup) -> None:
-        data = (self.origin + "/enroll#token=" + setup.token + "\n").encode()
+        data = (self.origin + self.route + "#token=" + setup.token + "\n").encode()
         with os.fdopen(os.dup(self.fd), "wb") as output:
             output.write(data)
             output.flush()
@@ -88,6 +92,165 @@ class PrivateEnrollmentFile:
             os.close(self.directory)
 
 
+def emergency_diagnostic(message: str) -> None:
+    try:
+        try:
+            fd = sys.stderr.fileno()
+        except (AttributeError, OSError, ValueError):
+            print(message, file=sys.stderr, flush=True)
+        else:
+            # Do not leave failed diagnostic bytes buffered for interpreter shutdown.
+            sys.stderr.flush()
+            remaining = (message + "\n").encode()
+            while remaining:
+                written = os.write(fd, remaining)
+                if written <= 0:
+                    break
+                remaining = remaining[written:]
+    except (Exception, KeyboardInterrupt, SystemExit):
+        # A lost diagnostic must not reclassify an already committed operation.
+        pass
+
+
+def emergency_receipt(value: dict[str, object]) -> None:
+    payload = json.dumps(value, default=str) + "\n"
+    try:
+        fd = sys.stdout.fileno()
+    except (AttributeError, OSError, ValueError):
+        print(payload, end="", flush=True)
+    else:
+        # Unbuffered receipt avoids a second EPIPE at interpreter shutdown
+        # overwriting the explicit reconciliation exit code.
+        sys.stdout.flush()
+        remaining = payload.encode()
+        while remaining:
+            written = os.write(fd, remaining)
+            if written <= 0:
+                raise OSError("RECEIPT_WRITE_FAILED")
+            remaining = remaining[written:]
+
+
+def emergency_command(args: argparse.Namespace, settings: Settings) -> int:
+    phase = "precommit"
+    outcome = 0
+    guard: ProcessGuard | None = None
+    database: Database | None = None
+    delivery: PrivateEnrollmentFile | None = None
+    result: dict[str, object] | None = None
+
+    def observed(event: CommitPhase) -> None:
+        nonlocal phase
+        phase = {"starting": "committing", "confirmed": "committed", "rejected": "precommit"}[event]
+
+    try:
+        if (
+            (
+                args.operation == "inspect"
+                and (
+                    not args.account_id
+                    or args.operation_id
+                    or args.request_file
+                    or args.output_file
+                )
+            )
+            or (
+                args.operation == "status"
+                and (
+                    not args.operation_id
+                    or args.account_id
+                    or args.request_file
+                    or args.output_file
+                )
+            )
+            or (
+                args.operation == "execute"
+                and (
+                    not args.request_file
+                    or not args.output_file
+                    or args.account_id
+                    or args.operation_id
+                )
+            )
+        ):
+            raise ValueError("OPERATING_ARGUMENTS_REQUIRED")
+        if args.confirm_schema != settings.database_schema:
+            raise ValueError("SCHEMA_CONFIRMATION_REQUIRED")
+        principal = authority(settings, args.organization_id, args.operation)
+        request = execution(settings, args.request_file) if args.operation == "execute" else None
+        if request and request.organization_id != args.organization_id:
+            raise ValueError("ORGANIZATION_CONFIRMATION_REQUIRED")
+        guard = ProcessGuard(settings)
+        database = Database(settings)
+        u = make_url(settings.database_url.get_secret_value())
+        with database.session() as session:
+            row = session.execute(
+                text("SELECT current_database(),current_user,current_schema()")
+            ).one()
+            if tuple(row) != (u.database, u.username, settings.database_schema):
+                raise ValueError("UNVERIFIED_OPERATING_TARGET")
+        service = Service(UnitOfWork(database, settings))
+        if args.operation == "inspect":
+            result = asdict(service.emergency_inspect(principal, args.account_id))
+        elif args.operation == "status":
+            result = asdict(service.emergency_status(principal, args.operation_id))
+        elif request is not None:
+            delivery = PrivateEnrollmentFile(
+                args.output_file, settings.canonical_origin, emergency=True
+            )
+            service.emergency_issue(principal, request, delivery.deliver, commit_observer=observed)
+            phase = "committed"
+            result = {"operation_id": str(request.operation_id), "status": "issued"}
+    except CommitUncertain:
+        if args.operation == "execute":
+            phase = "unknown"
+            outcome = 2
+            emergency_diagnostic("EMERGENCY_COMMIT_UNKNOWN_RETAIN_PRIVATE_FILE_CHECK_STATUS")
+        else:
+            outcome = 1
+            emergency_diagnostic("EMERGENCY_READ_FAILED")
+    except (Exception, KeyboardInterrupt, SystemExit):
+        if phase == "committing":
+            phase = "unknown"
+        outcome = 2 if phase != "precommit" else 1
+        emergency_diagnostic(
+            {
+                "committed": "EMERGENCY_COMMITTED_CHECK_STATUS",
+                "unknown": "EMERGENCY_COMMIT_UNKNOWN_RETAIN_PRIVATE_FILE_CHECK_STATUS",
+                "precommit": "EMERGENCY_COMMAND_FAILED",
+            }[phase]
+        )
+    finally:
+        if delivery is not None:
+            try:
+                delivery.close(remove=phase == "precommit")
+            except (Exception, KeyboardInterrupt, SystemExit):
+                outcome = 2 if phase != "precommit" else 1
+                emergency_diagnostic(
+                    "EMERGENCY_" + phase.upper() + "_OUTPUT_CLOSE_FAILED_CHECK_STATUS"
+                )
+        # Every owned resource gets its cleanup attempt even if a prior close failed.
+        for resource in (database, guard):
+            if resource is not None:
+                try:
+                    resource.close()
+                except (Exception, KeyboardInterrupt, SystemExit):
+                    outcome = 2 if phase != "precommit" else 1
+                    emergency_diagnostic(
+                        "EMERGENCY_" + phase.upper() + "_CLEANUP_FAILED_CHECK_STATUS"
+                    )
+    if outcome == 0 and result is not None:
+        try:
+            emergency_receipt(result)
+        except (Exception, KeyboardInterrupt, SystemExit):
+            outcome = 2 if phase == "committed" else 1
+            emergency_diagnostic(
+                "EMERGENCY_COMMITTED_RECEIPT_LOST_CHECK_STATUS"
+                if phase == "committed"
+                else "EMERGENCY_READ_RECEIPT_FAILED"
+            )
+    return outcome
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     commands = parser.add_subparsers(dest="command", required=True)
@@ -96,6 +259,15 @@ def main() -> int:
     initial.add_argument("--login-id", required=True)
     initial.add_argument("--confirm-database", required=True)
     initial.add_argument("--enrollment-file")
+    emergency = commands.add_parser("emergency-recovery")
+    emergency.add_argument("operation", choices=("inspect", "execute", "status"))
+    emergency.add_argument("--organization-id", required=True, type=UUID)
+    emergency.add_argument("--confirm-database", required=True)
+    emergency.add_argument("--confirm-schema", required=True)
+    emergency.add_argument("--account-id", type=UUID)
+    emergency.add_argument("--operation-id", type=UUID)
+    emergency.add_argument("--request-file")
+    emergency.add_argument("--output-file")
     serve = commands.add_parser("serve")
     serve.add_argument("--cert", required=True)
     serve.add_argument("--key", required=True)
@@ -127,6 +299,8 @@ def main() -> int:
         u = make_url(settings.database_url.get_secret_value())
         if args.confirm_database != u.database:
             raise ValueError("DATABASE_CONFIRMATION_REQUIRED")
+        if args.command == "emergency-recovery":
+            return emergency_command(args, settings)
         password = getpass.getpass("Initial Master password: ")
         confirmation = getpass.getpass("Confirm password: ")
         if password != confirmation:

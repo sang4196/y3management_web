@@ -36,11 +36,16 @@ def test_actual_https_mfa_browser(mfa: tuple[Settings, Database, str, str], tmp_
 
 
 def run_browser(
-    settings: Settings, password: str, tmp_path: Path, token: str | None = None
+    settings: Settings,
+    password: str,
+    tmp_path: Path,
+    token: str | None = None,
+    *,
+    emergency_db: Database | None = None,
 ) -> None:
     root = tmp_path / "https-browser"
     root.mkdir(mode=0o700)
-    if token:
+    if token and emergency_db is None:
         for name in (
             "management.cjs",
             "management-checks.json",
@@ -162,12 +167,21 @@ def run_browser(
     (root / "input.json").write_text(json.dumps(inputs))
     (root / "input.json").chmod(0o600)
     shutil.copy(
-        Path(__file__).parent / ("browser/mfa.cjs" if token else "browser/s1.cjs"),
+        Path(__file__).parent
+        / (
+            "browser/emergency.cjs"
+            if emergency_db
+            else ("browser/mfa.cjs" if token else "browser/s1.cjs")
+        ),
         root / "browser.cjs",
     )
     shutil.copy(
         Path(__file__).parent
-        / ("browser/mfa-checks.json" if token else "browser/required-checks.json"),
+        / (
+            "browser/emergency-checks.json"
+            if emergency_db
+            else ("browser/mfa-checks.json" if token else "browser/required-checks.json")
+        ),
         root / "required-checks.json",
     )
     log = (root / "server.log").open("wb")
@@ -301,10 +315,67 @@ def run_browser(
             str(root / "node-host"),
             str(root / "browser.cjs"),
         ]
-        result = subprocess.run(args, capture_output=True, timeout=90)
+        if emergency_db is not None:
+            from tests.test_iam_emergency import cli_execute, operator, request
+
+            browser_process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            qa_register_process(browser_process)
+            try:
+                local = settings.model_copy(update={"canonical_origin": origin})
+                private = root / "operator"
+                service, principal, ident = operator(local, emergency_db, private)
+                previous = None
+                from typing import Literal
+
+                factors: tuple[Literal["password", "passkey", "both"], ...] = (
+                    "password",
+                    "passkey",
+                    "both",
+                )
+                for index, factor in enumerate(factors):
+                    deadline = time.monotonic() + 60
+                    while not (root / f"emergency-issue-ready-{index}").exists():
+                        assert browser_process.poll() is None, "Emergency browser form flow failed"
+                        assert time.monotonic() < deadline, "Emergency browser form flow timed out"
+                        time.sleep(0.1)
+                    qa_stop_process(server)
+                    execution = request(service, principal, ident, factor, previous)
+                    delivery = cli_execute(local, private, execution)
+                    previous = execution.operation_id
+                    server = subprocess.Popen(server.args, env=env, stdout=log, stderr=log)
+                    qa_register_process(server, port=port)
+                    deadline = time.monotonic() + 25
+                    while True:
+                        assert server.poll() is None, "Emergency HTTPS restart failed"
+                        try:
+                            with opener.open(origin + "/health/live", timeout=1) as response:
+                                if response.status == 200:
+                                    break
+                        except OSError:
+                            assert time.monotonic() < deadline, "Emergency HTTPS restart timed out"
+                            time.sleep(0.1)
+                    destination = root / f"emergency-delivery-{index}"
+                    shutil.copyfile(delivery, destination)
+                    destination.chmod(0o600)
+                    (root / f"emergency-issued-ready-{index}").write_text("ready")
+                stdout, stderr = browser_process.communicate(timeout=60)
+                result = subprocess.CompletedProcess(
+                    args, browser_process.returncode, stdout, stderr
+                )
+            finally:
+                qa_stop_process(browser_process)
+        else:
+            result = subprocess.run(args, capture_output=True, timeout=90)
         (root / "browser.log").write_bytes(result.stdout + result.stderr)
         stage_match = re.search(rb"MFA_BROWSER_FAILED stage=([a-z-]+)", result.stderr)
         safe_stage = stage_match.group(1).decode() if stage_match else "unspecified"
+        if emergency_db is not None and result.returncode != 0:
+            diagnostic = re.search(rb"EMERGENCY_DIAGNOSTIC=(.*)", result.stderr)
+            if diagnostic:
+                _qa_write(
+                    qa_root() / "latest-emergency-failure.json",
+                    {"stage": safe_stage, "diagnostic": json.loads(diagnostic.group(1))},
+                )
         assert result.returncode == 0, "Actual HTTPS browser failed at " + safe_stage
         report = json.loads((root / "browser-results.json").read_text())
         # Keep only the current safe verdict; raw logs/profiles/credentials are disposable.
@@ -319,8 +390,13 @@ def run_browser(
             "scope": "actual trusted HTTPS browser",
             "run_id": root.parents[2].name,
         }
-        _qa_write(qa_root() / ("latest-mfa-browser.json" if token else "latest-browser.json"), safe)
-        if token:
+        evidence = (
+            "latest-emergency-browser.json"
+            if emergency_db
+            else ("latest-mfa-browser.json" if token else "latest-browser.json")
+        )
+        _qa_write(qa_root() / evidence, safe)
+        if token and emergency_db is None:
             management = report.get("management", {})
             expected = json.loads((root / "management-checks.json").read_text())
             _qa_write(
@@ -363,6 +439,8 @@ def run_browser(
                 reset[k] is True for k in reset_expected
             )
             assert set(management) == set(expected) and all(management[k] is True for k in expected)
+            assert set(checks) == set(required) and all(checks[name] is True for name in required)
+        elif emergency_db is not None:
             assert set(checks) == set(required) and all(checks[name] is True for name in required)
         else:
             validate_browser_report(report)

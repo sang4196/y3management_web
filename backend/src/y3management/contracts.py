@@ -1,5 +1,9 @@
 """Framework-free shared failures; never include submitted values."""
 
+from typing import Literal
+
+type CommitPhase = Literal["starting", "confirmed", "rejected"]
+
 
 class Rejected(Exception):
     def __init__(self, status: int, detail: str, retry_after: int | None = None) -> None:

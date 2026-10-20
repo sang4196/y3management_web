@@ -119,6 +119,10 @@ class MFA:
                 raise Rejected(401, "invalid_ceremony")
         if row["recovery_id"] is not None:
             self.recovery_source(row["recovery_id"], account)
+        elif row["purpose"] == "emergency":
+            emergency = self.emergency_source(row["emergency_id"])
+            if emergency["account_id"] != row["account_id"]:
+                raise Rejected(401, "invalid_ceremony")
         elif account["recovery_pending"] or account["password_reset_pending"]:
             raise Rejected(401, "invalid_ceremony")
         return dict(row)
@@ -364,7 +368,7 @@ class MFA:
     ) -> RegistrationProof:
         before = self.context(token, nonce or "")
         if (
-            before["purpose"] not in ("install", "setup", "add", "recovery")
+            before["purpose"] not in ("install", "setup", "add", "recovery", "emergency")
             or before["challenge"] is None
         ):
             raise Rejected(401, "invalid_ceremony")
@@ -985,3 +989,45 @@ class MFA:
             {"a": proof.account_id},
         )
         return before, self.iam._account(proof.account_id), self.reset_change(account)
+
+    def emergency_source(self, ident: UUID) -> dict[str, Any]:
+        self.enabled()
+        row = (
+            self.s.execute(
+                text("""SELECT e.*,c.organization_id,c.executor_ref,
+          c.row_version,c.security_version,c.key_set_version,c.reset_generation,
+          c.recovery_generation,c.completed_at FROM iam_emergency_credentials e
+          JOIN iam_emergency_cases c ON c.id=e.case_id WHERE e.id=:id"""),
+                {"id": ident},
+            )
+            .mappings()
+            .first()
+        )
+        if (
+            row is None
+            or row["consumed"]
+            or row["expires_at"] <= self.iam.now()
+            or row["completed_at"]
+        ):
+            raise Rejected(401, "invalid_recovery")
+        account = self.account(row["account_id"], lock=False)
+        grant = self.iam._account(row["account_id"])
+        if (
+            not grant.master
+            or grant.state != "ACTIVE"
+            or grant.organization_id != row["organization_id"]
+            or any(
+                account[k] != row[k]
+                for k in (
+                    "row_version",
+                    "security_version",
+                    "key_set_version",
+                    "reset_generation",
+                    "recovery_generation",
+                )
+            )
+            or account["password_reset_pending"] != (row["factors"] in ("password", "both"))
+            or account["recovery_pending"] != (row["factors"] in ("passkey", "both"))
+        ):
+            raise Rejected(401, "invalid_recovery")
+        return dict(row)

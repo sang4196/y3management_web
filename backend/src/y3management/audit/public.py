@@ -36,6 +36,11 @@ class Event:
     before_password_ready: bool | None = None
     after_password_ready: bool | None = None
 
+    emergency_case_id: UUID | None = None
+    emergency_factors: str | None = None
+    executor_ref: str | None = None
+    approval_mode: str | None = None
+
 
 class AuditPort(Protocol):
     def append(self, event: Event) -> None: ...

@@ -1,5 +1,16 @@
 # 후속 검증 계획
 
+2026-10-20 IAM-009 실제 인수 범위: [결과](iam-009-emergency-recovery-results.md)와
+[설계자 판정](iam-009-emergency-recovery-review.json)의 독립 fast105 및 필수PG **전체364 PASS**를 확인했다.
+동결183개·보호72개 기준으로 신규37개와 기존327개를 한 번에 실행했고 실패/skip/xfail/xpass/error/incomplete는0이다.
+같은 PG 실행의 실제 신뢰 HTTPS/native58·20·15·11·12·23항목은 정확한 manifest 집합으로 모두 true였다.
+이는 PG 안의 브라우저 pytest3건에 포함되며139항목을 pytest 건수에 더하지 않는다. 소스/HEAD/index·TLS/hostname/
+sandbox/전역 trust 불변과 자동 실행4개 정리를 확인했다. root는 소스·결과를 검토했고 별도 runtime을 실행하지 않았다.
+감사 NULL·인과 순서·운영 권한·실제 commit 후 인터럽트/응답 실패 및 새 downgrade 잠금 수정이 이번 회귀에 포함된다.
+기존0001–7·의존성/lock·Product/ADR 상태는 보존했다. 새0008과 정확한 operating import 계층 등록만 해당 범위다.
+R4 정책 선택은 승인됐으나 구현은 다음 증분이다. 실제 운영자/원본 승인 진위·OS 분리·production·보존·실물/전체
+지원 브라우저 및 아래 PROPOSED 전체 계획의 인수를 뜻하지 않는다. 이후 과거 수치/대기 표현은 당시 이력이다.
+
 2026-10-18 IAM-008 실제 인수 범위: [실행 결과](iam-008-master-management-results.md)와
 [설계자 판정](iam-008-master-management-review.json)의 독립 fast96 및 필수PG **전체327 PASS**를 확인했다.
 동일 동결155개 소스에서 신규 Master 관리81개와 기존 회귀246개를 한 번에 실행했으며

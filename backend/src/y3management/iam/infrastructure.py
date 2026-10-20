@@ -663,6 +663,7 @@ class IAM:
             "iam_mfa_contexts",
             "iam_recovery_credentials",
             "iam_reset_credentials",
+            "iam_emergency_credentials",
         ):
             self.s.execute(
                 text(f"SELECT id FROM {table} WHERE account_id=:a ORDER BY id FOR UPDATE"),

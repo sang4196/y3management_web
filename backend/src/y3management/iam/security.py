@@ -34,6 +34,7 @@ class Security:
             ("iam_credentials", "source_id"),
             ("iam_recovery_credentials", "recovery_id"),
             ("iam_reset_credentials", None),
+            ("iam_emergency_credentials", "emergency_id"),
         ):
             children = (
                 f" AND NOT EXISTS (SELECT 1 FROM iam_mfa_contexts c WHERE c.{reference}=t.id)"
@@ -85,10 +86,11 @@ class Security:
         self.s.execute(
             text("""DELETE FROM iam_security_states s
           WHERE s.kind IN ('preparation','credential','session_slot','mfa',
-                           'recovery','password_reset')
+                           'recovery','password_reset','emergency')
           AND s.created_at<=:lease_end
           AND NOT EXISTS (SELECT 1 FROM iam_preparations p WHERE p.id=s.id)
           AND NOT EXISTS (SELECT 1 FROM iam_credentials c WHERE c.id=s.id)
+          AND NOT EXISTS (SELECT 1 FROM iam_emergency_credentials e WHERE e.id=s.id)
           AND NOT EXISTS (SELECT 1 FROM iam_reset_credentials r WHERE r.id=s.id)
           AND NOT EXISTS (SELECT 1 FROM iam_recovery_credentials r WHERE r.id=s.id)
           AND NOT EXISTS (SELECT 1 FROM iam_mfa_contexts m WHERE m.id=s.id)
@@ -121,19 +123,27 @@ class Security:
         )
         return ident
 
-    def allocate(self, kind: str) -> UUID:
-        now = self._guard()
+    def allocate(self, kind: str, *, collect: bool = True) -> UUID:
+        now = self._guard() if collect else self._capacity_lock()
         minutes = 480 if kind == "session_slot" else 30
         return self._allocate(kind, now + timedelta(minutes=minutes))
 
-    def release(self, ident: UUID) -> None:
-        self._guard()
+    def _capacity_lock(self) -> datetime:
+        self.s.execute(text("SELECT id FROM iam_security_control WHERE id=1 FOR UPDATE")).one()
+        return self.now()
+
+    def release(self, ident: UUID, *, collect: bool = True) -> None:
+        if collect:
+            self._guard()
+        else:
+            self._capacity_lock()
         self.s.execute(
             text(
                 "DELETE FROM iam_security_states s WHERE id=:id "
                 "AND NOT EXISTS (SELECT 1 FROM iam_credentials c WHERE c.id=s.id) "
                 "AND NOT EXISTS (SELECT 1 FROM iam_recovery_credentials r WHERE r.id=s.id) "
                 "AND NOT EXISTS (SELECT 1 FROM iam_reset_credentials r WHERE r.id=s.id) "
+                "AND NOT EXISTS (SELECT 1 FROM iam_emergency_credentials e WHERE e.id=s.id) "
                 "AND NOT EXISTS (SELECT 1 FROM iam_sessions a WHERE a.id=s.id) "
                 "AND NOT EXISTS (SELECT 1 FROM iam_preparations p WHERE p.id=s.id) "
                 "AND NOT EXISTS (SELECT 1 FROM iam_mfa_contexts m WHERE m.id=s.id)"

@@ -8,12 +8,16 @@ from typing import Literal
 from uuid import UUID
 
 from y3management.audit.public import Event
-from y3management.contracts import HashAdmissionRejected, Rejected
+from y3management.contracts import CommitPhase, HashAdmissionRejected, Rejected
 from y3management.iam.public import (
     Account,
     Caller,
     Ceremony,
+    EmergencyRequest,
+    EmergencySnapshot,
+    EmergencyView,
     KeyList,
+    OperatingRecoveryAuthority,
     Preparation,
     RecoveryState,
     Reservation,
@@ -876,3 +880,112 @@ class Service:
                     **asdict(changes),
                 )
             )
+
+    def emergency_inspect(
+        self, authority: OperatingRecoveryAuthority, ident: UUID
+    ) -> EmergencySnapshot:
+        self.require_mfa()
+        with self.uow.open() as w:
+            return w.emergency.inspect(authority, ident)
+
+    def emergency_status(
+        self, authority: OperatingRecoveryAuthority, operation: UUID
+    ) -> EmergencyView:
+        self.require_mfa()
+        with self.uow.open() as w:
+            return w.emergency.status(authority, operation)
+
+    def emergency_issue(
+        self,
+        authority: OperatingRecoveryAuthority,
+        request: EmergencyRequest,
+        deliver: Callable[[Setup], None],
+        commit_observer: Callable[[CommitPhase], None] | None = None,
+    ) -> None:
+        self.require_mfa()
+        with self.uow.open() as w:
+            w.emergency.preflight(authority, request.account_id)
+        with self.uow.open() as w:
+            slot = w.security.allocate("emergency", collect=False)
+        try:
+            with self.uow.open(commit_observer=commit_observer) as w:
+                result, audit = w.emergency.issue(authority, request, slot)
+                w.audit.append(Event(**asdict(audit)))
+                deliver(result)
+        finally:
+            self.emergency_release(slot)
+
+    def emergency_release(self, slot: UUID) -> None:
+        # Retain the original error, especially an unknown COMMIT. An unattached
+        # bounded slot can be reclaimed by ordinary GC after its lease.
+        try:
+            with self.uow.open() as w:
+                w.security.release(slot, collect=False)
+        except Exception:
+            try:
+                logging.getLogger(__name__).warning("Emergency allocation cleanup pending")
+            except Exception:
+                pass  # Cleanup diagnostics cannot overwrite a business commit outcome.
+
+    def emergency_signed_out(self, auth: str | None) -> None:
+        self.require_mfa()
+        if auth:
+            try:
+                with self.uow.open() as w:
+                    w.iam.authenticate(auth, touch=False)
+            except Rejected as error:
+                if error.status != 401:
+                    raise
+            else:
+                raise Rejected(409, "logout_required")
+
+    def emergency_preauth(self, auth: str | None, preauth: str | None, nonce: str | None) -> None:
+        self.emergency_signed_out(auth)
+        with self.uow.open() as w:
+            w.iam.preparation(preauth, nonce)
+
+    def emergency_recipient(
+        self, token: str, auth: str | None, preauth: str | None, nonce: str | None
+    ) -> EmergencyView:
+        self.emergency_preauth(auth, preauth, nonce)
+        with self.uow.open() as w:
+            return w.emergency.recipient(token)
+
+    def emergency_begin(
+        self,
+        token: str,
+        password: str | None,
+        auth: str | None,
+        preauth: str | None,
+        nonce: str | None,
+    ) -> Ceremony:
+        self.emergency_preauth(auth, preauth, nonce)
+        with self.uow.open() as w:
+            slot = w.security.allocate("mfa", collect=False)
+        try:
+            with self.uow.open() as w:
+                result = w.emergency.begin(token, password, slot)
+                w.iam.preparation(preauth, nonce, consume=True)
+                return result
+        finally:
+            self.emergency_release(slot)
+
+    def emergency_password(
+        self, token: str, password: str, auth: str | None, preauth: str | None, nonce: str | None
+    ) -> None:
+        self.emergency_preauth(auth, preauth, nonce)
+        with self.uow.open() as w:
+            audit = w.emergency.password(token, password)
+            w.iam.preparation(preauth, nonce, consume=True)
+            w.audit.append(Event(**asdict(audit)))
+
+    def emergency_complete(
+        self, token: str | None, nonce: str | None, payload: str, auth: str | None = None
+    ) -> None:
+        self.emergency_signed_out(auth)
+        with self.uow.open() as w:
+            proof = w.mfa.verify_registration(token, nonce, payload)
+        if proof.purpose != "emergency":
+            raise Rejected(401, "invalid_ceremony")
+        with self.uow.open() as w:
+            w.audit.append(Event(**asdict(w.emergency.complete(token, nonce, proof))))

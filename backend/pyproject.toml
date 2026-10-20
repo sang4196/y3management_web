@@ -63,7 +63,7 @@ include_external_packages = true
 name = "Foundation dependency direction"
 type = "layers"
 containers = ["y3management"]
-layers = ["main", "application", "cli", "http", "use_cases", "uow", "organization", "iam", "audit", "runtime", "ownership", "database", "config", "contracts"]
+layers = ["main", "application", "cli", "operating", "http", "use_cases", "uow", "organization", "iam", "audit", "runtime", "ownership", "database", "config", "contracts"]
 exhaustive = true
 
 [[tool.importlinter.contracts]]

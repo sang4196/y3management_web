@@ -1,0 +1,787 @@
+{
+  "status": "PASS_LOCAL_IAM009_LIMITED_EMERGENCY_RECOVERY",
+  "date": "2026-10-20",
+  "reviewed_at_utc": "2026-10-20T14:38:27.966363+00:00",
+  "scope": "Approved AB5 R1/R2/R3 limited local implementation. Existing ACTIVE Master one-account selected-factor recovery; not production or full operational AB5 acceptance.",
+  "base_commit": "3e8ad3a363d28a2bdf469bb8a896074ef480f977",
+  "branch": "codex/iam-emergency-recovery",
+  "tested_source": {
+    "files": 183,
+    "backend_files": 112,
+    "manifest_map_sha256": "6500d81ff9eacac4ae898ce13b8527f005d8dfb5514180042d4d8a65b67080bb",
+    "manifest_map_encoding": "sha256 of JSON files map sorted keys, separators comma/colon, UTF-8",
+    "manifest_file_sha256": "6aba54543b41afbc7618b165222180971a100d2aaaa0a0d168574f4b0db88c29",
+    "sha256": {
+      ".gitignore": "1e39cc09ba70ee1d8cb90c93bb156ef8ff1553ae3922e6dfb2d0b8649218b08e",
+      "AGENTS.md": "b729058462d36fec6abfd509db5f0df2334cf4c728be6fd88a7ba21fbadc8ab9",
+      "README.md": "edd1982977d66095139d677a5d0cefe92cd0c6c7c638c03eee1c9a33abae6fe1",
+      "backend/.env.example": "a4080099b51fe66917844740c5a2afe6dec59eb7f36836caf1be5fa527209bdc",
+      "backend/.python-version": "861b3dd8083d28f336ef70f6755bc399538ddad627b1d095820ca34cb953cf14",
+      "backend/README.md": "427cfc5e68b3e6d8bfc1ff99bfe3c25ba1f3e740a255d6a8bad4af5041315725",
+      "backend/alembic.ini": "c8dff3ed8c5474c2959696e1460714e7dbef8a5e982050a9fb177e08cedf53b3",
+      "backend/alembic/env.py": "01bfc70f2bfa086f0eeeeeb7526a7067933a7ef7e8ed73572e11c5c50b018b07",
+      "backend/alembic/script.py.mako": "67042994cfc495007c508ccae15e44d21057d90222461630f9bc04d3657f5f6d",
+      "backend/alembic/versions/.gitkeep": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "backend/alembic/versions/0001_iam_s1.py": "b3d402d8c2b48873f88a693429b5cc92f5a295d9681871d5ad799c178033ad1f",
+      "backend/alembic/versions/0002_iam_restore.py": "4322aa7d7a10ea56915927c3efe91c36f771741aaf92e5770a6fe2d8b0a7a5d1",
+      "backend/alembic/versions/0003_iam_password.py": "f207d7f0938e17713f78d7e46cbd806137d5e1c488ae6a6dd5f5c7c4ec90762a",
+      "backend/alembic/versions/0004_iam_login_id.py": "07144bab1120b2d9a5f00ec4a2d40e3fb218b0c5b202c742051df25f454e3937",
+      "backend/alembic/versions/0005_iam_mfa.py": "52950c64e4011ff72f4a542c4c9b50d5dfa81579087ab1bf16c987a739b59a2b",
+      "backend/alembic/versions/0006_iam_mfa_management.py": "2534c339c4be0cbcda8306ee0c719b0aa8a51cd3c88a81ff36b21cbc9b7c5f42",
+      "backend/alembic/versions/0007_iam_password_reset.py": "10d17079e948a047ed978b1258a3cae3feb7b085ca7da2ee5da3f26aa718ffd4",
+      "backend/alembic/versions/0008_iam_emergency_recovery.py": "5a74acb38eb400a538327ea1ae5f4cbb20447d3b7eeff7eb65b65b58c7c81729",
+      "backend/check.ps1": "abb1d8216d924c10a68e24bb73ad61eaf743d1a6ef2f68d64ff0ee6853ee5b4c",
+      "backend/check.sh": "913aca1b14811d52295d6145924464990665689158368d3024e4a769ac8e4b44",
+      "backend/compose.yaml": "057759a9125dc93d4b8b7a3e31dcee9fdbc338cec814ae76eff2b31ab63725e4",
+      "backend/logging.json": "7fe0601cf723ffd729ee970482bc5e6395a0358c64aea60f42f634e9acd2dfcf",
+      "backend/pyproject.toml": "b93bf7451e39727bb96bd93ef9516bc259820ab38584af35ad411e7c7d416b70",
+      "backend/src/y3management/__init__.py": "8cbacc38f76fad94d97347b932b70ae2a7e917e1c382faa1136ba1ee781665c8",
+      "backend/src/y3management/application.py": "442a3c30279e7c84df5eb7a8115a3db63dbeab6ef117d09fb58d80c150b321fd",
+      "backend/src/y3management/audit/__init__.py": "447d8ce612052ba9911099dbd8b29fcc0bf649c190efa7e89c1c478c7de42996",
+      "backend/src/y3management/audit/infrastructure.py": "a0cebd68769d20a4fa76ac0e7df0a87bc38ca46df98c11ec098b4bcb65120bdc",
+      "backend/src/y3management/audit/public.py": "23bba5452e691106d6149974c1377234ac667a80d7e478c0b8954fcfd3f6c75f",
+      "backend/src/y3management/cli.py": "e6fcc6b588429518312655bcafc051397ee75fc9622750fdc8ce3a4d8ba8fb31",
+      "backend/src/y3management/config.py": "e207efaf2ead93ce90ddb5288b7f2760720a5d659976d1d00f41fd59d3c3da3d",
+      "backend/src/y3management/contracts.py": "b6fb628c7332c26d1ffc04f72f62b40adc65458b49e5e3144b7fe383e991b5a0",
+      "backend/src/y3management/database.py": "c502567c5025cd527efdaebd3a7c278ed8505507ab19570ea89c8feb0047bb33",
+      "backend/src/y3management/http.py": "8a633e78596d63fa0e1cbf899397d88fd28ecdb1ff0f9ad27704d848e4dacc41",
+      "backend/src/y3management/iam/__init__.py": "447d8ce612052ba9911099dbd8b29fcc0bf649c190efa7e89c1c478c7de42996",
+      "backend/src/y3management/iam/data/LANGUAGE-SOURCES.md": "cc1f825fdaea0f26833093acef223157751dcf8ab17c90b37dbe54df5addacab",
+      "backend/src/y3management/iam/data/SECLISTS-LICENSE": "3dbdc93d5f8829de0941744841730a09c106d0732e5ae0e98ca1d77be7ded66c",
+      "backend/src/y3management/iam/data/SOURCE-README.md": "49b7d00632c09b24bfa7c21bace2164b72815f0e50344604dd63ed66db2dbd37",
+      "backend/src/y3management/iam/data/artifact-manifest.json": "770d4b7aa4d5f75744d5e9b0e8036ad1964ea6747f4768eac490f4cedf95e445",
+      "backend/src/y3management/iam/data/blocked-sha256.txt": "0e44ccea3096de7725f495080d1e8b4e624e7ba794d1dff133905c2f38f5bfae",
+      "backend/src/y3management/iam/data/public-example-provenance.json": "d04107b4e645f128effc550835df4cb96c54d72145ffc59f8e6c4462d143a368",
+      "backend/src/y3management/iam/data/seeds.txt": "d674c8719634c9ea2dc88990833ada6884789c0e447edddac067e67398c9bc90",
+      "backend/src/y3management/iam/data/source-manifest.json": "a3d9e0db191b0c9070957b6459e4a5cedec6b8926419225c6a718fe910ad4eaf",
+      "backend/src/y3management/iam/emergency.py": "edf20de66f690764ff70ed392afd11c42cd7325a0bbc2351d1936c34b6eeca79",
+      "backend/src/y3management/iam/infrastructure.py": "d876c1fec70222cae3cc0281c806ac81fe0946cbb96f22fe486efdea6f458794",
+      "backend/src/y3management/iam/mfa.py": "917c1cfb5f8a20e355af5c248fb5d24d94010d50c6997d5f40befde63e11bd29",
+      "backend/src/y3management/iam/passwords.py": "b592df3d9b9ae9d2a31ac04340a5091b7189a3d0c9ce4e32bedb6d1f0cc5fc56",
+      "backend/src/y3management/iam/public.py": "ad40a0a0b2c8523c05d46908bc6ea1b6eaaf36e4d7d193c6a6d457c70f25234a",
+      "backend/src/y3management/iam/security.py": "b3e0ec757fe0b5064c1a904de81a1790d90b956a6a8392580647d00aadf9f16f",
+      "backend/src/y3management/main.py": "043f955bf1959ce02cc09a8487607c3ca10ab661a045658e0b161e6207888eed",
+      "backend/src/y3management/operating.py": "eb424a3b1d47a769efa451e38dd507f94671b697c63d6753738021294e5e53a2",
+      "backend/src/y3management/organization/__init__.py": "447d8ce612052ba9911099dbd8b29fcc0bf649c190efa7e89c1c478c7de42996",
+      "backend/src/y3management/organization/application.py": "4e7a22d301163fd2765d3e94cbb3a971b661fdb1473af73f6af12a2479dba88d",
+      "backend/src/y3management/organization/infrastructure.py": "fc64e0bf7175c1f8dd1fb8b92eef86df9aac0dd7646fed787618629a5a79f40d",
+      "backend/src/y3management/organization/public.py": "e1b195de4de69eaa0f36a2a6fd395102e664582821da9275b6e5ae00772c5a5c",
+      "backend/src/y3management/ownership.py": "08b39878e755567dda122c68d5dc54c11a8a92e7d1ff9f82219e56dd07e83916",
+      "backend/src/y3management/runtime.py": "18dd015be1ab4b76a402fda827ee0e9de910cc68c064aff142a4c8d9487bcf97",
+      "backend/src/y3management/uow.py": "e711c4d992e2eeace2b3c9d48acf25cc27f9507d472b31c168592d889b40ae3a",
+      "backend/src/y3management/use_cases.py": "e8abf1db1136cef5ef2eb28df33cdf744d48131937d7a1730e96a90e8e3df78f",
+      "backend/tests/__init__.py": "238b2ab9051bda8c786c28ec95bf32708a59f54b06829cda74fd9134b87f4cc5",
+      "backend/tests/browser/emergency-checks.json": "909c99a0c3bd39e552c0f3dc9eebb3f420ef8f04b23b9685d89fd24a84f2c198",
+      "backend/tests/browser/emergency.cjs": "80745f9222f1f31634b59a9ab927550bf119f1192a01e0390812a1357982175e",
+      "backend/tests/browser/management-checks.json": "9f31e5570c956985c3e9603069bdf9155afcdd377e7808944fe363e86350ab02",
+      "backend/tests/browser/management.cjs": "cee87887c54c63443232db104a30999671939373c10f2755f5f1715b74cd6217",
+      "backend/tests/browser/master-management-checks.json": "f3a991aff4c472fecc991c11e0c6f5c673d8ca43c38d5b638ed981736cbb8bdd",
+      "backend/tests/browser/master-management.cjs": "10f11ad832dbece248a2099c7cf1759251f8a9465a968cab7ef45d17e35bfe1f",
+      "backend/tests/browser/mfa-checks.json": "acb9bffee97507b22c87ba6ef07c13f33a780cfd6ef6deabe36e6ca40638c7b6",
+      "backend/tests/browser/mfa.cjs": "688111950fb6debbf3fa19d1ac7f44865c9a103f8835654d4879af93e03f1f47",
+      "backend/tests/browser/required-checks.json": "a9f0262f0825c64c0e9fbcc72d98d63895b0906c4da946fc6b217b675454d002",
+      "backend/tests/browser/reset-checks.json": "3cbcfaa4fe180e4e05cc7ba8a4aebb0886ee9bfa290595cabd9d5af990cf96c2",
+      "backend/tests/browser/reset.cjs": "a256e4911b5826d0a6ca1946237a9657284c3724e0246bf111692e018f43cc75",
+      "backend/tests/browser/s1.cjs": "94a94ad63e80d67129043d7a3928faa7340b46bef94684b43c68625691cfe272",
+      "backend/tests/browser_result.py": "5dea14fcb0aceeaa727580423d2fe64c29a5fbf62f21b8905a13778715ddcf7d",
+      "backend/tests/conftest.py": "1071e10229100ae5712fed119a74a3240a266f6a5173a21004c1d78cd47c7bb9",
+      "backend/tests/test_application.py": "880aafb5583e3e955c6d97b82edd07b7dada5b46233eabadbecbd4aaac285356",
+      "backend/tests/test_browser_result.py": "e3096363d4c71f5ea9860d20a96c114bda93493d071f0be5bce875fb9b9072fa",
+      "backend/tests/test_database.py": "620d674c99d2f06bbfd735db8446f99646b2ef8600b31d27d184acdc3d273f42",
+      "backend/tests/test_driver_failure.py": "661b8f8a02da7fca5d78c8dd6c524c81c1371bcc8d2d8ec50fdaf5255ef539bb",
+      "backend/tests/test_iam.py": "496e9f8d05685ee972a0a678c0b1d1d07250611fc731ecd854ccf7eb1ca36eb0",
+      "backend/tests/test_iam_browser.py": "7a2f1b1a5e646cbec2ad3631cc17349b5257a1d4ffd29a27c5469d5f16a5e4f8",
+      "backend/tests/test_iam_emergency.py": "b222fef21293f7793c6983b6764a55ad4fa40cdbc722e09d819c070fb4700018",
+      "backend/tests/test_iam_emergency_browser.py": "0eb8ab74bed85bd9882066497049224d1983e88cd71a64bb527b2fe57ebc7991",
+      "backend/tests/test_iam_emergency_files.py": "b90a3361275a362fff2370102851227efd6a537ea1aee306f291cbb836103d7c",
+      "backend/tests/test_iam_emergency_integrity.py": "29305ffeba66a4b04aa2e995a742ed9e7843301484c6b20aa28846e7efc3dc97",
+      "backend/tests/test_iam_master_management.py": "3aa217aefe656f171b156549d4ab6f5de938f527a268cb861cef15905cdbfbff",
+      "backend/tests/test_iam_master_management_guards.py": "c18c7c0c30f2a359421606141a09815bd53bb096cdc2abdcdff0b9449e81da48",
+      "backend/tests/test_iam_master_management_races.py": "47f58067e4ad52304b205d0a80894fb1709af43f48fb0a124a3ba82a8b9780d0",
+      "backend/tests/test_iam_master_privacy.py": "f0daf2b5c23f4fe0290852bfe0a5dc883d8c4bcab1644b1e0c16490db43ee3c9",
+      "backend/tests/test_iam_mfa.py": "7db863d195f808d19167f4fb62d028ea8831769fb28625439e556bf3bdae1248",
+      "backend/tests/test_iam_mfa_install.py": "1b1f85113ccc30f2a86d313e709e4b0401c73d68b55192a19e81a519190c593b",
+      "backend/tests/test_iam_mfa_management.py": "45be5b9a3406af2fe9719067383e9853be409ad7c09e4aac2ae21d2894cbb428",
+      "backend/tests/test_iam_mfa_management_authorization.py": "39dcb375cb8d26e006c852ceed74542c322504c5bca6adaeda59a90971fb96ac",
+      "backend/tests/test_iam_mfa_management_gc.py": "efd18de4f5a1cf2ba208f3fe8e1f4e08568eae344a6ca1b33c6e022c58f87f4d",
+      "backend/tests/test_iam_mfa_management_migration.py": "4b69cf2f4858f0b318778e065d63c80158b91cd213681f587f25afa2502f06c1",
+      "backend/tests/test_iam_mfa_management_races.py": "62423e962df2b4f1e70872d42f077d1b3e11d94a9847b14eab7617d6c18dd342",
+      "backend/tests/test_iam_mfa_management_security.py": "105457dec1d14553f7f000cb225096ec87c5e3c73d3b90352e8aba69c98f7e44",
+      "backend/tests/test_iam_mfa_races.py": "878afb922e2ee408652e196d1a0abe8caafbc0bcb02eda96315d574e711f081e",
+      "backend/tests/test_iam_mfa_security.py": "cc7169a5251059df50b5693dcc682c0cd6b4e81d1f64d5122c16936033547e25",
+      "backend/tests/test_iam_password_reset.py": "9552b743ac1c720bc4e79a6b7b8e80b5b0d8031029bf4f3bd23b1f122a53db69",
+      "backend/tests/test_iam_password_reset_authorization.py": "9fc812125a52dbbb7395e5dd0d553fe5bbcd03cf384ed5a264961549ba7e3494",
+      "backend/tests/test_iam_password_reset_edges.py": "70c7fdd022cb65e862fb399447d491be69eb7b40bbdf9bed8183ccd6c2d1db1c",
+      "backend/tests/test_iam_password_reset_races.py": "4d561164c099374caed5767537ae42a165ee1c5f13a6a8bfa92f1974193b0ce4",
+      "backend/tests/test_iam_password_reset_storage.py": "887226396d9ba7518ec39a2ccf19950e2179d85e6501488a78b322d7694cb7f6",
+      "backend/tests/test_iam_policy.py": "219cdd6a53a518bb4fd050bbc2488224c27f9853c507ffd97b17854a3cedb719",
+      "backend/tests/test_iam_s2.py": "0526891b86e24027de3a2bef3c2868139fc8f3607494de29bd5761b409cb4341",
+      "backend/tests/test_iam_s2b.py": "c69e47993a8b24be8fe84009298aa4b28a11915e3ad4dde88c4bd0fba9b3186c",
+      "backend/tests/test_iam_s2c.py": "90dd895320277748716eb83c3ffad6af26245f564c5aadfb11fc827b20c8ac39",
+      "backend/tests/test_mfa_management_policy.py": "14a0d183cd577be2f0d6d67bf8e059a2094b917854841c96ff8675bffcbeda4f",
+      "backend/tests/test_mfa_policy.py": "8dc02c7c3e101407a9a647014bed48ecf41dd50e34c100fe8ad38416a278b089",
+      "backend/tests/test_password_reset_policy.py": "209fcccfbba77f7999ad44c0362c1f2c7ca5d7cbd4e7dc6ebdac38f5ff82c9cd",
+      "backend/tests/test_postgres.py": "9adb607898f7388f51d981a3f71c03801f2460f108483ea606ff403efefd0e4f",
+      "backend/tests/test_postgres_gate.py": "174e5373ad289d854c14d315cb4e4e6ea1cf0ce955e77fb6914be878d7a8f2c6",
+      "backend/tests/test_qa_cleanup.py": "c31d12f9f935997f607b8f91852796ccd13f514133b57dbedf1f5c550151802f",
+      "backend/tests/test_settings.py": "07d9ade228c4c8d8efd3889254036315a56adc931cda6c1c3b942b123be02fbc",
+      "backend/tools/build_password_corpus.py": "dbf12d1249af7681dcb8fcfd384358b4a178688bc9842199fb407dba365974f3",
+      "backend/uv.lock": "8251577bfdec490b82f72ec47ea59700d52a12b7673494f58b953f2f8098c276",
+      "docs/analysis/01-system-overview.md": "b6d79b00348f9abec75fefb3b829638d42e881ca7be378e91b4a661f0d7407fa",
+      "docs/analysis/02-domain-model.md": "5c6722049335ba998c2d32da3dee0a80b59c41b59715af3e59a91d2aefebff19",
+      "docs/analysis/03-feature-inventory.md": "7bdbdd3b2b0394faf7872f2a95c6a38a1ec5b20e0c0b7f7e058d69fcc1b9633b",
+      "docs/analysis/04-screen-inventory.md": "d6fe3351af765a293c7c2d9767bc5c51c88855172035387964e7290105d101d9",
+      "docs/analysis/05-database-model.md": "f8165ca05e144252fa85a790e59771f39e755e4e324b3469e5763d5251039f3c",
+      "docs/analysis/06-business-flows.md": "6ee66dbb476546c84569d2bba171c7017ef7e271a2023fb3472c73f3c2fa68fc",
+      "docs/analysis/07-business-rules.md": "a0306cc79e939f3bb3cc7a12eceb4ebec2cb35b504d2f0fcabd8971737c51412",
+      "docs/analysis/08-auth-and-permissions.md": "c53224373809da55356ff91923a47d84b786c2f1457dc45a1443ab45a058a5d5",
+      "docs/analysis/09-external-integrations.md": "74259bc93bc8a14c6c6f3f71135f025da25084f3ff02990238e387065ee729c7",
+      "docs/analysis/10-web-migration-considerations.md": "1432723831bfd0bcaed8802b90ccd7908a4a0e3ac4271c08037056d7a4eea9e5",
+      "docs/analysis/11-risks-and-unknowns.md": "b4fd4ed154be3a6e14a60fb8be273bcb2ebdb8033072cde5447c6bcc03fc40bd",
+      "docs/analysis/12-glossary.md": "276df8ed262b078675399aea9fede1921ff995ad1d025ef4075071a02ab00fa6",
+      "docs/analysis/README.md": "f3a3de12a2a8b52ca0f58e0d0050989a938748241e65a1bc9ae473afb9d6532e",
+      "docs/analysis/verification-report.md": "c847f9bb057a50475257d86a9f0e77217c0dd3eb68bd5d97f229a243f247b1ac",
+      "docs/architecture/README.md": "c81300c9597e41811f33ad3f47f1345d1ab0dd4af06c8e17c619e5bc63c01c49",
+      "docs/architecture/data-and-transactions.md": "bc4d9fddb4b9c2c71bd42ec8b2320ace8e80124cc24a6afd477c9e75196f7746",
+      "docs/architecture/decision-gates.md": "169669a21634311742c7f35918817f9794a58982874cd46d3c442385425a28d5",
+      "docs/architecture/foundation-001.md": "c209d6c5fd75444483b3e76fe2dfe13d80814ae891bc176691fb79a2870d4b4e",
+      "docs/architecture/foundation-002.md": "a486dffac83da69ca08570cea9ad3ac184dc4aadcd847701435faeef0f264e10",
+      "docs/architecture/iam-001-decision-pack.md": "6ef3c8463495f37bf580b96f2348dcda8dfa58791e2fb733a45979a1f0703033",
+      "docs/architecture/iam-001-design.md": "6c845840ac3d85e00410c0137d4ff4aad029b2a733786caa81275a8ed01401ef",
+      "docs/architecture/iam-001-preflight.md": "ab5474b4ac3fc99eb53479ee8d0120fbf2de58c3055fec083d2a73c2fb7dabea",
+      "docs/architecture/iam-001-s1-results.md": "84450727e7fdebdd9ac08bd5b117d7e8f3f982543c21c6fb93936afb2d5b99de",
+      "docs/architecture/iam-001-s1-review.json": "930eccc056645afe5a07b79d2d15ac6a1cf572a7f7ff7ae939f5222a259eacff",
+      "docs/architecture/iam-002-restore-results.md": "bd97b374a2fd7bc83f6b2b48c0fb3f13519b7170793c93472ed44bc41a24f817",
+      "docs/architecture/iam-002-restore-review.json": "26b55c7c0b9fb8e1f3c80e44e9fdbe73ce4094b055d9f102226e9bd7a4bf8eb3",
+      "docs/architecture/iam-003-password-change-results.md": "109aa72fda6a77aa5337f2652ff4781ceea87761356b202d839f399b9d7228cd",
+      "docs/architecture/iam-003-password-change-review.json": "ab71e084db51da2c0915e96f47db38c060a44592529ea4faf78e11a91bf04fce",
+      "docs/architecture/iam-004-login-id-design.md": "79169a57732fd82e5ecdda6d0d955a0d54671b96cd222095e8752c6f6a1311e7",
+      "docs/architecture/iam-004-login-id-results.md": "d52c9bd3d92de8792fccc78b0218141344ff01cb1820fa459d9a12f66a633b09",
+      "docs/architecture/iam-004-login-id-review.json": "433baab794ccdb2e01b39d82a036a13b64bd0752601a953237636b276132f6bc",
+      "docs/architecture/iam-005-mfa-a-design.md": "89a365399478f697a33c4b4545bb2f572076f4228c01faa80177a91020d557fd",
+      "docs/architecture/iam-005-mfa-a-results.md": "d6ab7ccbb87e32fedf89d7a871a984262b9ce97efa8b846f03e349901a3d8c66",
+      "docs/architecture/iam-005-mfa-a-review.json": "e194723111c7101ba5e92e14452a822a25081286e0092e94b96356b763d498a0",
+      "docs/architecture/iam-006-mfa-management-design.md": "9b7407ca0ea6064d965c0b8d57d52196bafa6ac3d4d5d3a3b07bbeed47630a2f",
+      "docs/architecture/iam-006-mfa-management-results.md": "fe57557a9b926de9608461a37bc08f0c374a80d9cadbf705edd1747fbde5ca9e",
+      "docs/architecture/iam-007-password-reset-design.md": "3feb955c3926307ab1eec28aeec704096cd8fd7cb46eae152473f8d5f7470b40",
+      "docs/architecture/iam-007-password-reset-results.md": "c2922592780fe0078ca04831db68554991ec23f2341c11e984075c520ed98ef3",
+      "docs/architecture/iam-007-password-reset-review.json": "f12dd187b7524f30517de510df5a91ad3b95930c566472ef7c990a52e004ca06",
+      "docs/architecture/iam-008-master-management-design.md": "e9060f6a70253634e50b279d7975c112c5b82c97e89680e0327d6be005c172a5",
+      "docs/architecture/iam-008-master-management-results.md": "3e668e0c9ab57a736ebaecca8fc727fa359e015570c09ca5a762a2beb0e03878",
+      "docs/architecture/iam-008-master-management-review.json": "037e12b6a77bc00824261209e280c48ad01732330b2fb5e08b80204f7e3c4ce5",
+      "docs/architecture/iam-009-emergency-recovery-design.md": "0dae1fbf3ee1ddfabd6f2dad371c8b9a0af2172c685d3bb79e98e8243fbe4bcf",
+      "docs/architecture/iam-009-emergency-recovery-results.md": "16b99dd5d6aa64e2b5f8303d0e9c23e03467840f1ac8b1dab4d5e887ae1adcff",
+      "docs/architecture/module-boundaries.md": "17aeac1093e4ff774017070d9160f9a23a35ba4c8f8448ebb32d1c2e652e56a9",
+      "docs/architecture/password-corpus-distribution-review.json": "321be94ca910692a4567c64733e8feaa2c90f820c8a9f7d0a777f2fdfe3463b9",
+      "docs/architecture/prep-iam-001-results.md": "0fef2436f7e0faeb539c4f810759554ba49d126ad135282cd951c540a3604f4d",
+      "docs/architecture/prep-iam-001-review.json": "7ff2d07eef42f53120cfe6125fb393e182af5473ffc3a2df0ac1769ba072d0a9",
+      "docs/architecture/qa-cleanup-results.json": "09d45ede23213019854797270000997946a52ba78b65630781c406f932fd8ba3",
+      "docs/architecture/validation-plan.md": "30c68bba4079c9c320261810b8d520854eedf4d2195e60fc860205d8e0b81138",
+      "docs/architecture/wsl-migration.md": "c6fe3cf4bcedc929f8fbdd5445ae14d2126132a46a38ea9d960284b3e225b618",
+      "docs/decisions/0001-backend-stack.md": "35470513efeb91f24dd98c6af48927adceb67e7f246ce7e366320d5933176a22",
+      "docs/decisions/0002-modular-monolith.md": "81e180c95f8185d67159588e5e33ea35f7a14ed32239ef97af1d429825ff069a",
+      "docs/decisions/0003-foundation-tooling.md": "e6366b20e29aba905ce101b770e1a10c696ec4aa666fe8a38b7ad9b5c62ad649",
+      "docs/decisions/0004-authentication-session.md": "e6c9f6669bb6d3cc77b4a79bc86a58ae491b5460b708272b04b64e8998e0d79e",
+      "docs/product/README.md": "85f8cb12767fb411c74ee8c966a1fc41b707704a0ec0b044bdce2cafcd286cf1",
+      "docs/product/architecture-handoff.md": "c0db0b314b689faa4ab551852898c9237aefe190636048ad6bb6ab4625378798",
+      "docs/product/as-is-to-be-mapping.md": "5b9295c907f64c824850b4c9d539fc93da00b97f68091bc9d6ee85e8fab326a1",
+      "docs/product/business-rules.md": "17d91c55d4eb4f0503599f7f563793f0e7f5d836e3f98bf999e4b54675ddb6de",
+      "docs/product/non-functional-requirements.md": "7ed87dce85e66b8144673c903b2922a41d823993f1fb5aa57e96af0418ee57eb",
+      "docs/product/open-questions.md": "d36995c309629cd7a04d03a092efd87b2cdafce637305a5de168540fb7931d0b",
+      "docs/product/product-decisions.md": "c6621acc54c5e3f867ee86c6f0a372c8eaa43503eb0f68309ae4435a6fd19c74",
+      "docs/product/product-goal.md": "f3258db4ff2f0e9483d0055d07e66879c1f63a50a264b858c5724355df2d298a",
+      "docs/product/requirements.md": "5d79e1bb9c49ca01d8fcc4c108342384d6941e0fceadfc1401b46c8354c0c640",
+      "docs/product/scope.md": "2822c35c14539e2b75d5ae03b60b23ede616cb81efcbee7ad4d5ad4cb9e5a68c",
+      "docs/product/user-scenarios.md": "e209e4563a4d9dbbce67bcda29b23e4c6a793890a87defa1dde7327b2b70f83a",
+      "docs/product/users-and-roles.md": "17c8571a8217eaef5b637c8bbbdc8051cec9634e7fe0d176818c1877c2609d07",
+      "docs/product/validation-needed.md": "efd76ab46bb971223d81b7129dc2f009bc105f1a747557c0c10237cf2a4ab288"
+    },
+    "protected_count": 72,
+    "protected_entry_revision": 2,
+    "approved_HEAD_exceptions": 8,
+    "before_after_source_protected_HEAD_index_equal": true
+  },
+  "accepted_behavior": [
+    "Separate actual UID/EUID plus fixed scoped authority descriptor; protected manual owner approval reference, explicit validity and immutable execution history. No fabricated Master Caller.",
+    "Current ACTIVE Master only; target-only sessions/pending authentication revoked, unselected factors, other accounts and C2 retained.",
+    "Password/passkey/both purpose-specific recovery; both password hash stays temporary until actual UV and one atomic final completion; no auto login.",
+    "Explicit causal reissue with fresh approval/operation/snapshot; source maximum30min and registration maximum5min; durable cases survive source GC.",
+    "Same-UoW mandatory typed operating/recipient audit; no global GC during direct recovery commands.",
+    "Protected output before commit; real commit uncertainty, postcommit receipt/teardown/interrupt and actual closed pipe cases preserve output for status reconciliation. No file/DB atomicity or hard-kill recovery guarantee."
+  ],
+  "verification": {
+    "independent_report_sha256": "5c44b6d4eba2298fa1bc7d38ccfeb516739b35598e315be60d6afd63830a1a48",
+    "independent_findings_sha256": "897ea3c5d9e09a93e6de3088bbf70ab94551b72efea3f3ab9905b98d53772bf6",
+    "developer_report_sha256": "5ffb9bada4fa43b08e3bbd18828b54d0026ccf06a507025e56061715cbe194c2",
+    "final_static_review_sha256": "a8daaf4cb306447b420de071393b14b74f203d1ace59cdd2b85a3ebdd4694d15",
+    "fast": {
+      "command": "bash check.sh fast",
+      "started_at_utc": "2026-10-20T13:51:47.386432+00:00",
+      "finished_at_utc": "2026-10-20T13:52:28.020078+00:00",
+      "elapsed_seconds": 40.634,
+      "exit_code": 0,
+      "counts": {
+        "passed": 105,
+        "deselected": 364,
+        "warnings": 2
+      },
+      "collection": {
+        "total": 469,
+        "deselected": 364,
+        "selected": 105
+      },
+      "pytest_summary": "105 passed, 364 deselected, 2 warnings in 30.96s",
+      "warning_codes": [
+        {
+          "source_basename": "testclient.py",
+          "class": "StarletteDeprecationWarning"
+        },
+        {
+          "source_basename": "testclient.py",
+          "class": "DeprecationWarning"
+        }
+      ],
+      "pytest_auto_result": {
+        "run_id": "auto-7b1a045f8ee74187b745bc028dfa4dc1",
+        "finished_at": "2026-10-20T13:52:26.407312+00:00",
+        "exit_code": 0,
+        "passed": 105,
+        "failed_tests": [],
+        "cleanup": {
+          "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/.local/qa/auto-7b1a045f8ee74187b745bc028dfa4dc1",
+          "plan": "a239c1235eb297e53f5398af375ea4ea06a5e1c5833821dc3a7b55ef71769888",
+          "entries": 247,
+          "removed": true
+        }
+      },
+      "wrapper_cleanup": {
+        "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/.local/qa/auto-b21a8aa4d1a44ebfac3532213bc6c670",
+        "plan": "0f1ffcaaadefd5b2cac34b4fab0e847873dc0edc9504c8646fd0bb26089a4fdb",
+        "entries": 2,
+        "removed": true
+      },
+      "skip_xfail_xpass_error_incomplete": {
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0,
+        "errors": 0,
+        "incomplete": 0
+      },
+      "ruff_all_checks_passed": true,
+      "formatted_files": 83,
+      "mypy_files": 71,
+      "import_linter": {
+        "kept": 7,
+        "broken": 0
+      }
+    },
+    "single_whole_postgres": {
+      "command": "bash check.sh db",
+      "started_at_utc": "2026-10-20T13:53:07.548449+00:00",
+      "finished_at_utc": "2026-10-20T14:34:48.576625+00:00",
+      "elapsed_seconds": 2501.029,
+      "exit_code": 0,
+      "counts": {
+        "passed": 364,
+        "deselected": 105,
+        "warnings": 2
+      },
+      "collection": {
+        "total": 469,
+        "deselected": 105,
+        "selected": 364
+      },
+      "pytest_summary": "364 passed, 105 deselected, 2 warnings in 2498.81s (0:41:38)",
+      "warning_codes": [
+        {
+          "source_basename": "testclient.py",
+          "class": "StarletteDeprecationWarning"
+        },
+        {
+          "source_basename": "testclient.py",
+          "class": "DeprecationWarning"
+        }
+      ],
+      "pytest_auto_result": {
+        "run_id": "auto-8cc6340c52214db88b1f18bc749c915a",
+        "finished_at": "2026-10-20T14:34:46.818799+00:00",
+        "exit_code": 0,
+        "passed": 364,
+        "failed_tests": [],
+        "cleanup": {
+          "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/.local/qa/auto-8cc6340c52214db88b1f18bc749c915a",
+          "plan": "ee6a06d9a4090679a83d8207697570dda6cc7b9ffab6465e14c9051550233a85",
+          "entries": 1418,
+          "removed": true
+        }
+      },
+      "wrapper_cleanup": {
+        "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/.local/qa/auto-a9f5fdd30b58487289c26234a48dc1f2",
+        "plan": "22a635a71406b65475fcbb4c1470bbfb509a78b6100cfc2aa61b506e6892465d",
+        "entries": 2,
+        "removed": true
+      },
+      "skip_xfail_xpass_error_incomplete": {
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0,
+        "errors": 0,
+        "incomplete": 0
+      }
+    },
+    "collection": {
+      "total": 469,
+      "fast": 105,
+      "postgres": 364,
+      "basis": "Actual headers of the two fresh canonical commands; no new collect-only execution."
+    },
+    "PG_groups": {
+      "new_emergency": 37,
+      "prior_regression_executed_fresh": 327,
+      "whole": 364,
+      "new_file_counts": {
+        "tests/test_iam_emergency.py": 13,
+        "tests/test_iam_emergency_browser.py": 1,
+        "tests/test_iam_emergency_integrity.py": 23
+      }
+    },
+    "browser_summary": {
+      "counts": [
+        58,
+        20,
+        15,
+        11,
+        12,
+        23
+      ],
+      "total_literal_true_checks": 139,
+      "pytest_browser_nodes_inside_whole": 3,
+      "counted_inside_PG364": true,
+      "run_id": "auto-8cc6340c52214db88b1f18bc749c915a",
+      "browser": "151.0.7922.34",
+      "all_fresh_exact_keys_literal_true": true
+    },
+    "actual_native": {
+      "latest-browser.json": {
+        "report": {
+          "checks": {
+            "missing_origin_denied": true,
+            "missing_csrf_denied": true,
+            "copied_cookie_rejected": true,
+            "foreign_branch_denied": true,
+            "password_master_same_scope": true,
+            "no_js_submit_disabled": true,
+            "master_creates_branches": true,
+            "real_form_setup": true,
+            "password_wrong_current_denied": true,
+            "restore_existing_password_login": true,
+            "login_id_noop": true,
+            "restore_real_disable": true,
+            "password_master_cookies_cleared": true,
+            "no_js_no_secret_submission": true,
+            "password_branch_cookies_cleared": true,
+            "real_logout": true,
+            "login_id_master_preserved": true,
+            "cookie_flags": true,
+            "password_branch_changed": true,
+            "safe_form_fallback": true,
+            "password_branch_same_scope": true,
+            "password_other_master_kept": true,
+            "password_old_branch_rejected": true,
+            "password_last_master_allowed": true,
+            "login_id_owner_reuse": true,
+            "restore_old_auth_revoked": true,
+            "master_still_authenticated": true,
+            "password_other_branch_kept": true,
+            "no_token_submit_disabled": true,
+            "real_master_login": true,
+            "restore_master_preserved": true,
+            "actual_issuance": true,
+            "link_get_not_activated": true,
+            "cookie_deleted": true,
+            "login_id_two_revoked": true,
+            "login_id_changed": true,
+            "restore_real_command": true,
+            "password_branch_two_live": true,
+            "restore_branch_scope": true,
+            "no_auto_login": true,
+            "forged_origin_denied": true,
+            "password_master_two_live": true,
+            "password_new_master_login": true,
+            "cookie_js_hidden": true,
+            "password_branch_two_revoked": true,
+            "secure_context": true,
+            "real_branch_login": true,
+            "login_id_old_denied": true,
+            "password_master_two_revoked": true,
+            "login_id_two_live": true,
+            "password_old_master_rejected": true,
+            "login_id_branch_denied": true,
+            "password_new_branch_login": true,
+            "login_id_new_password_preserved": true,
+            "branch_scope_list": true,
+            "login_id_missing_csrf": true,
+            "fragment_removed": true,
+            "fragment_absent_request_urls": true
+          },
+          "browser": "151.0.7922.34",
+          "scope": "actual trusted HTTPS browser",
+          "run_id": "auto-8cc6340c52214db88b1f18bc749c915a"
+        },
+        "manifest": "backend/tests/browser/required-checks.json",
+        "manifest_sha256": "a9f0262f0825c64c0e9fbcc72d98d63895b0906c4da946fc6b217b675454d002",
+        "required_count": 58,
+        "fresh_for_this_full": true,
+        "exact_keys": true,
+        "all_literal_true": true
+      },
+      "latest-mfa-browser.json": {
+        "report": {
+          "checks": {
+            "secure_context": true,
+            "first_key_form": true,
+            "no_auto_login": true,
+            "first_key_login": true,
+            "password_stage_no_auth": true,
+            "additional_key_form": true,
+            "second_key_login": true,
+            "cookie_flags": true,
+            "cookie_js_hidden": true,
+            "actual_issuance": true,
+            "branch_setup_form": true,
+            "branch_login": true,
+            "scope_enforced": true,
+            "missing_csrf_denied": true,
+            "forged_origin_denied": true,
+            "assertion_replay_denied": true,
+            "uv_false_denied": true,
+            "fragment_removed": true,
+            "fragment_absent_request_urls": true,
+            "logout_reuse_denied": true
+          },
+          "browser": "151.0.7922.34",
+          "scope": "actual trusted HTTPS browser",
+          "run_id": "auto-8cc6340c52214db88b1f18bc749c915a"
+        },
+        "manifest": "backend/tests/browser/mfa-checks.json",
+        "manifest_sha256": "acb9bffee97507b22c87ba6ef07c13f33a780cfd6ef6deabe36e6ca40638c7b6",
+        "required_count": 20,
+        "fresh_for_this_full": true,
+        "exact_keys": true,
+        "all_literal_true": true
+      },
+      "latest-management-browser.json": {
+        "report": {
+          "checks": {
+            "minimal_key_list": true,
+            "second_browser_login": true,
+            "delete_success": true,
+            "delete_clears_cookies": true,
+            "all_old_sessions_denied": true,
+            "remaining_key_login": true,
+            "master_issued": true,
+            "master_setup": true,
+            "master_login": true,
+            "master_scope": true,
+            "recovery_fragment_removed": true,
+            "recovery_no_auto_login": true,
+            "recovery_url_private": true,
+            "master_recovery": true,
+            "branch_recovery": true
+          },
+          "browser": "151.0.7922.34",
+          "run_id": "auto-8cc6340c52214db88b1f18bc749c915a",
+          "scope": "actual trusted HTTPS management browser"
+        },
+        "manifest": "backend/tests/browser/management-checks.json",
+        "manifest_sha256": "9f31e5570c956985c3e9603069bdf9155afcdd377e7808944fe363e86350ab02",
+        "required_count": 15,
+        "fresh_for_this_full": true,
+        "exact_keys": true,
+        "all_literal_true": true
+      },
+      "latest-reset-browser.json": {
+        "report": {
+          "checks": {
+            "explicit_start": true,
+            "old_session_denied": true,
+            "fragment_removed": true,
+            "get_nonmutating": true,
+            "form_complete": true,
+            "no_auto_login": true,
+            "url_private": true,
+            "replay_denied": true,
+            "old_password_denied": true,
+            "existing_uv_key_login": true,
+            "keys_preserved": true
+          },
+          "browser": "151.0.7922.34",
+          "run_id": "auto-8cc6340c52214db88b1f18bc749c915a",
+          "scope": "actual trusted HTTPS password reset browser"
+        },
+        "manifest": "backend/tests/browser/reset-checks.json",
+        "manifest_sha256": "3cbcfaa4fe180e4e05cc7ba8a4aebb0886ee9bfa290595cabd9d5af990cf96c2",
+        "required_count": 11,
+        "fresh_for_this_full": true,
+        "exact_keys": true,
+        "all_literal_true": true
+      },
+      "latest-master-management-browser.json": {
+        "report": {
+          "checks": {
+            "disable": true,
+            "old_cookie_disabled": true,
+            "restore": true,
+            "old_cookie_not_revived": true,
+            "original_factors_login": true,
+            "normalized_noop": true,
+            "rename": true,
+            "old_cookie_renamed": true,
+            "old_id_denied": true,
+            "new_id_existing_uv_login": true,
+            "keys_preserved": true,
+            "actor_survives": true
+          },
+          "browser": "151.0.7922.34",
+          "run_id": "auto-8cc6340c52214db88b1f18bc749c915a",
+          "scope": "actual trusted HTTPS other-Master management browser"
+        },
+        "manifest": "backend/tests/browser/master-management-checks.json",
+        "manifest_sha256": "f3a991aff4c472fecc991c11e0c6f5c673d8ca43c38d5b638ed981736cbb8bdd",
+        "required_count": 12,
+        "fresh_for_this_full": true,
+        "exact_keys": true,
+        "all_literal_true": true
+      },
+      "latest-emergency-browser.json": {
+        "report": {
+          "checks": {
+            "trusted_secure_context": true,
+            "actual_initial_enrollment": true,
+            "actual_initial_login": true,
+            "fragment_removed": true,
+            "cookie_flags": true,
+            "no_token_request_url": true,
+            "password_keeps_existing_key": true,
+            "passkey_keeps_existing_password": true,
+            "password_target_session_revoked": true,
+            "password_stale_cookie_retained": true,
+            "password_completion_form": true,
+            "password_completion_no_auto_login": true,
+            "password_actual_relogin_password_uv": true,
+            "passkey_target_session_revoked": true,
+            "passkey_stale_cookie_retained": true,
+            "passkey_completion_form": true,
+            "passkey_completion_no_auto_login": true,
+            "passkey_actual_relogin_password_uv": true,
+            "both_target_session_revoked": true,
+            "both_stale_cookie_retained": true,
+            "both_completion_form": true,
+            "both_completion_no_auto_login": true,
+            "both_actual_relogin_password_uv": true
+          },
+          "browser": "151.0.7922.34",
+          "scope": "actual trusted HTTPS browser",
+          "run_id": "auto-8cc6340c52214db88b1f18bc749c915a"
+        },
+        "manifest": "backend/tests/browser/emergency-checks.json",
+        "manifest_sha256": "909c99a0c3bd39e552c0f3dc9eebb3f420ef8f04b23b9685d89fd24a84f2c198",
+        "required_count": 23,
+        "fresh_for_this_full": true,
+        "exact_keys": true,
+        "all_literal_true": true
+      }
+    },
+    "TLS_sandbox_trust": {
+      "chain_and_hostname_validation": true,
+      "explicit_default_SSL_context_with_CA": true,
+      "ignoreHTTPSErrors": false,
+      "chromiumSandbox": true,
+      "certificate_or_sandbox_bypass_found": false,
+      "global_trust_before_after_equal": true,
+      "regular_files": 4
+    },
+    "case_terminal_file_counts": {
+      "tests/test_iam.py": 14,
+      "tests/test_iam_browser.py": 2,
+      "tests/test_iam_emergency.py": 13,
+      "tests/test_iam_emergency_browser.py": 1,
+      "tests/test_iam_emergency_integrity.py": 23,
+      "tests/test_iam_master_management.py": 15,
+      "tests/test_iam_master_management_guards.py": 32,
+      "tests/test_iam_master_management_races.py": 34,
+      "tests/test_iam_mfa.py": 9,
+      "tests/test_iam_mfa_install.py": 10,
+      "tests/test_iam_mfa_management.py": 5,
+      "tests/test_iam_mfa_management_authorization.py": 7,
+      "tests/test_iam_mfa_management_gc.py": 2,
+      "tests/test_iam_mfa_management_migration.py": 13,
+      "tests/test_iam_mfa_management_races.py": 6,
+      "tests/test_iam_mfa_management_security.py": 18,
+      "tests/test_iam_mfa_races.py": 6,
+      "tests/test_iam_mfa_security.py": 21,
+      "tests/test_iam_password_reset.py": 15,
+      "tests/test_iam_password_reset_authorization.py": 6,
+      "tests/test_iam_password_reset_edges.py": 4,
+      "tests/test_iam_password_reset_races.py": 11,
+      "tests/test_iam_password_reset_storage.py": 15,
+      "tests/test_iam_s2.py": 7,
+      "tests/test_iam_s2b.py": 24,
+      "tests/test_iam_s2c.py": 48,
+      "tests/test_postgres.py": 3
+    },
+    "root_runtime_tests_executed": false,
+    "no_skip_xfail_xpass_error_incomplete": true,
+    "developer_targeted_or_previous_pass_reused_as_whole": false
+  },
+  "reviewed_findings": [
+    {
+      "id": "ER-AUD-NULL-001",
+      "kind": "POSTGRES_CHECK_NULL_ACCEPTANCE",
+      "correction": "Explicit required org/target/mode/role/scope and nonnull recipient actor. Six NULL rejection cases plus valid issue/complete and existing events executed in this full run.",
+      "status": "SOURCE_FIXED_BEFORE_FREEZE_AND_CURRENT_FRESH_REGRESSION_PASSED"
+    },
+    {
+      "id": "ER-CASE-ORDER-001",
+      "kind": "WALL_CLOCK_NOT_CAUSAL_CASE_ORDER",
+      "correction": "Previous case ordered by monotonic account row_version. Equal-clock causal reissue case executed in this full run.",
+      "status": "SOURCE_FIXED_BEFORE_FREEZE_AND_CURRENT_FRESH_REGRESSION_PASSED"
+    },
+    {
+      "id": "ER-OP-PERM-001",
+      "kind": "EXECUTE_REQUIRES_UNDECLARED_INSPECT",
+      "correction": "Execute-authorized read-only preflight preserves inspect-only refusal. Real configured CLI operation boundaries executed in this full run.",
+      "status": "SOURCE_FIXED_BEFORE_FREEZE_AND_CURRENT_FRESH_REGRESSION_PASSED"
+    },
+    {
+      "id": "ER-CLI-RESULT-001",
+      "kind": "POST_COMMIT_RECEIPT_TEARDOWN_INTERRUPT",
+      "correction": "UoW commit phase observer, unbuffered receipts/diagnostics and phase-aware resource cleanup. Actual commit then stdout/cleanup/ACK/KeyboardInterrupt/SystemExit and closed OS-pipe cases executed, retained output/status classification preserved.",
+      "status": "SOURCE_FIXED_BEFORE_FREEZE_AND_CURRENT_FRESH_REGRESSION_PASSED"
+    },
+    {
+      "id": "DEV-0008-DOWNGRADE-LOCK",
+      "kind": "DEVELOPER_REPRODUCED_POSTGRES_DEADLOCK",
+      "correction": "Only new0008 locks accounts before security_states. Same existing reset-storage allocation/downgrade regression and new0008 guards executed in this fresh whole run.",
+      "status": "SOURCE_FIXED_BEFORE_FREEZE_AND_CURRENT_FRESH_REGRESSION_PASSED"
+    }
+  ],
+  "finding_precision": "Six actual audit NULL cases plus positive issue/complete flows; equal-clock causal ordering; execute-only and inspect-only descriptor cases; real commit interrupt/pipe mechanics. Individual interrupt cases do not each independently compare every auth row; atomic target revocation is supported by same-UoW/core/pipe tests.",
+  "unresolved_findings": [],
+  "development_history": {
+    "developer_final_fast": 105,
+    "developer_disjoint_targeted_PG": [
+      37,
+      40
+    ],
+    "developer_collection": {
+      "total": 469,
+      "non_postgres": 105,
+      "postgres": 364,
+      "exit_code": 1,
+      "reason": "Collection only; mandatory PostgreSQL no-pass gate retained; not a test pass",
+      "new_tests": 46,
+      "new_non_postgres": 9,
+      "new_postgres": 37
+    },
+    "resolved_attempts": [
+      "native helper fixed-origin mismatch: actual run origin now explicit",
+      "actual downgrade/fingerprint deadlock: new0008 account-first DDL order, old migrations/tests unchanged",
+      "ER-AUD-NULL-001 explicit required audit metadata with actual DB rejection",
+      "ER-CASE-ORDER-001 causal row_version order tested with equal timestamps",
+      "ER-OP-PERM-001 independent execute preflight, real CLI execute-only/inspect-only",
+      "ER-CLI-RESULT-001 UoW commit observer, actual postcommit interrupts/ACK/receipt/cleanup failures and closed OS pipes preserve retained output and reconciliation status"
+    ],
+    "native_origin_error_and_actual_PG_deadlock_not_hidden": true
+  },
+  "preserved": {
+    "old_migrations": "0001-0007 byte-identical to base; only new0008",
+    "new0008_sha256": "5a74acb38eb400a538327ea1ae5f4cbb20447d3b7eeff7eb65b65b58c7c81729",
+    "dependencies_lock": "unchanged",
+    "import_rules": "only exact operating layer insertion; seven prior contracts retained",
+    "Product_OPEN": "22 OPEN / 8 CLOSED; PD1 OPEN /26 CLOSED unchanged",
+    "ADR": "0001-0004 status unchanged; module/data PROPOSED not accepted wholesale",
+    "other_accounts_factors_C2": "covered at direct recovery command boundaries; normal later user activity is separate"
+  },
+  "post_runtime_document_only_update": {
+    "paths": [
+      "docs/architecture/README.md",
+      "docs/architecture/validation-plan.md",
+      "docs/architecture/iam-009-emergency-recovery-results.md",
+      "docs/architecture/iam-009-emergency-recovery-design.md",
+      "docs/architecture/iam-009-emergency-recovery-review.json"
+    ],
+    "before_sha256": {
+      "docs/architecture/README.md": "c81300c9597e41811f33ad3f47f1345d1ab0dd4af06c8e17c619e5bc63c01c49",
+      "docs/architecture/validation-plan.md": "30c68bba4079c9c320261810b8d520854eedf4d2195e60fc860205d8e0b81138",
+      "docs/architecture/iam-009-emergency-recovery-results.md": "16b99dd5d6aa64e2b5f8303d0e9c23e03467840f1ac8b1dab4d5e887ae1adcff",
+      "docs/architecture/iam-009-emergency-recovery-design.md": "0dae1fbf3ee1ddfabd6f2dad371c8b9a0af2172c685d3bb79e98e8243fbe4bcf"
+    },
+    "after_sha256": {
+      "docs/architecture/README.md": "b94c93b181bcf124b3208b02d91225ed43e13ae8c596dc7882e411c3a3f853dc",
+      "docs/architecture/validation-plan.md": "71d9c48b9bcf9dc7bf9c12a90a1224f9644e53a5f4394def8a0c298a28d94d3f",
+      "docs/architecture/iam-009-emergency-recovery-results.md": "0f7d36dfa8b27e177d7bf6a821a2445518e5da1dc9d21015987718afa9c41b67",
+      "docs/architecture/iam-009-emergency-recovery-design.md": "c3d736e96396a57929e5cf5b2c3865c2f2c737a050084bf91736f92a7ecbd5fa"
+    },
+    "all_backend112_equal_tested_source": true,
+    "reason": "Record final independent/architect acceptance and clarify approved R4 as future implementation; no runtime or Product/ADR policy mutation."
+  },
+  "cleanup": {
+    "owned_execution_roots": 4,
+    "removed_roots": 4,
+    "held_or_unreconciled": [],
+    "details": [
+      {
+        "purpose": "fresh_fast_pytest",
+        "result": {
+          "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/.local/qa/auto-7b1a045f8ee74187b745bc028dfa4dc1",
+          "plan": "a239c1235eb297e53f5398af375ea4ea06a5e1c5833821dc3a7b55ef71769888",
+          "entries": 247,
+          "removed": true
+        },
+        "path_absent_after_cleanup": true
+      },
+      {
+        "purpose": "fresh_fast_capture",
+        "result": {
+          "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/.local/qa/auto-b21a8aa4d1a44ebfac3532213bc6c670",
+          "plan": "0f1ffcaaadefd5b2cac34b4fab0e847873dc0edc9504c8646fd0bb26089a4fdb",
+          "entries": 2,
+          "removed": true
+        },
+        "path_absent_after_cleanup": true
+      },
+      {
+        "purpose": "fresh_whole_PG_pytest",
+        "result": {
+          "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/.local/qa/auto-8cc6340c52214db88b1f18bc749c915a",
+          "plan": "ee6a06d9a4090679a83d8207697570dda6cc7b9ffab6465e14c9051550233a85",
+          "entries": 1418,
+          "removed": true
+        },
+        "path_absent_after_cleanup": true
+      },
+      {
+        "purpose": "fresh_whole_PG_capture",
+        "result": {
+          "path": "/home/shlee/Workspace/ai/01.codex/y3management_web/.local/qa/auto-a9f5fdd30b58487289c26234a48dc1f2",
+          "plan": "22a635a71406b65475fcbb4c1470bbfb509a78b6100cfc2aa61b506e6892465d",
+          "entries": 2,
+          "removed": true
+        },
+        "path_absent_after_cleanup": true
+      }
+    ],
+    "existing_fixture_lifecycle_used": true,
+    "owned_schema_process_profile_NSS_TLS_private_files_raw_logs_removed": true,
+    "shared_DB_Compose_volume_corpus_coordination_and_other_runs_preserved": true
+  },
+  "remaining_gates": [
+    "Protected local test-profile kernel UID/descriptor tests do not prove deployment OS isolation, real operating provisioning or independent humans.",
+    "Manual approval authenticity, actual identity and physical all-Master unavailability are not machine-proven.",
+    "Virtual authenticators/native Chromium do not constitute physical device/mobile/all supported browser acceptance.",
+    "Production, real operational delivery/access/retention/deletion and broader AB5 remain outside acceptance.",
+    "R4 normal-administrator handoff after both expiry is already approved option1 but outside this frozen IAM009; no R4 source/doc mutation performed."
+  ],
+  "commit_flow": "Dedicated commit session reviews this exact final delta and root authorization, writes detailed Korean commit and normal pushes current codex branch only. No main/force/PR/deploy. R4 implementation remains next increment."
+}

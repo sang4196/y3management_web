@@ -396,3 +396,77 @@ COMMIT 결과 불명확 시 최소 상태를 다시 조회하고 최신 version�
 [개발 검증 결과](../docs/architecture/iam-008-master-management-results.md)를 참고한다.
 새 migration/의존성은 없다. native 검증은 기존 58/20/15/11 manifest를 유지하며
 `tests/browser/master-management-checks.json`의 12개 항목을 별도로 검사한다.
+
+## IAM-009 제한된 비상 복구 개발 절차
+
+[기술 계약](../docs/architecture/iam-009-emergency-recovery-design.md)에 따른 AB5다.
+현재 ACTIVE Master의 승인된 요인만 복구하며 운영 개시/실제 운영자 분리 인수를 뜻하지 않는다.
+일반 Master가 접근 가능하면 기존 M2/reset을 사용한다. 모든 Master 접근 불가·책임자 원본 승인,
+승인자 권한/취소/기간/대상 본인/수신 경로/별도 실행자 확인은 보호된 수동 절차의 책임이다.
+서로 다른 참조 문자열이나 파일 hash는 사람·승인 진위를 증명하지 않는다.
+
+기존 전용 DB/HTTPS/MFA 설정 외에 배포 설정의 `Y3_EMERGENCY_AUTHORITY_FILE`이 필요하다.
+CLI/request로 이 권한 경로를 덮어쓰지 않는다. 기본은 root 소유 읽기 전용 파일(0400/0444),
+root 소유·group/other 비쓰기 부모 경로와 symlink 금지 검사다. 실제 권한 provision은 별도 운영 작업이다.
+비특권 자동 검사는 `environment=test`에서만 `Y3_EMERGENCY_TEST_AUTHORITY=true`를 사용하고
+fixture UID 소유의 0700 폴더/0600 파일을 검사한다. 이 분기는 운영 OS 분리의 증거가 아니다.
+production은 계속 거부한다. 다음 descriptor는 비식별 예이며 UID/org/schema는 실행 대상에 맞춘다.
+
+```json
+{
+  "uid": 1000,
+  "executor_ref": "qa-executor",
+  "environment": "test",
+  "database": "y3management_test",
+  "database_schema": "iam_test_example",
+  "organizations": ["00000000-0000-4000-8000-000000000001"],
+  "operations": ["inspect", "execute", "status"]
+}
+```
+
+명령은 실제 UID=EUID, TTY, 기존 Compose 소유권·DB identity와 database/schema/org 확인을 요구한다.
+동일 schema의 웹을 운영 절차로 중지한 뒤 실행하고 종료 후 다시 시작한다. CLI가 다른 프로세스를
+종료하지 않는다. `inspect`와 `status`는 GC·세션 활동·secret 조회가 없는 읽기다.
+
+```bash
+uv run --locked --env-file <보호환경파일> python -m y3management.cli emergency-recovery inspect \
+  --organization-id <조직UUID> --account-id <기존MasterUUID> \
+  --confirm-database y3management_test --confirm-schema <전용schema>
+uv run --locked --env-file <보호환경파일> python -m y3management.cli emergency-recovery execute \
+  --organization-id <조직UUID> --request-file <절대경로입력JSON> --output-file <새절대경로출력> \
+  --confirm-database y3management_test --confirm-schema <전용schema>
+uv run --locked --env-file <보호환경파일> python -m y3management.cli emergency-recovery status \
+  --organization-id <조직UUID> --operation-id <사건UUID> \
+  --confirm-database y3management_test --confirm-schema <전용schema>
+```
+
+입력은 0700 소유 부모 안의 단일 hardlink·0600 regular 파일, 최대16KiB strict JSON이며
+중복/추가 key, symlink, FIFO를 거부한다. 다음 필드를 모두 명시한다.
+
+- `operation_id`, `organization_id`, `account_id`, `environment`, `database`, `database_schema`.
+- `factors`: `password`, `passkey`, `both`; `revocation_scope`: `target_only`.
+- `expected`: inspect의 row/security/keyset/reset/recovery version과 두 pending,
+  password_ready/key_ready 전체 snapshot. 최신값 자동 대체는 없다.
+- `approval_ref`, `owner_ref`: 원본 승인과 책임자의 보호된 기록 참조. 원본이나 개인정보는 넣지 않는다.
+- `checked_at`, `approval_valid_until`: timezone이 있는 확인 시각과 명시 실행 승인 만료.
+  30분 수신자 source/5분 context 수명과 별개다.
+- `manual_checks`: `owner_authority_original_current_recipient_all_masters_unavailable`.
+- `approval_conditions`: `issuance_only_no_additional_conditions`. 더 좁은 원본 조건은 무시하지 않고
+  수동 범위 조정 전 실행하지 않는다. 두 문자열은 수동 확인 기록이며 운영 권한 자체가 아니다.
+- `supersedes`: 첫 발급은 null, 이후 직전 사건 UUID. 새 operation/승인 참조/현재 snapshot이 필요하다.
+
+성공 exit0 후에만 보호 출력의 `/emergency-recover#token=...` 링크를 본인에게 전달한다.
+exit2는 COMMIT 결과 불명 또는 확인된 commit 이후 receipt/정리 실패를 구분해 알리고 파일을 유지한다.
+stdout write/flush·stderr 전달·DB/guard close 실패로 이를 실행 전 실패(exit1)로 바꾸지 않는다.
+status 확인 전 전달/맹목 재실행을 하지 않는다.
+실행 중 프로세스가 사라진 경우도 status 확인이 먼저다. 알려진 실패 exit1은 자기 출력만 제거한다.
+출력 유실·전달 실패도 기존 자격/세션을 되살리지 않으며 새 확인과 명시 재발급이 필요하다.
+수신자는 승인 요인만 준비하고 완료 후 정상 비밀번호+UV로 따로 로그인한다.
+
+0008은 영속 사건/승인 소비 이력과 일시 source를 분리한다. 사건/새 감사가 있으면 downgrade를
+거부한다. 기존0001–0007·C2·타 계정 인증 행은 보존한다. 개발 검증은 `tests/test_iam_emergency*.py`,
+새 HTTPS manifest는 `tests/browser/emergency-checks.json`이며 기존 manifest를 대체하지 않는다.
+
+both 발급·링크 만료 후 다른 정상 Master가 복귀한 경우의 정상 관리 경로 인계는 별도 R4 후속이다.
+현재 normal M2/reset의 opposite-pending 거부를 완화하지 않으며, 과거 all-unavailable 확인을
+현재 운영 실행 승인으로 재사용하지 않는다. 이 후속은 IAM-009 완료 범위에 포함하지 않는다.

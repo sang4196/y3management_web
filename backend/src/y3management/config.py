@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     # Resource limits, not account policies. Must be explicitly sized for the local run.
     security_state_capacity: int | None = Field(default=None, ge=64, le=100000)
     auth_session_capacity: int | None = Field(default=None, ge=16, le=100000)
+    emergency_authority_file: str | None = None
+    emergency_test_authority: bool = False
     worker_count: int = Field(default=1, ge=1, le=1)
 
     @model_validator(mode="after")
