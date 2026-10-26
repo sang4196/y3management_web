@@ -1,5 +1,10 @@
 # Product Specification — Architecture Input Baseline
 
+2026-10-26 승인: [I1 Trainer 신규 로그인 계정 세 선택](product-decisions.md#review-20261026-i1) 모두1번이다.
+실제 활성 Trainer 대상·계정/Trainer 일대일 연결 및 중복 금지·현재 관리자의 미설정 링크 재발급과
+활성 Trainer의 비활성 Home 발급/재발급/유효 링크 설정을 확정했다. 기존 인증·권한 정책과 잔여 OPEN을 유지한다.
+정책 승인과 후속 IAM-011 계약 검토·구현·검증을 구분한다.
+
 2026-10-20 R4 승인: [정상 Master의 기존 비상 복구 인계](product-decisions.md#review-20261020-ab5-r4)를 선택했다.
 비상 복구 시작 후 다른 정상 Master가 복귀했고 대상 링크가 만료됐다면 그 Master가 같은 조직의 기존 사건을
 이어받아 필요한 링크를 재발급한다. 원래 대상·요인·승인 이력과 현재 관리 권한·MFA·본인 reset 금지·C2를 유지한다.

@@ -725,6 +725,12 @@ R2 수정 수용 기준: Master의 기존 Organization 범위와 Branch Admin의
 <a id="pr-021"></a>
 ## PR-021. 관리자 발급 운영 계정·권한 관리
 
+2026-10-26 수용 조건 추가: [I1 세 선택](product-decisions.md#review-20261026-i1)에 따라 실제 활성 Trainer의
+신규 계정 발급·미설정 초기 링크 재발급·최초 설정만 허용한다. Trainer와 계정은 일대일 연결하며
+중복/덮어쓰기/자동 동일인 연결을 금지한다. PENDING_SETUP 재발급은 현재 Master 조직/실제 Home Branch
+관리 범위에서만 허용하고, 활성 Trainer의 Home 비활성만으로 발급·재발급·유효 링크 설정을 막지 않는다.
+BR-OPS-012의 최신 경계를 따르며 기존 계정 역할 연결과 나머지 수명/운영은 별도다.
+
 처리 상태: REDESIGN
 
 v1 범위: IN-V1

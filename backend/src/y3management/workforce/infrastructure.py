@@ -20,12 +20,14 @@ class Repository:
     def __init__(self, session: Session) -> None:
         self.s = session
 
-    def identity(self, org: UUID, ident: UUID, *, lock: bool = False) -> TrainerIdentityFact:
+    def identity(
+        self, org: UUID, ident: UUID, *, lock: bool = False, shared: bool = False
+    ) -> TrainerIdentityFact:
         row = self.s.execute(
             text(
                 "SELECT id, organization_id, home_branch_id, active, row_version FROM "
                 "workforce_trainers WHERE organization_id=:o AND id=:i"
-                + (" FOR UPDATE" if lock else "")
+                + (" FOR UPDATE" if lock else (" FOR SHARE" if shared else ""))
             ),
             {"o": org, "i": ident},
         ).first()

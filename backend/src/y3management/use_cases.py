@@ -7,10 +7,16 @@ from dataclasses import asdict, replace
 from typing import Literal
 from uuid import UUID
 
-from y3management.audit.public import Event, InitialCompensationSet, TrainerRegistered
+from y3management.audit.public import (
+    Event,
+    InitialCompensationSet,
+    TrainerIdentityEvent,
+    TrainerRegistered,
+)
 from y3management.contracts import CommitPhase, HashAdmissionRejected, Rejected
 from y3management.iam.public import (
     Account,
+    Authentication,
     Caller,
     Ceremony,
     EmergencyRequest,
@@ -18,6 +24,7 @@ from y3management.iam.public import (
     EmergencyView,
     HandoffRequest,
     HandoffState,
+    IdentityTransition,
     KeyList,
     OperatingRecoveryAuthority,
     Preparation,
@@ -25,13 +32,16 @@ from y3management.iam.public import (
     Reservation,
     ResetState,
     Setup,
+    TrainerAccountState,
+    TrainerOperation,
 )
 from y3management.organization.public import AssignmentCandidate, Branch, BranchPage
-from y3management.uow import UnitOfWork
+from y3management.uow import UnitOfWork, Work
 from y3management.workforce.public import (
     ManagedTrainer,
     RegisterTrainer,
     RegistrationResult,
+    TrainerIdentityFact,
     TrainerPage,
 )
 
@@ -116,7 +126,7 @@ class Service:
         if auth:
             try:
                 with self.uow.open() as w:
-                    a = w.iam.authenticate(auth, touch=False)
+                    a, _ = self._current_principal(w, auth)
                     return a.csrf, None
             except Rejected as error:
                 if error.status != 401:
@@ -133,6 +143,14 @@ class Service:
         nonce: str | None,
         auth: str | None,
     ) -> str:
+        if self.uow.settings.iam_mode == "mfa":
+            result = self.login_entry(
+                identifier, password, preauth, nonce, auth, expected_mfa=False
+            )
+            if isinstance(result, Ceremony):
+                raise Rejected(403, "mfa_required")
+            return result
+        # Retain the limited S1 transaction, lock and uncertain-commit cleanup contract.
         if auth:
             try:
                 with self.uow.open() as w:
@@ -160,6 +178,9 @@ class Service:
                     subject = None
                 proof = w.iam.verify_login(identifier, password, reservation)
                 if proof is None:
+                    raise Rejected(401, "invalid_credentials")
+                # S1 is the existing administrator-only development path.
+                if not w.iam.account_roles(proof.account_id).admin:
                     raise Rejected(401, "invalid_credentials")
                 # Only unlocked read snapshots exist here; security locks end before business locks.
                 with self.uow.open() as security:
@@ -199,6 +220,122 @@ class Service:
             self._release_login_slot(sid)
             raise
 
+    def login_entry(
+        self,
+        identifier: str,
+        password: str,
+        preauth: str | None,
+        nonce: str | None,
+        auth: str | None,
+        *,
+        expected_mfa: bool | None = None,
+    ) -> str | Ceremony:
+        if self.uow.settings.iam_mode == "s1_password":
+            if expected_mfa is True:
+                raise Rejected(403, "mfa_unavailable")
+            return self.login(identifier, password, preauth, nonce, auth)
+        if auth:
+            try:
+                with self.uow.open() as w:
+                    current, _ = self._current_principal(w, auth)
+                    w.iam.csrf(current, nonce)
+            except Rejected as error:
+                if error.status != 401:
+                    raise
+            else:
+                raise Rejected(409, "logout_required")
+        identifier = normalize_login(identifier)
+        with self.uow.open() as w:
+            w.iam.preparation(preauth, nonce)
+            w.iam.gc_sessions()
+        with self.uow.open(commit_denial=True) as w:
+            reservation = w.security.reserve(identifier)
+        sid = None
+        subject = None
+        delivered = False
+        mfa_path = False
+        try:
+            with self.uow.open() as w:
+                subject = w.iam.login_subject(identifier)
+                if subject is not None and subject.id != reservation.account_id:
+                    subject = None
+                proof = w.iam.verify_login(identifier, password, reservation)
+                if proof is None:
+                    raise Rejected(401, "invalid_credentials")
+                roles = w.iam.account_roles(proof.account_id)
+                mfa_path = roles.admin and self.uow.settings.iam_mode == "mfa"
+                if expected_mfa is not None and expected_mfa != mfa_path:
+                    raise Rejected(403, "mfa_required")
+                with self.uow.open() as security:
+                    if mfa_path:
+                        security.security.mfa_stage(reservation, "waiting")
+                    sid = security.security.allocate("mfa" if mfa_path else "session_slot")
+                if mfa_path:
+                    result = w.mfa.begin_login(proof, reservation, sid)
+                    w.iam.preparation(preauth, nonce, consume=True)
+                else:
+                    roles = w.iam.lock_login(proof.account_id)
+                    if roles.admin:
+                        if self.uow.settings.iam_mode == "mfa":
+                            raise Rejected(401, "invalid_credentials")
+                        fact = None
+                    elif roles.binding is not None:
+                        w.iam.preparation(preauth, nonce)
+                        fact = w.workforce.lock_identity(
+                            roles.account.organization_id, roles.binding.trainer_id
+                        )
+                        if not fact.active:
+                            raise Rejected(401, "invalid_credentials")
+                    else:
+                        raise Rejected(401, "invalid_credentials")
+                    token, account = w.iam.login(proof, sid, preauth, nonce, reservation)
+                    if fact is not None:
+                        self._identity_audit(
+                            w, "login", w.iam.identity_transition(account.id), fact
+                        )
+                    else:
+                        caller = Caller(
+                            account.id, account.organization_id, account.branch_id, account.master
+                        )
+                        w.audit.append(event("login", caller, account.id))
+                    w.iam.confirm_login(proof, reservation, sid)
+                    w.iam.confirm_preparation(preauth, nonce)
+            if mfa_path:
+                delivered = True
+                return result
+            with self.uow.open() as security:
+                security.security.finish(reservation, True)
+            delivered = True
+            return token
+        except HashAdmissionRejected:
+            self._cancel_login(reservation, sid)
+            raise
+        except Rejected as error:
+            if error.status == 401:
+                if mfa_path:
+                    self.fail_mfa(reservation)
+                else:
+                    with self.uow.open() as security:
+                        security.security.finish(reservation, False)
+                        security.audit.append(
+                            Event(
+                                "login",
+                                subject.organization_id if subject else None,
+                                None,
+                                subject.id if subject else None,
+                                success=False,
+                                actor_role="LOGIN_ATTEMPT",
+                            )
+                        )
+            raise
+        finally:
+            if sid is not None and not delivered:
+                # Even COMMIT ACK loss may have persisted the unreturned session.
+                # This id is ours; a missing row is a safe no-op (MFA slots included).
+                with self.uow.open() as cleanup:
+                    cleanup.iam.revoke_undelivered_session(sid)
+                self._release_login_slot(sid)
+
     def _release_login_slot(self, sid: UUID | None) -> None:
         # Verification may have begun: preserve the reservation for conservative lease handling.
         if sid is not None:
@@ -219,7 +356,13 @@ class Service:
 
     def me(self, auth: str | None) -> Caller:
         with self.uow.open() as w:
-            return w.iam.authenticate(auth, touch=False).caller
+            a, _ = self._current_principal(w, auth)
+            return a.caller
+
+    def principal(self, auth: str | None) -> tuple[Caller, TrainerIdentityFact | None]:
+        with self.uow.open() as w:
+            a, fact = self._current_principal(w, auth)
+            return a.caller, fact
 
     def branches(self, auth: str | None, offset: int, limit: int) -> BranchPage:
         with self.uow.open() as w:
@@ -420,19 +563,29 @@ class Service:
     def change_password(
         self, auth: str | None, nonce: str | None, current_password: str, new_password: str
     ) -> None:
-        # End all initial authentication locks before doing any password hashing.
         with self.uow.open() as w:
-            initial = w.iam.authenticate(auth, touch=False)
+            initial, _ = self._current_principal(w, auth)
             w.iam.csrf(initial, nonce)
             ident = initial.caller.account_id
         with self.uow.open() as w:
             proof = w.iam.prepare_password_change(ident, current_password, new_password)
-            final = w.iam.authenticate(auth, management=True, target=ident, touch=False)
+            final, fact = self._current_principal(
+                w, auth, management=True, target=ident, credentials=True
+            )
             w.iam.csrf(final, nonce)
             if final.caller.account_id != ident:
                 raise Rejected(401, "unauthorized")
+            snapshot = (
+                w.iam.identity_transition(ident)
+                if fact is not None and not (final.caller.master or final.caller.branch_id)
+                else None
+            )
             before, after = w.iam.change_password(proof)
-            w.audit.append(event("password_change", final.caller, ident, before, after))
+            if snapshot is not None and fact is not None:
+                self._identity_audit(w, "password_change", snapshot, fact)
+                w.iam.confirm_identity_transition(snapshot, changed=True, authentication=final)
+            else:
+                w.audit.append(event("password_change", final.caller, ident, before, after))
 
     def restore(self, auth: str | None, nonce: str | None, ident: UUID, version: int) -> Account:
         with self.uow.open() as w:
@@ -449,10 +602,21 @@ class Service:
     def logout(self, auth: str | None, preauth: str | None, nonce: str | None) -> None:
         try:
             with self.uow.open() as w:
-                a = w.iam.authenticate(auth, touch=False)
+                a, fact = self._current_principal(w, auth)
                 w.iam.csrf(a, nonce)
+                snapshot = (
+                    w.iam.identity_transition(a.caller.account_id)
+                    if fact is not None and not (a.caller.master or a.caller.branch_id)
+                    else None
+                )
                 w.iam.logout(a)
-                w.audit.append(event("logout", a.caller, a.caller.account_id))
+                if snapshot is not None and fact is not None:
+                    self._identity_audit(w, "logout", snapshot, fact)
+                    w.iam.confirm_identity_transition(
+                        snapshot, changed=False, authentication=a, logout=True
+                    )
+                else:
+                    w.audit.append(event("logout", a.caller, a.caller.account_id))
         except Rejected as error:
             if error.status != 401:
                 raise
@@ -569,46 +733,10 @@ class Service:
         auth: str | None,
     ) -> Ceremony:
         self.require_mfa()
-        if auth:
-            try:
-                with self.uow.open() as w:
-                    current = w.iam.authenticate(auth, touch=False)
-                    w.iam.csrf(current, nonce)
-            except Rejected as error:
-                if error.status != 401:
-                    raise
-            else:
-                raise Rejected(409, "logout_required")
-        identifier = normalize_login(identifier)
-        with self.uow.open() as w:
-            w.iam.preparation(preauth, nonce)
-            w.iam.gc_sessions()
-        with self.uow.open(commit_denial=True) as w:
-            reservation = w.security.reserve(identifier)
-        slot = None
-        try:
-            with self.uow.open() as w:
-                proof = w.iam.verify_login(identifier, password, reservation)
-                if proof is None:
-                    raise Rejected(401, "invalid_credentials")
-            with self.uow.open() as w:
-                w.security.mfa_stage(reservation, "waiting")
-                slot = w.security.allocate("mfa")
-            with self.uow.open() as w:
-                result = w.mfa.begin_login(proof, reservation, slot)
-                w.iam.preparation(preauth, nonce, consume=True)
-            return result
-        except HashAdmissionRejected:
-            self._cancel_login(reservation, slot)
-            raise
-        except Rejected as error:
-            if error.status == 401:
-                self.fail_mfa(reservation)
-            self._release_login_slot(slot)
-            raise
-        except Exception:
-            self._release_login_slot(slot)
-            raise
+        result = self.login_entry(identifier, password, preauth, nonce, auth, expected_mfa=True)
+        if not isinstance(result, Ceremony):
+            raise Rejected(403, "mfa_required")
+        return result
 
     def fail_mfa(self, reservation: Reservation) -> None:
         with self.uow.open() as w:
@@ -1147,3 +1275,177 @@ class Service:
                 w.organization.confirm_scoped_branch(final.caller, fact)
                 w.organization.require_assignable(fact)
         return candidates
+
+    def _current_principal(
+        self,
+        w: Work,
+        auth: str | None,
+        *,
+        management: bool = False,
+        target: UUID | None = None,
+        credentials: bool = False,
+    ) -> tuple[Authentication, TrainerIdentityFact | None]:
+        w.iam.installation_lock()
+        a = w.iam.authenticate(
+            auth, management=management, target=target, touch=False, audience="account"
+        )
+        if credentials:
+            w.iam.lock_trainer_credentials(a.caller.account_id)
+        fact = None
+        if a.binding is not None:
+            fact = w.workforce.lock_identity(a.caller.organization_id, a.binding.trainer_id)
+            if not fact.active and not (a.caller.master or a.caller.branch_id):
+                raise Rejected(401, "unauthorized")
+        final = w.iam.authenticate(
+            auth, management=management, target=target, touch=False, audience="account"
+        )
+        if final.binding != a.binding:
+            raise Rejected(401, "unauthorized")
+        return final, fact
+
+    def _identity_audit(
+        self,
+        w: Work,
+        kind: str,
+        before: IdentityTransition | None,
+        fact: TrainerIdentityFact,
+        *,
+        account_id: UUID | None = None,
+        caller: Caller | None = None,
+        operation: UUID | None = None,
+    ) -> None:
+        ident = account_id if account_id is not None else (before.account.id if before else None)
+        assert ident is not None
+        after = w.iam.identity_transition(ident)
+        role = (
+            ("MASTER" if caller.master else "BRANCH_ADMIN")
+            if caller
+            else ("CREDENTIAL_HOLDER" if kind == "setup_complete" else "TRAINER")
+        )
+        actor = caller.account_id if caller else (None if kind == "setup_complete" else ident)
+        w.audit.append_trainer_identity(
+            TrainerIdentityEvent(
+                fact.organization_id,
+                ident,
+                fact.trainer_id,
+                kind,
+                actor,
+                role,
+                caller.branch_id if caller else None,
+                fact.home_branch_id,
+                operation,
+                before.account.state if before else None,
+                after.account.state,
+                before.account.version if before else None,
+                after.account.version,
+                before.security_version if before else None,
+                after.security_version,
+            )
+        )
+
+    def _trainer_scope(
+        self, w: Work, caller: Caller, trainer: UUID, *, exclusive: bool = False
+    ) -> TrainerIdentityFact:
+        hint = w.workforce.identity(caller.organization_id, trainer)
+        branch = w.organization.lock_scoped_branch(caller, hint.home_branch_id)
+        fact = w.workforce.lock_identity(caller.organization_id, trainer, exclusive=exclusive)
+        if fact.home_branch_id != branch.branch_id:
+            raise Rejected(409, "conflict")
+        w.organization.confirm_scoped_branch(caller, branch)
+        return fact
+
+    def trainer_account_state(self, auth: str | None, trainer: UUID) -> TrainerAccountState:
+        self.require_mfa()
+        with self.uow.open() as w:
+            a = w.iam.authenticate(auth, management=True, touch=False)
+            fact = self._trainer_scope(w, a.caller, trainer)
+            result = w.iam.trainer_state(a.caller.organization_id, trainer)
+            final = w.iam.authenticate(auth, management=True, touch=False)
+            self._trainer_scope(w, final.caller, fact.trainer_id)
+            return result
+
+    def trainer_account_operation(self, auth: str | None, operation: UUID) -> TrainerOperation:
+        self.require_mfa()
+        with self.uow.open() as w:
+            a = w.iam.authenticate(auth, management=True, touch=False)
+            result = w.iam.trainer_operation(a.caller.organization_id, operation)
+            if result is None:
+                raise Rejected(404, "not_found")
+            self._trainer_scope(w, a.caller, result.trainer_id)
+            w.iam.authenticate(auth, management=True, touch=False)
+            return result
+
+    def issue_trainer_account(
+        self,
+        auth: str | None,
+        nonce: str | None,
+        trainer: UUID,
+        operation: UUID,
+        identifier: str | None,
+        expected: int | None = None,
+    ) -> tuple[TrainerOperation, Setup | None]:
+        self.require_mfa()
+        if identifier is not None:
+            identifier = normalize_login(identifier)
+        with self.uow.open() as w:
+            a = w.iam.authenticate(auth, management=True, touch=False)
+            w.iam.csrf(a, nonce)
+            self._trainer_scope(w, a.caller, trainer)
+            organization_id = a.caller.organization_id
+        with self.uow.open() as w:
+            slot = w.security.allocate("credential", collect=False)
+        try:
+            with self.uow.open() as w:
+                # Stabilize the target hint before acquiring any sorted account locks.
+                w.iam.installation_lock()
+                binding = w.iam.trainer_binding(organization_id, trainer)
+                target = binding.account_id if binding else None
+                a = w.iam.authenticate(auth, management=True, target=target, touch=False)
+                w.iam.csrf(a, nonce)
+                if target:
+                    w.iam.lock_trainer_credentials(target)
+                fact = self._trainer_scope(w, a.caller, trainer, exclusive=True)
+                old = w.iam.trainer_operation(a.caller.organization_id, operation)
+                if old is None and not fact.active:
+                    raise Rejected(409, "conflict")
+                result, setup, before = w.iam.trainer_issue(
+                    a.caller, trainer, fact.home_branch_id, operation, identifier, expected, slot
+                )
+                if setup is not None:
+                    self._identity_audit(
+                        w,
+                        result.kind,
+                        before,
+                        fact,
+                        account_id=result.account_id,
+                        caller=a.caller,
+                        operation=operation,
+                    )
+                final = w.iam.authenticate(auth, management=True, target=target, touch=False)
+                w.iam.csrf(final, nonce)
+                final_fact = self._trainer_scope(w, final.caller, trainer)
+                if setup is not None:
+                    if not final_fact.active:
+                        raise Rejected(409, "conflict")
+                    w.iam.confirm_trainer_delivery(result, slot)
+                w.iam.authenticate(auth, management=True, target=target)
+            return result, setup
+        finally:
+            with self.uow.open() as w:
+                w.security.release(slot, collect=False)
+
+    def complete_trainer_setup(
+        self, token: str, password: str, preauth: str | None, nonce: str | None
+    ) -> None:
+        with self.uow.open() as w:
+            w.iam.preparation(preauth, nonce)
+        with self.uow.open() as w:
+            proof = w.iam.prepare_trainer_setup(token, password)
+            binding = w.iam.lock_trainer_setup(proof, preauth, nonce)
+            fact = w.workforce.lock_identity(binding.organization_id, binding.trainer_id)
+            if not fact.active:
+                raise Rejected(400, "invalid_setup")
+            before = w.iam.complete_trainer_setup(proof, preauth, nonce)
+            self._identity_audit(w, "setup_complete", before, fact)
+            w.iam.confirm_trainer_setup(proof)
+            w.iam.confirm_preparation(preauth, nonce)

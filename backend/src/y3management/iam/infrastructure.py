@@ -2,9 +2,11 @@
 
 import hashlib
 import hmac
+import json
 import re
 import secrets
 from datetime import datetime, timedelta
+from typing import Literal
 from uuid import UUID, uuid4
 
 from sqlalchemy import text
@@ -12,7 +14,20 @@ from sqlalchemy.orm import Session
 
 from y3management.contracts import Rejected
 from y3management.iam.passwords import Passwords
-from y3management.iam.public import Account, Authentication, Caller, LoginProof, Reservation, Setup
+from y3management.iam.public import (
+    Account,
+    AccountRoles,
+    Authentication,
+    Caller,
+    IdentityTransition,
+    LoginProof,
+    Reservation,
+    Setup,
+    TrainerAccountState,
+    TrainerBinding,
+    TrainerOperation,
+    TrainerSetupProof,
+)
 
 
 def login_id(value: str) -> str:
@@ -178,8 +193,11 @@ class IAM:
         nonce: str | None,
         reservation: Reservation,
     ) -> tuple[str, Account]:
-        if self.mode == "mfa":
+        roles = self.account_roles(proof.account_id)
+        if self.mode == "mfa" and roles.admin:
             raise Rejected(403, "mfa_required")
+        if not roles.admin and roles.binding is None:
+            raise Rejected(401, "invalid_credentials")
         lock = "UPDATE" if proof.account_id in self._upgrades else "SHARE"
         row = (
             self.s.execute(
@@ -249,6 +267,7 @@ class IAM:
         management: bool = False,
         target: UUID | None = None,
         touch: bool = True,
+        audience: Literal["admin", "account"] = "admin",
     ) -> Authentication:
         hint = self.s.execute(
             text("SELECT id,account_id FROM iam_sessions WHERE digest=:d"),
@@ -293,10 +312,12 @@ class IAM:
             .mappings()
             .first()
         )
+        roles = self.account_roles(hint.account_id)
+        require_uv = self.mode == "mfa" and (audience == "admin" or roles.admin)
         now = self.now()
         if (
             row is None
-            or (self.mode == "mfa" and row["assurance"] != "password_uv")
+            or (require_uv and row["assurance"] != "password_uv")
             or row["recovery_pending"]
             or row["password_reset_pending"]
             or row["revoked"]
@@ -307,7 +328,7 @@ class IAM:
         ):
             raise Rejected(401, "unauthorized")
         if (
-            self.mode == "mfa"
+            require_uv
             and not self.s.execute(
                 text(
                     "SELECT 1 FROM iam_passkeys WHERE account_id=:a AND revoked_at IS NULL LIMIT 1"
@@ -316,6 +337,15 @@ class IAM:
             ).first()
         ):
             raise Rejected(401, "unauthorized")
+        if not roles.admin:
+            if audience == "admin":
+                if roles.binding is not None:
+                    raise Rejected(401, "unauthorized")
+                # A valid former administrator lacks current authorization. Never return
+                # this unsupported principal to management or refresh its session.
+                raise Rejected(403, "forbidden")
+            if roles.binding is None:
+                raise Rejected(401, "unauthorized")
         account = self._account(hint.account_id)
         if touch:
             self.s.execute(
@@ -323,7 +353,9 @@ class IAM:
                 {"n": now, "id": hint.id},
             )
         caller = Caller(account.id, account.organization_id, account.branch_id, account.master)
-        return Authentication(caller, hint.id, str(row["csrf"]))
+        return Authentication(
+            caller, hint.id, str(row["csrf"]), str(row["assurance"]), roles.binding
+        )
 
     def csrf(self, authentication: Authentication, nonce: str | None) -> None:
         if not secrets.compare_digest(authentication.csrf, nonce or ""):
@@ -601,6 +633,10 @@ class IAM:
             text("UPDATE iam_credentials SET consumed=true WHERE account_id=:a"),
             {"a": proof.account_id},
         )
+        self.s.execute(
+            text("UPDATE iam_trainer_setup_credentials SET consumed=true WHERE account_id=:a"),
+            {"a": proof.account_id},
+        )
         return before, self._account(proof.account_id)
 
     def restore(self, account: Account) -> Account:
@@ -713,3 +749,416 @@ class IAM:
             {"id": ident, "o": caller.organization_id},
         )
         return self._account(ident)
+
+    def account_roles(self, ident: UUID) -> AccountRoles:
+        account = self._account(ident)
+        row = self.s.execute(
+            text(
+                "SELECT account_id,organization_id,trainer_id,binding_version "
+                "FROM iam_trainer_bindings WHERE account_id=:a"
+            ),
+            {"a": ident},
+        ).first()
+        return AccountRoles(account, TrainerBinding(*row) if row else None)
+
+    def lock_login(self, ident: UUID) -> AccountRoles:
+        self.installation_lock()
+        self.s.execute(
+            text("SELECT id FROM iam_accounts WHERE id=:a FOR UPDATE"), {"a": ident}
+        ).one()
+        self.s.execute(
+            text("SELECT id FROM iam_sessions WHERE account_id=:a ORDER BY id FOR UPDATE"),
+            {"a": ident},
+        ).all()
+        return self.account_roles(ident)
+
+    def trainer_binding(self, org: UUID, trainer: UUID) -> TrainerBinding | None:
+        row = self.s.execute(
+            text(
+                "SELECT account_id,organization_id,trainer_id,binding_version "
+                "FROM iam_trainer_bindings WHERE organization_id=:o AND trainer_id=:t"
+            ),
+            {"o": org, "t": trainer},
+        ).first()
+        return TrainerBinding(*row) if row else None
+
+    def trainer_state(self, org: UUID, trainer: UUID) -> TrainerAccountState:
+        binding = self.trainer_binding(org, trainer)
+        if binding is None:
+            return TrainerAccountState(trainer, None, None, None, None, None)
+        a = self._account(binding.account_id)
+        expiry = self.s.execute(
+            text(
+                "SELECT expires_at FROM iam_trainer_setup_credentials "
+                "WHERE account_id=:a AND NOT consumed "
+                "AND expires_at>clock_timestamp() AND account_version=:v"
+            ),
+            {"a": a.id, "v": a.version},
+        ).scalar_one_or_none()
+        return TrainerAccountState(trainer, a.id, a.login_id, a.state, a.version, expiry)
+
+    def trainer_operation(self, org: UUID, operation: UUID) -> TrainerOperation | None:
+        row = self.s.execute(
+            text(
+                "SELECT operation_id,kind,trainer_id,account_id,committed_account_version "
+                "FROM iam_trainer_account_operations WHERE organization_id=:o "
+                "AND operation_id=:i"
+            ),
+            {"o": org, "i": operation},
+        ).first()
+        if row is None:
+            return None
+        return TrainerOperation(
+            row.operation_id,
+            row.kind,
+            row.trainer_id,
+            row.account_id,
+            row.committed_account_version,
+            self.trainer_state(org, row.trainer_id),
+        )
+
+    def lock_trainer_credentials(self, ident: UUID) -> None:
+        self.lock_credentials(ident)
+        self.s.execute(
+            text(
+                "SELECT id FROM iam_trainer_setup_credentials WHERE account_id=:a "
+                "ORDER BY id FOR UPDATE"
+            ),
+            {"a": ident},
+        ).all()
+
+    def identity_transition(self, ident: UUID) -> IdentityTransition:
+        roles = self.account_roles(ident)
+        if roles.binding is None or roles.admin:
+            raise Rejected(409, "conflict")
+        version = int(
+            self.s.execute(
+                text("SELECT security_version FROM iam_accounts WHERE id=:a"), {"a": ident}
+            ).scalar_one()
+        )
+        return IdentityTransition(roles.account, version, roles.binding)
+
+    def trainer_issue(
+        self,
+        caller: Caller,
+        trainer: UUID,
+        home: UUID,
+        operation: UUID,
+        identifier: str | None,
+        expected: int | None,
+        slot: UUID,
+    ) -> tuple[TrainerOperation, Setup | None, IdentityTransition | None]:
+        if not caller.master and caller.branch_id != home:
+            raise Rejected(404, "not_found")
+        kind = "issue" if identifier is not None else "reissue"
+        payload: dict[str, str | int | None] = {"kind": kind, "trainer_id": str(trainer)}
+        if identifier is not None:
+            payload["login_id"] = login_id(identifier)
+        else:
+            payload["expected_account_version"] = expected
+        fingerprint = hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+        ).digest()
+        old = self.s.execute(
+            text(
+                "SELECT fingerprint FROM iam_trainer_account_operations "
+                "WHERE organization_id=:o AND operation_id=:i FOR UPDATE"
+            ),
+            {"o": caller.organization_id, "i": operation},
+        ).first()
+        if old:
+            if bytes(old.fingerprint) != fingerprint:
+                raise Rejected(409, "conflict")
+            result = self.trainer_operation(caller.organization_id, operation)
+            assert result is not None
+            return result, None, None
+        binding = self.trainer_binding(caller.organization_id, trainer)
+        before = None
+        if identifier is not None:
+            if binding is not None:
+                raise Rejected(409, "conflict")
+            ident = uuid4()
+            self.s.execute(
+                text(
+                    "INSERT INTO iam_accounts(id,organization_id,login_id,state) "
+                    "VALUES(:a,:o,:l,'PENDING_SETUP')"
+                ),
+                {"a": ident, "o": caller.organization_id, "l": login_id(identifier)},
+            )
+            self.s.execute(
+                text("INSERT INTO iam_login_ids VALUES(:l,:a)"),
+                {"l": login_id(identifier), "a": ident},
+            )
+            self.s.execute(
+                text(
+                    "INSERT INTO iam_trainer_bindings(account_id,organization_id,trainer_id) "
+                    "VALUES(:a,:o,:t)"
+                ),
+                {"a": ident, "o": caller.organization_id, "t": trainer},
+            )
+        else:
+            if binding is None:
+                raise Rejected(404, "not_found")
+            ident = binding.account_id
+            before = self.identity_transition(ident)
+            if before.account.state != "PENDING_SETUP" or before.account.version != expected:
+                raise Rejected(409, "conflict")
+            self.s.execute(
+                text("UPDATE iam_trainer_setup_credentials SET consumed=true WHERE account_id=:a"),
+                {"a": ident},
+            )
+            self.s.execute(
+                text("UPDATE iam_accounts SET row_version=row_version+1 WHERE id=:a"), {"a": ident}
+            )
+        current = self.identity_transition(ident)
+        expiry = self.s.execute(
+            text("SELECT expires_at FROM iam_security_states WHERE id=:i AND kind='credential'"),
+            {"i": slot},
+        ).scalar_one_or_none()
+        if expiry is None or expiry <= self.now():
+            raise Rejected(503, "unavailable")
+        token = secrets.token_urlsafe(32)
+        self.s.execute(
+            text(
+                "INSERT INTO iam_trainer_setup_credentials "
+                "(id,purpose,organization_id,account_id,trainer_id,digest,account_version,"
+                "security_version,binding_version,expires_at) "
+                "VALUES(:i,'trainer_initial',:o,:a,:t,:d,:v,:sv,1,:e)"
+            ),
+            {
+                "i": slot,
+                "o": caller.organization_id,
+                "a": ident,
+                "t": trainer,
+                "d": digest(token),
+                "v": current.account.version,
+                "sv": current.security_version,
+                "e": expiry,
+            },
+        )
+        self.s.execute(
+            text(
+                "INSERT INTO iam_trainer_account_operations "
+                "(organization_id,operation_id,kind,trainer_id,account_id,actor_id,target_home_at_commit,"
+                "canonical_version,fingerprint,committed_account_version) "
+                "VALUES(:o,:i,:k,:t,:a,:actor,:h,1,:f,:v)"
+            ),
+            {
+                "o": caller.organization_id,
+                "i": operation,
+                "k": kind,
+                "t": trainer,
+                "a": ident,
+                "actor": caller.account_id,
+                "h": home,
+                "f": fingerprint,
+                "v": current.account.version,
+            },
+        )
+        result = self.trainer_operation(caller.organization_id, operation)
+        assert result is not None
+        return result, Setup(token, expiry), before
+
+    def prepare_trainer_setup(self, token: str, password: str) -> TrainerSetupProof:
+        row = (
+            self.s.execute(
+                text("SELECT * FROM iam_trainer_setup_credentials WHERE digest=:d"),
+                {"d": digest(token)},
+            )
+            .mappings()
+            .first()
+        )
+        if row is None or row["consumed"] or row["expires_at"] <= self.now():
+            raise Rejected(400, "invalid_setup")
+        current = self.identity_transition(row["account_id"])
+        if current.account.state != "PENDING_SETUP":
+            raise Rejected(400, "invalid_setup")
+        self._upgrades[current.account.id] = self.passwords.create(
+            password, current.account.login_id
+        )
+        return TrainerSetupProof(
+            row["id"],
+            current.account.id,
+            row["organization_id"],
+            row["trainer_id"],
+            row["account_version"],
+            row["security_version"],
+            row["binding_version"],
+            row["expires_at"],
+        )
+
+    def lock_trainer_setup(
+        self, proof: TrainerSetupProof, preauth: str | None, nonce: str | None
+    ) -> TrainerBinding:
+        self.lock_login(proof.account_id)
+        self.preparation(preauth, nonce)
+        self.lock_trainer_credentials(proof.account_id)
+        self._check_trainer_source(proof, consumed=False)
+        return self.identity_transition(proof.account_id).binding
+
+    def _check_trainer_source(self, proof: TrainerSetupProof, *, consumed: bool) -> None:
+        row = (
+            self.s.execute(
+                text(
+                    "SELECT c.*,s.kind,s.expires_at AS slot_expiry,"
+                    "a.recovery_pending,a.password_reset_pending "
+                    "FROM iam_trainer_setup_credentials c "
+                    "JOIN iam_security_states s ON s.id=c.id "
+                    "JOIN iam_accounts a ON a.id=c.account_id WHERE c.id=:i"
+                ),
+                {"i": proof.source_id},
+            )
+            .mappings()
+            .first()
+        )
+        current = self.identity_transition(proof.account_id)
+        delta = 1 if consumed else 0
+        if (
+            row is None
+            or row["purpose"] != "trainer_initial"
+            or row["kind"] != "credential"
+            or row["recovery_pending"]
+            or row["password_reset_pending"]
+            or row["consumed"] != consumed
+            or row["expires_at"] != proof.expires_at
+            or row["slot_expiry"] != proof.expires_at
+            or proof.expires_at <= self.now()
+            or row["account_id"] != proof.account_id
+            or row["trainer_id"] != proof.trainer_id
+            or row["organization_id"] != proof.organization_id
+            or row["account_version"] != proof.account_version
+            or row["security_version"] != proof.security_version
+            or row["binding_version"] != proof.binding_version
+            or current.binding
+            != TrainerBinding(
+                proof.account_id, proof.organization_id, proof.trainer_id, proof.binding_version
+            )
+            or current.account.version != proof.account_version + delta
+            or current.security_version != proof.security_version + delta
+            or current.account.state != ("ACTIVE" if consumed else "PENDING_SETUP")
+        ):
+            raise Rejected(400, "invalid_setup")
+
+    def complete_trainer_setup(
+        self, proof: TrainerSetupProof, preauth: str | None, nonce: str | None
+    ) -> IdentityTransition:
+        self._check_trainer_source(proof, consumed=False)
+        before = self.identity_transition(proof.account_id)
+        self.s.execute(
+            text(
+                "UPDATE iam_accounts SET password_hash=:h,state='ACTIVE',row_version=row_version+1,"
+                "security_version=security_version+1 WHERE id=:a"
+            ),
+            {"a": proof.account_id, "h": self._upgrades.pop(proof.account_id)},
+        )
+        self.s.execute(
+            text("UPDATE iam_trainer_setup_credentials SET consumed=true WHERE account_id=:a"),
+            {"a": proof.account_id},
+        )
+        self.preparation(preauth, nonce, consume=True)
+        return before
+
+    def confirm_trainer_setup(self, proof: TrainerSetupProof) -> None:
+        self._check_trainer_source(proof, consumed=True)
+
+    def confirm_trainer_delivery(self, operation: TrainerOperation, slot: UUID) -> None:
+        current = self.identity_transition(operation.account_id)
+        row = (
+            self.s.execute(
+                text("SELECT * FROM iam_trainer_setup_credentials WHERE id=:i"), {"i": slot}
+            )
+            .mappings()
+            .one()
+        )
+        proof = TrainerSetupProof(
+            slot,
+            current.account.id,
+            current.account.organization_id,
+            current.binding.trainer_id,
+            row["account_version"],
+            row["security_version"],
+            row["binding_version"],
+            row["expires_at"],
+        )
+        self._check_trainer_source(proof, consumed=False)
+        if operation.committed_account_version != current.account.version:
+            raise Rejected(409, "conflict")
+
+    def confirm_identity_transition(
+        self,
+        before: IdentityTransition,
+        *,
+        changed: bool,
+        authentication: Authentication | None = None,
+        logout: bool = False,
+    ) -> None:
+        current = self.identity_transition(before.account.id)
+        delta = int(changed)
+        if (
+            current.binding != before.binding
+            or current.account.state != "ACTIVE"
+            or current.account.version != before.account.version + delta
+            or current.security_version != before.security_version + delta
+        ):
+            raise Rejected(401, "unauthorized")
+        if authentication is not None:
+            row = (
+                self.s.execute(
+                    text("SELECT * FROM iam_sessions WHERE id=:i"), {"i": authentication.session_id}
+                )
+                .mappings()
+                .one()
+            )
+            now = self.now()
+            if (
+                row["account_id"] != before.account.id
+                or row["security_version"] != before.security_version
+                or row["revoked"] != (changed or logout)
+                or row["expires_at"] <= now
+                or row["last_activity"] + timedelta(minutes=30) <= now
+            ):
+                raise Rejected(401, "unauthorized")
+
+    def confirm_login(self, proof: LoginProof, reservation: Reservation, sid: UUID) -> None:
+        row = (
+            self.s.execute(
+                text(
+                    "SELECT s.expires_at,s.account_id,s.security_version,s.revoked,a.state,"
+                    "a.security_version AS current_version,t.lease_until,t.outcome "
+                    "FROM iam_sessions s JOIN iam_accounts a ON a.id=s.account_id "
+                    "JOIN iam_attempts t ON t.id=:r AND t.key=:k WHERE s.id=:s"
+                ),
+                {"s": sid, "r": reservation.id, "k": reservation.key},
+            )
+            .mappings()
+            .first()
+        )
+        now = self.now()
+        if (
+            row is None
+            or row["account_id"] != proof.account_id
+            or row["security_version"] != proof.security_version
+            or row["current_version"] != proof.security_version
+            or row["state"] != "ACTIVE"
+            or row["revoked"]
+            or row["expires_at"] <= now
+            or row["lease_until"] <= now
+            or row["outcome"] != "pending"
+        ):
+            raise Rejected(401, "invalid_credentials")
+
+    def revoke_undelivered_session(self, sid: UUID) -> None:
+        self.s.execute(text("UPDATE iam_sessions SET revoked=true WHERE id=:i"), {"i": sid})
+
+    def confirm_preparation(self, token: str | None, nonce: str | None) -> None:
+        row = self.s.execute(
+            text("SELECT consumed,expires_at,csrf FROM iam_preparations WHERE digest=:d"),
+            {"d": digest(token or "")},
+        ).first()
+        if (
+            row is None
+            or not row.consumed
+            or row.expires_at <= self.now()
+            or not secrets.compare_digest(row.csrf, nonce or "")
+        ):
+            raise Rejected(403, "csrf_failed")

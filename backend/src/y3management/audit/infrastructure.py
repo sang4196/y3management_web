@@ -7,7 +7,12 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from y3management.audit.public import Event, InitialCompensationSet, TrainerRegistered
+from y3management.audit.public import (
+    Event,
+    InitialCompensationSet,
+    TrainerIdentityEvent,
+    TrainerRegistered,
+)
 from y3management.contracts import Rejected
 
 
@@ -15,6 +20,19 @@ class Audit:
     def __init__(self, session: Session) -> None:
         self.s = session
         self.request_id = uuid4()
+
+    def append_trainer_identity(self, event: TrainerIdentityEvent) -> None:
+        columns = tuple(asdict(event))
+        self.s.execute(
+            text(
+                "INSERT INTO audit_trainer_identity_events(id,"
+                + ",".join(columns)
+                + ") VALUES(:id,"
+                + ",".join(":" + k for k in columns)
+                + ")"
+            ),
+            {"id": uuid4(), **asdict(event)},
+        )
 
     def append(self, event: Event) -> None:
         try:

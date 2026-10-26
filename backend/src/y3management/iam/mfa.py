@@ -67,6 +67,8 @@ class MFA:
             .mappings()
             .one()
         )
+        if not self.iam.account_roles(ident).admin:
+            raise Rejected(401, "unauthorized")
         return dict(row)
 
     def context(

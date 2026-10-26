@@ -497,3 +497,21 @@ downgrade를 거부한다. 자세한 계약은
 [WORKFORCE-001](../docs/architecture/workforce-001-initial-registration-design.md)을 따른다.
 검증은 기존 소유 QA fixture를 사용한다. `test_workforce*.py`의 정책/PG/native 검사를
 구분하고 전체 독립 회귀 결과와 개발 부분 검증을 혼동하지 않는다.
+
+
+## IAM-011 Trainer 로그인 (개발 검증 단계)
+
+MFA Master 또는 현재 Home Branch Admin은 `/trainers`에서 활성 Trainer의 계정을 명시적으로
+발급한다. 기존 계정 연결/역할 추가는 지원하지 않는다. 비활성 Home도 현재 Scope 아래 발급 가능하다.
+초기 링크는 첫 응답에만 나타나며 상태 확인/동일 명령 재시도에는 비밀을 반환하지 않는다.
+결과 불명 시 상태 확인 후 PENDING_SETUP에서만 명시 재발급한다. 재발급은 이전 링크를 폐기한다.
+
+수신자는 `/trainer-activate#token=...`에서 본인 비밀번호를 설정하고 `/login`으로 로그인한다.
+Trainer-only는 비밀번호 인증 후 `/account`에서 자기 정보·암호 변경·로그아웃을 사용한다.
+관리자는 기존 Passkey UV 경로를 유지한다. Trainer 비활성 중 설정/로그인은 거부하며
+원래 링크 만료를 연장하지 않는다. 초기 링크·암호·Cookie를 QA 로그나 일반 문서에 복사하지 않는다.
+
+새 migration `0011_iam_trainer_login`은 binding/operation/source/typed audit를 추가한다.
+새 이력이 있으면 downgrade를 거부한다. `test_iam_trainer*.py`는 기존 소유 QA fixture를
+재사용한다. native 검사는 기존 TLS/NSS/cleanup helper의 Trainer 분기를 이용한다.
+부분 개발 검사와 독립 전체 회귀·운영 인수를 구별한다.

@@ -48,6 +48,8 @@ class Event:
 
 
 class AuditPort(Protocol):
+    def append_trainer_identity(self, event: TrainerIdentityEvent) -> None: ...
+
     def append_trainer_registered(self, event: TrainerRegistered) -> None: ...
     def append_initial_compensation(self, event: InitialCompensationSet) -> None: ...
 
@@ -72,3 +74,22 @@ class InitialCompensationSet:
     fixed: str
     base: str
     month: str
+
+
+@dataclass(frozen=True)
+class TrainerIdentityEvent:
+    organization_id: UUID
+    account_id: UUID
+    trainer_id: UUID
+    kind: str
+    actor_id: UUID | None
+    actor_role: str
+    actor_branch: UUID | None
+    target_home: UUID
+    operation_id: UUID | None
+    before_state: str | None
+    after_state: str
+    before_version: int | None
+    after_version: int
+    before_security_version: int | None
+    after_security_version: int

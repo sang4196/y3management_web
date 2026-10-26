@@ -44,10 +44,11 @@ def run_browser(
     emergency_db: Database | None = None,
     handoff_db: Database | None = None,
     workforce: bool = False,
+    trainer: bool = False,
 ) -> None:
     root = tmp_path / "https-browser"
     root.mkdir(mode=0o700)
-    if token and emergency_db is None and handoff_db is None and not workforce:
+    if token and emergency_db is None and handoff_db is None and not workforce and not trainer:
         for name in (
             "management.cjs",
             "management-checks.json",
@@ -171,7 +172,9 @@ def run_browser(
     shutil.copy(
         Path(__file__).parent
         / (
-            "browser/workforce.cjs"
+            "browser/trainer.cjs"
+            if trainer
+            else "browser/workforce.cjs"
             if workforce
             else "browser/handoff.cjs"
             if handoff_db
@@ -184,7 +187,9 @@ def run_browser(
     shutil.copy(
         Path(__file__).parent
         / (
-            "browser/workforce-checks.json"
+            "browser/trainer-checks.json"
+            if trainer
+            else "browser/workforce-checks.json"
             if workforce
             else "browser/handoff-checks.json"
             if handoff_db
@@ -385,7 +390,9 @@ def run_browser(
         else:
             result = subprocess.run(args, capture_output=True, timeout=90)
         (root / "browser.log").write_bytes(result.stdout + result.stderr)
-        stage_match = re.search(rb"(?:MFA|WORKFORCE)_BROWSER_FAILED stage=([a-z-]+)", result.stderr)
+        stage_match = re.search(
+            rb"(?:MFA|WORKFORCE|TRAINER)_BROWSER_FAILED stage=([a-z-]+)", result.stderr
+        )
         safe_stage = stage_match.group(1).decode() if stage_match else "unspecified"
         if emergency_db is not None and result.returncode != 0:
             diagnostic = re.search(rb"EMERGENCY_DIAGNOSTIC=(.*)", result.stderr)
@@ -394,12 +401,13 @@ def run_browser(
                     qa_root() / "latest-emergency-failure.json",
                     {"stage": safe_stage, "diagnostic": json.loads(diagnostic.group(1))},
                 )
-        if workforce and result.returncode != 0:
-            diagnostic = re.search(rb"WORKFORCE_DIAGNOSTIC=(.*)", result.stderr)
+        if (workforce or trainer) and result.returncode != 0:
+            diagnostic = re.search(rb"(?:WORKFORCE|TRAINER)_DIAGNOSTIC=(.*)", result.stderr)
             values = json.loads(diagnostic.group(1)) if diagnostic else {}
             required_names = json.loads((root / "required-checks.json").read_text())
             _qa_write(
-                qa_root() / "latest-workforce-failure.json",
+                qa_root()
+                / ("latest-trainer-failure.json" if trainer else "latest-workforce-failure.json"),
                 {
                     "stage": safe_stage,
                     "checks": {key: values.get(key) is True for key in required_names},
@@ -420,7 +428,9 @@ def run_browser(
             "run_id": root.parents[2].name,
         }
         evidence = (
-            "latest-workforce-browser.json"
+            "latest-trainer-browser.json"
+            if trainer
+            else "latest-workforce-browser.json"
             if workforce
             else "latest-handoff-browser.json"
             if handoff_db
@@ -429,7 +439,7 @@ def run_browser(
             else ("latest-mfa-browser.json" if token else "latest-browser.json")
         )
         _qa_write(qa_root() / evidence, safe)
-        if token and emergency_db is None and handoff_db is None and not workforce:
+        if token and emergency_db is None and handoff_db is None and not workforce and not trainer:
             management = report.get("management", {})
             expected = json.loads((root / "management-checks.json").read_text())
             _qa_write(
@@ -473,7 +483,7 @@ def run_browser(
             )
             assert set(management) == set(expected) and all(management[k] is True for k in expected)
             assert set(checks) == set(required) and all(checks[name] is True for name in required)
-        elif emergency_db is not None or handoff_db is not None or workforce:
+        elif emergency_db is not None or handoff_db is not None or workforce or trainer:
             assert set(checks) == set(required) and all(checks[name] is True for name in required)
         else:
             validate_browser_report(report)

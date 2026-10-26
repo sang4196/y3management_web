@@ -605,6 +605,16 @@ Traceability: PD-001/007/019; PR-001/003/021/030; BR-OPS-010; NFR-001/004/005; A
 <a id="br-ops-012"></a>
 ## BR-OPS-012 — Trainer 로그인 계정 발급 권한
 
+2026-10-26 추가 승인([I1-Q1/Q2/Q3 모두1](product-decisions.md#review-20261026-i1)):
+실제 활성 Trainer만 신규 발급·미설정 초기 링크 재발급·최초 비밀번호 설정 완료를 허용한다.
+중간 비활성화 시 설정 완료를 보류하며 자동 재활성화/연결 삭제/링크 만료 연장은 없다.
+Trainer당 연결 계정 하나·계정당 연결 Trainer 하나로 중복 발급/덮어쓰기/자동 동일인 연결을 금지한다.
+PENDING_SETUP만 현재 Master 조직 또는 대상 Trainer의 실제 현재 Home Branch 관리자의 명시 재발급을 허용한다.
+ACTIVE/DISABLED 및 기존 Login ID 계정은 신규 발급/초기 링크 재발급·자동 역할 추가로 우회하지 않는다.
+활성 Trainer의 Home 비활성만으로 신규 발급/재발급/유효 링크 설정을 거부하지 않는다.
+현재 Caller/조직/Scope 및 A4·B2·G1·C3·AB4·E5는 유지한다. 아래 과거 후속 문구 중 이 세 선택만 해결됐고,
+I2 기존 계정 역할 연결/역할 없는 계정 정책·분실 암호 reset·상태/이동 및 구현 계약은 별도다.
+
 Status: APPROVED
 
 2026-10-12 사용자 확정(신규 Trainer 로그인 계정 발급 권한 질문의 1번): Master Admin은 자신의 Organization 전체 Trainer, Branch Admin은 발급 처리 시점 대상 Trainer의 현재 Home Branch가 자신의 단일 관리 Branch인 경우 신규 Trainer 로그인 계정을 발급할 수 있다. Branch Admin은 타 지점 소속 Trainer 계정을 발급할 수 없다. 타 지점 지원 수업·담당 회원/Pass·Performed Branch·Operator 업무 Branch·최초 발급자/과거 소속 사실만으로 이 권한이 생기지 않는다. Operator·Trainer 단독은 본인 포함 로그인 계정 발급 불가이며 관리자 겸임은 현재 관리자 역할의 독립 Scope로 판단한다(BR-OPS-012, PD-019, PR-021/029/030, NFR-001/004, MB-004, ARCH-001/002).

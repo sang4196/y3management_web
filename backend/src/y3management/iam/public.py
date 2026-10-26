@@ -21,6 +21,8 @@ class Authentication:
     caller: Caller
     session_id: UUID
     csrf: str
+    assurance: str = "password"
+    binding: TrainerBinding | None = None
 
 
 @dataclass(frozen=True)
@@ -65,6 +67,44 @@ class Reservation:
 
 
 class IAMPort(Protocol):
+    def account_roles(self, ident: UUID) -> AccountRoles: ...
+    def lock_login(self, ident: UUID) -> AccountRoles: ...
+    def trainer_binding(self, org: UUID, trainer: UUID) -> TrainerBinding | None: ...
+    def trainer_state(self, org: UUID, trainer: UUID) -> TrainerAccountState: ...
+    def trainer_operation(self, org: UUID, operation: UUID) -> TrainerOperation | None: ...
+    def trainer_issue(
+        self,
+        caller: Caller,
+        trainer: UUID,
+        home: UUID,
+        operation: UUID,
+        identifier: str | None,
+        expected: int | None,
+        slot: UUID,
+    ) -> tuple[TrainerOperation, Setup | None, IdentityTransition | None]: ...
+    def lock_trainer_credentials(self, ident: UUID) -> None: ...
+    def prepare_trainer_setup(self, token: str, password: str) -> TrainerSetupProof: ...
+    def lock_trainer_setup(
+        self, proof: TrainerSetupProof, preauth: str | None, nonce: str | None
+    ) -> TrainerBinding: ...
+    def complete_trainer_setup(
+        self, proof: TrainerSetupProof, preauth: str | None, nonce: str | None
+    ) -> IdentityTransition: ...
+    def confirm_trainer_setup(self, proof: TrainerSetupProof) -> None: ...
+    def confirm_trainer_delivery(self, operation: TrainerOperation, slot: UUID) -> None: ...
+    def identity_transition(self, ident: UUID) -> IdentityTransition: ...
+    def confirm_identity_transition(
+        self,
+        before: IdentityTransition,
+        *,
+        changed: bool,
+        authentication: Authentication | None = None,
+        logout: bool = False,
+    ) -> None: ...
+    def confirm_login(self, proof: LoginProof, reservation: Reservation, sid: UUID) -> None: ...
+    def revoke_undelivered_session(self, sid: UUID) -> None: ...
+    def installation_lock(self) -> None: ...
+    def confirm_preparation(self, token: str | None, nonce: str | None) -> None: ...
     def prepare_master(self, identifier: str, password: str) -> None: ...
     def ensure_uninstalled(self) -> None: ...
     def bootstrap(self, organization_id: UUID, identifier: str) -> Account: ...
@@ -88,6 +128,7 @@ class IAMPort(Protocol):
         management: bool = False,
         target: UUID | None = None,
         touch: bool = True,
+        audience: Literal["admin", "account"] = "admin",
     ) -> Authentication: ...
     def csrf(self, authentication: Authentication, nonce: str | None) -> None: ...
     def require_master(self, caller: Caller) -> None: ...
@@ -376,3 +417,60 @@ class HandoffPort(Protocol):
     def issue(
         self, caller: Caller, ident: UUID, request: HandoffRequest, slot: UUID
     ) -> tuple[Setup, EmergencyChange]: ...
+
+
+@dataclass(frozen=True)
+class TrainerBinding:
+    account_id: UUID
+    organization_id: UUID
+    trainer_id: UUID
+    version: int
+
+
+@dataclass(frozen=True)
+class AccountRoles:
+    account: Account
+    binding: TrainerBinding | None
+
+    @property
+    def admin(self) -> bool:
+        return self.account.master or self.account.branch_id is not None
+
+
+@dataclass(frozen=True)
+class TrainerAccountState:
+    trainer_id: UUID
+    account_id: UUID | None
+    login_id: str | None
+    state: str | None
+    account_version: int | None
+    initial_setup_expires_at: datetime | None
+
+
+@dataclass(frozen=True)
+class TrainerOperation:
+    operation_id: UUID
+    kind: str
+    trainer_id: UUID
+    account_id: UUID
+    committed_account_version: int
+    current_state: TrainerAccountState
+
+
+@dataclass(frozen=True, repr=False)
+class TrainerSetupProof:
+    source_id: UUID
+    account_id: UUID
+    organization_id: UUID
+    trainer_id: UUID
+    account_version: int
+    security_version: int
+    binding_version: int
+    expires_at: datetime
+
+
+@dataclass(frozen=True)
+class IdentityTransition:
+    account: Account
+    security_version: int
+    binding: TrainerBinding

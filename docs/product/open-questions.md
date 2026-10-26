@@ -207,6 +207,12 @@ Status: OPEN
 <a id="arch-001"></a>
 ## ARCH-001. Role/Permission 상세
 
+2026-10-26 부분 해결: [I1-Q1/Q2/Q3 모두1](product-decisions.md#review-20261026-i1)로
+신규 Trainer 계정의 활성 대상 조건·일대일 연결/중복 금지·현재 관리자의 미설정 링크 재발급과
+활성 Trainer의 비활성 Home 발급/재발급/유효 링크 사용을 확정했다(BR-OPS-012).
+이 세 선택은 재질문하지 않으며 아래 이전 미정 서술의 해당 부분만 대체한다.
+기존 계정 역할 연결/역할 없는 계정 정책·다른 수명/운영과 기술 계약은 남아 OPEN 상태를 유지한다.
+
 2026-10-10 사용자 결정 — 역할 겸임: Master Admin 또는 Branch Admin이 Trainer를 겸하며 한 계정으로 관리 업무와 본인의 PT 진행 기록을 모두 수행한다. 계정당 단일 역할만 허용하는 제약은 두지 않는다. 기존 역할별 Branch Scope·보상 설정 제한은 유지하며 행위별 인가·감사의 구체 표현은 상세 설계 대상이다. 같은 날 최종 정정으로 겸임 계정도 관리 권한 범위 안이면 본인의 Rate/Fixed Amount/Base Salary를 조회·변경할 수 있도록 확정했다. Master는 본인 포함, Branch Admin은 본인 Trainer의 Home Branch가 관리 Branch와 일치할 때 허용하며 “본인은 Master만 가능” 답변을 대체한다. 관리자 권한이 없는 Trainer의 본인 설정 접근은 여전히 불가다. ARCH-001은 나머지 권한·인가/감사 상세가 남아 부분 해결 상태로 OPEN을 유지한다.
 
 Question / TODO: Role/Data Scope 기술 모델·행위별 Permission/현재 권한 확인·최소 응답/오류 계약을 구체화한다. S1/S2로 이전 정산 확정본·해제/재확정 및 세 보상 설정 변경 이력 조회의 Master Organization/현재 Trainer Home Branch Admin 범위가 확정됐다. N1/N2 수업별 금액 기밀성·H4 비관리자 Trainer 월 정산 제외·C7 인증/계정 관리 감사 Master 전용·겸임 독립 관리 Scope를 유지한다. 남은 세부 공개 필드/계산 근거·다른 업무 감사/정정/권한 변경 경합과 계약은 후속이며 승인된 이력 조회 자체를 다시 미결정으로 두지 않는다.
@@ -327,6 +333,12 @@ Backend는 현재 검증된 Caller 역할/Organization·관리 Branch와 실제 
 
 <a id="arch-002"></a>
 ## ARCH-002. 계정 수명 정책
+
+2026-10-26 부분 해결: [I1-Q1/Q2/Q3 모두1](product-decisions.md#review-20261026-i1)로
+신규 Trainer 계정의 활성 대상 조건·일대일 연결/중복 금지·현재 관리자의 미설정 링크 재발급과
+활성 Trainer의 비활성 Home 발급/재발급/유효 링크 사용을 확정했다(BR-OPS-012).
+이 세 선택은 재질문하지 않으며 아래 이전 미정 서술의 해당 부분만 대체한다.
+기존 계정 역할 연결/역할 없는 계정 정책·다른 수명/운영과 기술 계약은 남아 OPEN 상태를 유지한다.
 
 2026-10-20 부분 해결: [AB5 R1–R3](product-decisions.md#review-20261020-ab5-r1-r3) 모두1번으로 기존 ACTIVE Master 한 명의 인증요인 복구·대상 로그인/대기 인증만 철회·별도 운영담당자의 보호된 수동 승인 확인/기록을 확정했다. 차단 해제/신규 계정/회수 역할 복원·조직 전체 철회·승인 진위 자동 증명은 제외한다. 승인된 구현·독립 검증을 진행하되 운영 자격/확인·전달/기록·실제 운영 인수와 나머지 계정 수명은 남아 ARCH-002는 OPEN을 유지한다. 아래 이전 미정 설명 중 이번 세 선택만 대체한다.
 
@@ -895,6 +907,12 @@ Trainer Home Branch 일반 변경의 Actor는 Master Organization 범위 전용�
 
 <a id="mb-004"></a>
 ## MB-004. Administration / Branch Scope 부여
+
+2026-10-26 부분 해결: [I1-Q1/Q2/Q3 모두1](product-decisions.md#review-20261026-i1)로
+신규 Trainer 계정의 활성 대상 조건·일대일 연결/중복 금지·현재 관리자의 미설정 링크 재발급과
+활성 Trainer의 비활성 Home 발급/재발급/유효 링크 사용을 확정했다(BR-OPS-012).
+이 세 선택은 재질문하지 않으며 아래 이전 미정 서술의 해당 부분만 대체한다.
+기존 계정 역할 연결/역할 없는 계정 정책·다른 수명/운영과 기술 계약은 남아 OPEN 상태를 유지한다.
 
 Question / TODO: 승인된 신규 Operator/Trainer 발급·기존 역할 추가/회수(E5)와 Master 전용 Operator 지점 변경의 나머지 대상/연결/절차·최소 공개/현재 인가·계약, 나머지 계정 업무 위임 및 Branch 기본정보의 다른 필드/입력/감사 공개를 구체화한다. R2로 Branch Admin의 각 처리 시점 자기 단일 관리 Branch 지점명/대표 연락처 수정·중요 감사가 확정됐고 지점 생성/운영 상태/관리자 배정 권한을 추가하지 않는다. 기존 Master Organization 범위·Operator 단일 Branch·Pass 발급 권한/같은 Organization 타 지점 Member 발급·최소 Member 검색 승인과 별도 일반 목록/상세 인가는 유지한다. 이미 승인된 역할/Scope·두 필드 수정 자체를 다시 미결정으로 두지 않는다.
 

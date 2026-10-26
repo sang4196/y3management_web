@@ -65,6 +65,16 @@ class Input(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
 
+class TrainerAccountInput(Input):
+    operation_id: UUID
+    login_id: str = Field(min_length=3, max_length=64)
+
+
+class TrainerSetupInput(Input):
+    operation_id: UUID
+    expected_account_version: int = Field(strict=True, ge=1)
+
+
 class TrainerInput(Input):
     operation_id: UUID
     name: str = Field(strict=True, max_length=200)
@@ -255,6 +265,8 @@ def attach(app: FastAPI, settings: Settings) -> None:
                 "/api/v1/admin/trainers",
                 "/api/v1/admin/trainer-registrations",
                 "/api/v1/admin/trainer-home-candidates",
+                "/api/v1/admin/trainer-account-operations",
+                "/api/v1/auth/trainer-credentials/complete",
             )
         ):
             return JSONResponse({"detail": "invalid_request"}, status_code=422)
@@ -293,15 +305,11 @@ def attach(app: FastAPI, settings: Settings) -> None:
     @router.post("/auth/login", status_code=204)
     def login(request: Request, body: Login) -> Response:
         auth, nonce = write(request)
-        if settings.iam_mode == "mfa":
-            return ceremony_response(
-                service(request).begin_mfa_login(
-                    body.login_id, body.password, request.cookies.get(PREAUTH), nonce, auth
-                )
-            )
-        token = service(request).login(
+        token = service(request).login_entry(
             body.login_id, body.password, request.cookies.get(PREAUTH), nonce, auth
         )
+        if isinstance(token, Ceremony):
+            return ceremony_response(token)
         response = Response(status_code=204)
         cookie(response, AUTH, token)
         clear(response, PREAUTH)
@@ -408,7 +416,20 @@ def attach(app: FastAPI, settings: Settings) -> None:
 
     @router.get("/auth/me")
     def me(request: Request) -> dict[str, object]:
-        c = service(request).me(read(request))
+        c, trainer = service(request).principal(read(request))
+        if trainer is not None and not (c.master or c.branch_id):
+            return {
+                "account_id": str(c.account_id),
+                "organization_id": str(c.organization_id),
+                "roles": [
+                    {
+                        "role": "TRAINER",
+                        "trainer_id": str(trainer.trainer_id),
+                        "home_branch_id": str(trainer.home_branch_id),
+                    }
+                ],
+                "capabilities": [],
+            }
         return {
             "account_id": str(c.account_id),
             "organization_id": str(c.organization_id),
@@ -442,6 +463,61 @@ def attach(app: FastAPI, settings: Settings) -> None:
         clear(response, AUTH)
         clear(response, PREAUTH)
         return response
+
+    @router.post("/auth/trainer-credentials/complete", status_code=204)
+    def trainer_complete(request: Request, body: Complete) -> Response:
+        _, nonce = write(request)
+        service(request).complete_trainer_setup(
+            body.setup_token, body.new_password, request.cookies.get(PREAUTH), nonce
+        )
+        response = Response(status_code=204)
+        clear(response, PREAUTH)
+        return response
+
+    @router.get("/admin/trainers/{trainer_id}/login-account")
+    def trainer_account_state(request: Request, trainer_id: UUID) -> object:
+        return jsonable_encoder(
+            asdict(service(request).trainer_account_state(read(request), trainer_id))
+        )
+
+    @router.get("/admin/trainer-account-operations/{operation_id}")
+    def trainer_account_operation(request: Request, operation_id: UUID) -> object:
+        return jsonable_encoder(
+            asdict(service(request).trainer_account_operation(read(request), operation_id))
+        )
+
+    def trainer_delivery(
+        request: Request,
+        trainer_id: UUID,
+        operation: UUID,
+        identifier: str | None,
+        expected: int | None = None,
+    ) -> JSONResponse:
+        auth, nonce = write(request)
+        result, setup = service(request).issue_trainer_account(
+            auth, nonce, trainer_id, operation, identifier, expected
+        )
+        body = {"operation": jsonable_encoder(asdict(result))}
+        if setup is not None:
+            body.update(
+                setup_link=settings.canonical_origin + "/trainer-activate#token=" + setup.token,
+                expires_at=setup.expires_at.isoformat(),
+            )
+        return JSONResponse(body, status_code=201 if setup else 200)
+
+    @router.post("/admin/trainers/{trainer_id}/login-account")
+    def trainer_account_issue(
+        request: Request, trainer_id: UUID, body: TrainerAccountInput
+    ) -> JSONResponse:
+        return trainer_delivery(request, trainer_id, body.operation_id, body.login_id)
+
+    @router.post("/admin/trainers/{trainer_id}/initial-setup")
+    def trainer_setup_reissue(
+        request: Request, trainer_id: UUID, body: TrainerSetupInput
+    ) -> JSONResponse:
+        return trainer_delivery(
+            request, trainer_id, body.operation_id, None, body.expected_account_version
+        )
 
     @router.post("/auth/credentials/complete", status_code=204)
     def complete(request: Request, body: Complete) -> Response:
@@ -796,6 +872,66 @@ p,li{overflow-wrap:anywhere}h1{font-size:1.6rem}""",
 
     app.include_router(router)
 
+    @app.get("/trainer-activate", response_class=HTMLResponse)
+    def trainer_activation_page(request: Request) -> str:
+        return """<!doctype html><html lang="ko"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>최초 비밀번호 설정</title>
+<h1>최초 비밀번호 설정</h1><form id="trainer-setup" method="post" action="/trainer-activate">
+<label>새 비밀번호
+<input id="new-password" type="password" autocomplete="new-password" required></label>
+<button disabled>설정</button></form><p id="result" role="status"></p><a href="/login">로그인</a>
+<script src="/trainer-account.js"></script></html>"""
+
+    @app.get("/account", response_class=HTMLResponse)
+    def self_account_page(request: Request) -> str:
+        service(request).principal(read(request))
+        return """<!doctype html><html lang="ko"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>내 계정</title>
+<h1>내 계정</h1><pre id="identity"></pre><form id="self-password" method="post" action="/account">
+<label>현재 비밀번호
+<input id="current-password" type="password" autocomplete="current-password" required></label>
+<label>새 비밀번호
+<input id="new-password" type="password" autocomplete="new-password" required></label>
+<button disabled>비밀번호 변경</button></form><button id="signout" disabled>로그아웃</button>
+<p id="result" role="status"></p><script src="/trainer-account.js"></script></html>"""
+
+    @app.get("/trainer-account.js")
+    def trainer_account_script(request: Request) -> Response:
+        return Response(
+            r"""'use strict';
+let setupToken=new URLSearchParams(location.hash.slice(1)).get('token');
+history.replaceState(null,'',location.pathname);
+const out=document.getElementById('result'),form=document.querySelector('form');
+async function csrf(){const r=await fetch('/api/v1/auth/csrf',{headers:{'X-Y3-Client':'trainer'}});
+if(!r.ok)throw Error();return (await r.json()).csrf_token;}
+async function post(path,body){const nonce=await csrf();const r=await fetch('/api/v1'+path,
+{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':nonce},
+body:JSON.stringify(body)});
+if(!r.ok)throw Error();return r;}
+form.addEventListener('submit',async e=>{e.preventDefault();
+form.querySelector('button').disabled=true;
+try{const password=document.getElementById('new-password').value;
+if(form.id==='trainer-setup'){await post('/auth/trainer-credentials/complete',
+{setup_token:setupToken,new_password:password});setupToken=null;form.hidden=true;
+out.textContent='설정했습니다. 로그인해 주세요.';}
+else{await post('/auth/password',
+{current_password:document.getElementById('current-password').value,
+new_password:password});location.href='/login';}
+}catch{out.textContent='처리하지 못했습니다. 현재 상태와 입력을 확인해 주세요.';}
+finally{form.querySelector('button').disabled=false;}});
+form.querySelector('button').disabled=false;
+const logout=document.getElementById('signout');if(logout){logout.disabled=false;
+logout.addEventListener('click',async()=>{try{await post('/auth/logout',{});location.href='/login';}
+catch{out.textContent='로그아웃하지 못했습니다.';}});
+fetch('/api/v1/auth/me').then(async r=>{if(!r.ok)throw Error();
+document.getElementById('identity').textContent=JSON.stringify(await r.json(),null,2);})
+.catch(()=>{out.textContent='로그인이 필요합니다.';});}
+""",
+            media_type="application/javascript",
+        )
+
     @app.get("/activate", response_class=HTMLResponse)
     def activation_page(request: Request) -> str:
         read(request)
@@ -955,7 +1091,9 @@ const body=flow==='login'?{login_id:id.value,password:pw.value}:flow==='add'?{}:
 flow==='emergency'?{emergency_token:token,...(emergencyFactors==='both'?{new_password:pw.value}:{})}:
 flow==='recovery'?{recovery_token:token}:
 {setup_token:token,...(flow==='setup'?{new_password:pw.value}:{})};
-const result=await (await post(path,csrf,body)).json();pw.value='';
+const loginResponse=await post(path,csrf,body);pw.value='';
+if(flow==='login'&&loginResponse.status===204){location.href='/account';return;}
+const result=await loginResponse.json();
 const options=result.publicKey;options.challenge=decode(options.challenge);
 if(options.user)options.user.id=decode(options.user.id);
 for(const key of ['allowCredentials','excludeCredentials'])
@@ -1032,7 +1170,55 @@ for(const t of data.items){
 const li=document.createElement('li');
 li.textContent=t.name+' ('+t.home_branch_id+')';
 $('trainers').append(li);
+accountControls(li,t);
 }}
+function accountControls(li,t){
+const box=document.createElement('div'),status=document.createElement('p');
+const form=document.createElement('form'),input=document.createElement('input');
+const issue=document.createElement('button'),refresh=document.createElement('button');
+const reissue=document.createElement('button'),result=document.createElement('p');
+form.method='post';form.action='/trainers';input.autocomplete='off';
+input.setAttribute('aria-label','Trainer 로그인 ID');input.required=true;
+issue.textContent='계정 발급';refresh.textContent='계정 상태 확인';
+reissue.textContent='초기 설정 링크 재발급';refresh.type=reissue.type='button';
+issue.disabled=reissue.disabled=true;
+form.append(input,issue);box.append(status,form,refresh,reissue,result);li.append(box);
+box.dataset.trainer=t.id;
+let state=null,pending=null,working=false;
+async function load(){const r=await fetch('/api/v1/admin/trainers/'+t.id+'/login-account');
+if(!r.ok)throw Error();state=await r.json();
+status.textContent=state.state?(state.login_id+': '+state.state):'계정 미발급';
+issue.disabled=!!state.account_id||!t.active;input.disabled=!!state.account_id;
+reissue.disabled=state.state!=='PENDING_SETUP'||!t.active;}
+async function send(kind){if(working)return;working=true;refresh.disabled=true;
+result.replaceChildren();
+try{if(!pending)pending={kind,body:{operation_id:crypto.randomUUID(),
+...(kind==='login-account'?{login_id:input.value}:{expected_account_version:state.account_version})}};
+if(pending.kind!==kind){result.textContent='먼저 계정 상태를 확인하세요.';return;}
+const c=await fetch('/api/v1/auth/csrf',{headers:{'X-Y3-Client':'trainer-issue'}});
+if(!c.ok)throw Error();
+const r=await fetch('/api/v1/admin/trainers/'+t.id+'/'+kind,{method:'POST',
+headers:{'Content-Type':'application/json','X-CSRF-Token':(await c.json()).csrf_token},
+body:JSON.stringify(pending.body)});
+if(!r.ok){result.textContent='처리 결과를 확인하세요 ('+r.status+').';return;}
+const data=await r.json();pending=null;
+if(data.setup_link){const a=document.createElement('a');a.href=data.setup_link;
+a.textContent='본인 비밀번호 설정 링크';a.referrerPolicy='no-referrer';result.append(a);
+result.append(document.createTextNode(' 만료: '+data.expires_at));}
+else result.textContent='이미 처리된 요청입니다. 링크가 필요하면 명시적으로 재발급하세요.';
+await load();
+}catch{result.textContent='연결을 확인하고 계정 상태 확인을 눌러 주세요.';}
+finally{working=false;refresh.disabled=false;}}
+form.addEventListener('submit',e=>{e.preventDefault();send('login-account');});
+reissue.addEventListener('click',()=>send('initial-setup'));
+refresh.addEventListener('click',async()=>{if(working)return;result.replaceChildren();try{
+if(pending){const r=await fetch(
+'/api/v1/admin/trainer-account-operations/'+pending.body.operation_id);
+if(r.ok){pending=null;result.textContent='처리 확인. 링크가 필요하면 재발급하세요.';}
+else if(r.status!==404)throw Error();}
+await load();}catch{result.textContent='현재 권한과 연결을 확인하세요.';}});
+load().catch(()=>{status.textContent='계정 상태를 조회할 수 없습니다.';});
+}
 $('trainer-form').addEventListener('submit',async e=>{e.preventDefault();
 if(busy)return;
 busy=true;

@@ -1,5 +1,21 @@
 # 후속 검증 계획
 
+2026-10-27 IAM-011 실제 로컬 인수: [결과](iam-011-trainer-login-results.md)와
+[설계자 판정](iam-011-trainer-login-review.json)의 r3 동결225개/Backend145개에서 독립 fast131 및
+새 단일 전체 PostgreSQL499(기존419+신규80)을 확인했다. 실제 JUnit의 정확한499개 집합과 모든 passed,
+실패/error/skip/xfail/xpass/incomplete0·실제 child/pytest/runner exit0을 대조했다.
+같은 run의 실제 HTTPS/native9개 manifest211항목은 모두 literal true이고 pytest6건 안의 항목이다.
+최소99개 중요 판정과 전체 판정 digest/테스트한 Backend SHA를 영구 판정에 남긴다. 소스/보호/HEAD/index/
+trust 불변과 소유 자동 환경7개 정리를 확인했다. 관찰491개 schema/510개 process의 잔존 없음은
+기존 전체 정리 guard를 보충하며 완전한 자원 목록 주장으로 확대하지 않는다.
+첫15 passed/2 failed/464 미완료와 다음89 passed/1 failed/396 미완료는 전체 통과가 아니다.
+기존 S1 호환·인증/인가 응답 복원 후 그 원래 실패 사례도 최종 전체에서 통과했다.
+한 번의 bootstrap setup 오류는 원인 미확정이며 최종 동일 node 통과와 구별한다.
+새 Trainer 인증의 desktop Chromium 검증을 모바일/실물/전체 지원 브라우저·production으로 확대하지 않는다.
+I2/역할 없는 계정 정책·상태/이동·분실 암호 reset·PT/정산 및 아래 전체 PROPOSED 계획은 별도다.
+
+2026-10-26 IAM-011 개발 검증: `test_iam_trainer*.py`와 `browser/trainer.cjs`/`trainer-checks.json`을 추가한다. 실제 W0→발급→수신자 설정→Trainer 로그인과 현재 Home 권한, 단회 source, typed 감사/rollback, ACK 유실, 실제 PG 잠금 대기, 신뢰 HTTPS 브라우저를 대상으로 한다. 개발 대상 실행과 독립 전체 회귀는 별도이며 결과·정확한 수집 목록은 IAM-011 결과 문서와 QA 기록을 따른다. 기존 W0 fast122/PG419/native188은 이번 결과로 재사용하지 않는다.
+
 2026-10-21 WORKFORCE-001 실제 인수 범위: [결과](workforce-001-initial-registration-results.md)와
 [설계자 판정](workforce-001-initial-registration-review.json)의 독립 fast122·필수PG **전체419 PASS**를 확인했다.
 최종 candidate3 동결210개/Backend133개·보호180개 revision4에서 기존391개와 신규28개를 새 단일 PG 실행으로

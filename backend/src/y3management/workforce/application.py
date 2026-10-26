@@ -17,6 +17,11 @@ from y3management.workforce.validation import fingerprint, normalize
 
 
 class Workforce:
+    def lock_identity(
+        self, organization_id: UUID, ident: UUID, *, exclusive: bool = False
+    ) -> TrainerIdentityFact:
+        return self.repo.identity(organization_id, ident, lock=exclusive, shared=not exclusive)
+
     def __init__(self, repository: Repository) -> None:
         self.repo = repository
 

@@ -32,6 +32,7 @@ class Security:
             ("iam_mfa_contexts", None),
             ("iam_preparations", None),
             ("iam_credentials", "source_id"),
+            ("iam_trainer_setup_credentials", None),
             ("iam_recovery_credentials", "recovery_id"),
             ("iam_reset_credentials", None),
             ("iam_emergency_credentials", "emergency_id"),
@@ -90,6 +91,7 @@ class Security:
           AND s.created_at<=:lease_end
           AND NOT EXISTS (SELECT 1 FROM iam_preparations p WHERE p.id=s.id)
           AND NOT EXISTS (SELECT 1 FROM iam_credentials c WHERE c.id=s.id)
+          AND NOT EXISTS (SELECT 1 FROM iam_trainer_setup_credentials t WHERE t.id=s.id)
           AND NOT EXISTS (SELECT 1 FROM iam_emergency_credentials e WHERE e.id=s.id)
           AND NOT EXISTS (SELECT 1 FROM iam_reset_credentials r WHERE r.id=s.id)
           AND NOT EXISTS (SELECT 1 FROM iam_recovery_credentials r WHERE r.id=s.id)
@@ -141,6 +143,7 @@ class Security:
             text(
                 "DELETE FROM iam_security_states s WHERE id=:id "
                 "AND NOT EXISTS (SELECT 1 FROM iam_credentials c WHERE c.id=s.id) "
+                "AND NOT EXISTS (SELECT 1 FROM iam_trainer_setup_credentials t WHERE t.id=s.id) "
                 "AND NOT EXISTS (SELECT 1 FROM iam_recovery_credentials r WHERE r.id=s.id) "
                 "AND NOT EXISTS (SELECT 1 FROM iam_reset_credentials r WHERE r.id=s.id) "
                 "AND NOT EXISTS (SELECT 1 FROM iam_emergency_credentials e WHERE e.id=s.id) "

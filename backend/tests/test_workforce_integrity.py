@@ -198,19 +198,19 @@ def test_migration_roundtrip_and_information_guard(
         capture_output=True,
         timeout=30,
     )
-    assert result.returncode == 0 and current() == "0010_workforce_initial"
+    assert result.returncode == 0 and current() == "0011_iam_trainer_login"
     with scene.db.session() as s:
         s.execute(text("UPDATE organization_branches SET active=false,row_version=2"))
         s.commit()
     migrate("0009_iam_emergency_handoff")
-    assert current() == "0010_workforce_initial"
+    assert current() == "0011_iam_trainer_login"
     with scene.db.session() as s:
         assert s.execute(text("SELECT active FROM organization_branches")).scalar_one() is False
         s.execute(text("UPDATE organization_branches SET active=true,row_version=1"))
         s.commit()
     assert scene.send(scene.body()).status_code == 201
     migrate("0009_iam_emergency_handoff")
-    assert current() == "0010_workforce_initial" and counts(scene.db) == (1, 1, 1, 2)
+    assert current() == "0011_iam_trainer_login" and counts(scene.db) == (1, 1, 1, 2)
 
 
 @pytest.mark.parametrize("registration_first", [True, False])

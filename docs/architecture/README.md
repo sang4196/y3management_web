@@ -1,5 +1,48 @@
 # Architecture 및 현재 개발 단계
 
+2026-10-27 최신 인수: **IAM-011 실제 Trainer 계정 발급·로그인 로컬 인수 PASS**.
+[계약](iam-011-trainer-login-design.md), [검증 결과](iam-011-trainer-login-results.md),
+[설계자 판정](iam-011-trainer-login-review.json)을 따른다. 현재 Master/실제 Home Branch Admin의
+일대일 계정 발급·미설정 링크 재발급, 수신자의 직접 암호 설정, Trainer 암호 로그인·최소 본인 조회·
+본인 암호 변경/전 로그인 종료·로그아웃을 검증했다. 관리자 UV와 현재 역할/Trainer 상태 검증은 유지한다.
+
+r3 동결225개/Backend145개에서 독립 fast **131개**, 새 단일 PostgreSQL **전체499개**를 통과했다.
+기존419개와 신규80개가 같은 실행에 포함되고 실패/error/skip/xfail/xpass/incomplete는0이다.
+같은 실행의 실제 HTTPS/native9개 manifest **211항목**은 모두 true이며 브라우저 pytest6건 안의 항목이다.
+개별 실제 판정과 소스/보호/HEAD/index/trust 불변, 소유 자동 환경7개의 정리를 대조했다.
+두 중단 실행15/2/464와89/1/396 및 원래 실패는 보존한다. S1 호환과 유효 인증403/무효401을
+앱에서 복원했고 기존 실패 단언을 바꾸지 않았다. 이전 CLI 준비 오류 한 건의 원인은 여전히 미확정이다.
+동일 node의 최종 전체 실행 통과를 원인 규명으로 보고하지 않는다.
+
+설계자의 후속 변경은 결과/단계/판정 문서뿐이며 테스트한 Backend145개 바이트를 유지한다.
+전담 변경 검토·한글 상세 커밋·feature branch 일반 push 절차를 따른다. 다음 I2의 기존 계정 Trainer 역할
+추가/회수는 대상 상태·무역할 로그인·기존 로그인 처리의 필요한 사용자 결정을 모은 뒤 진행한다.
+운영·실물/전체 브라우저·새 Trainer 모바일 인증 인수와 PT/정산·전체 모듈 PROPOSED/잔여 OPEN은 별도다.
+아래 각 증분의 대기/미완료 설명은 당시 이력이다.
+
+2026-10-27 r3 개발 이력: **인증·인가 응답 경계 복원 개발 동결, 당시 독립 검증 대기**.
+r2 독립 whole은89 passed/1 failed/396 미완료로 중단·정리했다. 유효한 세션의 관리 grant만
+회수된 기존 handoff 사례에서 기대403 대신401이 확인됐다. `IAM.authenticate`에서 세션 유효성·
+필수 UV/키 검증을 먼저 수행하고, 관리 audience의 유효한 무역할/무binding 계정은 touch/Caller 반환 전
+403으로 거절하도록 좁게 복원한다. account audience의 미지원 계정과 Trainer 관리 진입401은 유지한다.
+이는 무역할 로그인 허용이나 새 Product 정책이 아니다. r1/r2 동결·실패 이력을 보존한다.
+r3 대상41개는 최초39 passed/신규 fixture2 failed 후 해당2개 passed로 확인했다. 기존 assertion은
+그대로이며 fast131·mypy95·Import Linter8을 통과했다. 수집630/PG499, native manifest211이며
+새 단일 독립 전체 실행과 설계자 인수는 대기 중이다. r3에서는 native 브라우저를 재실행하지 않았다.
+
+2026-10-26 r2 개발 이력: **S1 복원 개발 검증·동결 완료**.
+[승인 I1-Q1–Q3](../product/product-decisions.md#review-20261026-i1)와
+[제한 구현 계약](iam-011-trainer-login-design.md)에 따라 실제 활성 Trainer의 일대일 계정 발급,
+본인 초기 설정·로그인·자기 암호 변경·로그아웃을 구현한다. 비활성 Home도 허용하되 현재 관리 Scope를 강제한다.
+[개발 결과](iam-011-trainer-login-results.md): fast131·신규 PG62개 대상 검사·신규 native23개를 확인했다.
+첫 독립 whole은15 passed/2 failed/464 미완료로 중단·정리했다. 기존 S1 ACK 보존과 account 대기 순서를
+use_cases.py에서 복원하고 기존 assertion 그대로3개, Trainer 관련22개를 통과했다. 기존 기능/native 대상은
+16 passed/1 bootstrap setup error 뒤 동일 실패 node 단독 재실행1 passed였다. 최초 오류 원인은 미확정이다.
+r2 fast131·native23/23을 확인했고 총617/PG486으로 동결했다. 최초 수집612/PG481과 원래 freeze는
+이력으로 보존하며 새 독립 whole PG486/native211이 필요하다.
+아래 W0의 세 선택 답변 대기는 이 승인으로 대체된다. 독립 전체 검증·설계자 인수·커밋은 아직 완료되지 않았다.
+I2 기존 계정 역할 연결·상태/이동 명령·분실 복구·PT/정산·운영 인수는 포함하지 않는다.
+
 2026-10-21 최신 인수: **WORKFORCE-001 Trainer 최초 등록 로컬 인수 PASS**.
 [계약](workforce-001-initial-registration-design.md), [결과](workforce-001-initial-registration-results.md),
 [설계자 판정](workforce-001-initial-registration-review.json)을 따른다.
