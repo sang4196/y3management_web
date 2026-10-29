@@ -1,3 +1,21 @@
+# 현재 IAM-013 로컬 인수 완료 — 다음 계정 상태 정책 결정 대기
+
+2026-10-30 **Trainer 비밀번호 재설정 로컬 설계자 인수 PASS**.
+[계약](iam-013-trainer-password-reset-design.md), [결과](iam-013-trainer-password-reset-results.md),
+[최소 인수 근거](iam-013-trainer-password-reset-review.json)를 따른다. 같은 조직의 다른 정상 Master만
+ACTIVE 실제 Trainer 연결 계정의 암호를 복구한다. 업무 비활성·회수 역할의 접근 제한과 관리자 UV는 유지한다.
+최종 Actor 기한·성공 활동 갱신, 인증 입력 오류 비노출, 응답 유실 뒤 안전한 조회·명시 재발급을 검증했다.
+
+동결 Backend167개에서 새 독립 fast **131개**, 단일 선정 PostgreSQL **179개**(신규38+기존141)가 통과했다.
+같은 실행의 native5사례·8개 manifest **243항목**은 모두 true다. 실패/error/skip/xfail/미실행은0이며,
+실제 종료코드·정확한 노드·소스/Git/trust 불변·자기 실행 자원 정리를 대조했다. 전체PG614 중435개는 미실행이다.
+개발 분할77개와 초기 실패는 이력이며 최종 인수 성적에 합산하지 않는다. 설계자는 runtime을 추가 실행하지 않았다.
+
+전담 한글 상세 커밋·일반 feature push 이후 다음 IAM 계정 수명 작업으로 이어간다. 설정 전 계정 차단 및
+복구 상태, Login ID 변경 허용 상태의 두 사용자 선택은 아직 미승인이다. 그 동작은 구현하지 않았다.
+A8/C6/E6의 Master 전용 권한·기존 암호/역할 독립 원칙을 다시 묻지 않는다. 다른 Product OPEN/ADR/전역
+PROPOSED·운영/실물·전체 브라우저/모바일·PT/지급/정산 인수 상태는 유지한다. 아래는 각 증분 당시 이력이다.
+
 # 현재 WORKFORCE-002 인수 완료 — 분할 검증
 
 2026-10-30 **Trainer 업무 비활성화·재활성화 로컬 설계자 인수 PASS**.

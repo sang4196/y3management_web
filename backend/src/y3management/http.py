@@ -295,7 +295,7 @@ def attach(app: FastAPI, settings: Settings) -> None:
                 "/api/v1/admin/trainer-account-operations",
                 "/api/v1/admin/trainer-role-operations",
                 "/api/v1/admin/trainer-state-operations",
-                "/api/v1/auth/trainer-credentials/complete",
+                "/api/v1/auth/",
             )
         ):
             return JSONResponse({"detail": "invalid_request"}, status_code=422)
@@ -1162,7 +1162,9 @@ out.textContent='복구했습니다. 새 비밀번호와 Passkey로 로그인해
 if(flow==='reset'){
 await post('/auth/password-reset/complete',csrf,{reset_token:token,new_password:pw.value});
 token=null;form.hidden=true;
-out.textContent='비밀번호를 설정했습니다. 새 비밀번호와 기존 Passkey로 로그인해 주세요.';
+out.textContent='비밀번호를 설정했습니다. 다시 로그인해 주세요. '+
+ '관리자 역할이 있으면 기존 Passkey 인증도 필요합니다. '+
+ '계정·역할·Trainer 상태에 따른 이용 제한은 유지됩니다.';
 return;}
 const path=flow==='login'?'/auth/login':flow==='add'?'/auth/passkeys/options':
 flow==='emergency'?'/auth/emergency-recovery/options':
@@ -1239,7 +1241,7 @@ WORKFORCE_SCRIPT = """(()=>{'use strict';
 const $=id=>document.getElementById(id),out=$('result');
 let operation=crypto.randomUUID();
 
-let busy=false;
+let busy=false,identity=null;
 
 async function listing(){const r=await fetch('/api/v1/admin/trainers');
 if(!r.ok)throw Error();
@@ -1251,8 +1253,12 @@ const li=document.createElement('li');
 li.textContent=t.name+' ('+t.home_branch_id+')';
 $('trainers').append(li);
 const accountRefresh=accountControls(li,t);
-const roleRefresh=roleControls(li,t,accountRefresh);
-stateControls(li,t,async()=>{await roleRefresh();await accountRefresh(true);});
+let resetRefresh=async()=>{};
+const roleRefresh=roleControls(li,t,async(preserve)=>{
+ await accountRefresh(preserve);await resetRefresh();});
+if(identity.capabilities.includes('accounts:manage'))
+ resetRefresh=resetControls(li,t,async()=>{await roleRefresh();await accountRefresh(true);});
+stateControls(li,t,async()=>{await roleRefresh();await accountRefresh(true);await resetRefresh();});
 }}
 // Only the newest read may publish a complete snapshot; writes invalidate older reads.
 function latestRead(){let epoch=0,current=Promise.resolve();
@@ -1542,6 +1548,66 @@ return async(preserve=false)=>{
 if(!preserve){reads.invalidate();result.replaceChildren();link=null;}
 issue.disabled=reissue.disabled=true;await load();};
 }
+function resetControls(li,t,refreshPanels){
+const box=document.createElement('section');box.dataset.trainerReset=t.id;
+const title=document.createElement('h3');title.textContent='계정 비밀번호 재설정';
+const status=document.createElement('p'),result=document.createElement('p');
+result.dataset.resetResult='';result.setAttribute('role','status');
+const label=document.createElement('label'),confirmed=document.createElement('input');
+confirmed.type='checkbox';confirmed.dataset.resetIdentity='';
+label.append(confirmed,document.createTextNode('본인을 확인했습니다'));
+const start=document.createElement('button'),reissue=document.createElement('button');
+const refresh=document.createElement('button');
+start.dataset.resetStart='';reissue.dataset.resetReissue='';refresh.dataset.resetRefresh='';
+start.textContent='비밀번호 재설정 시작';reissue.textContent='비밀번호 재설정 링크 재발급';
+refresh.textContent='재설정 상태 확인';
+for(const b of [start,reissue,refresh])b.type='button';
+box.append(title,status,label,start,reissue,refresh,result);li.append(box);
+const reads=latestRead();let current=null,working=false;
+function buttons(){
+start.disabled=working||!current||current.password_reset_pending||!confirmed.checked;
+reissue.disabled=working||!current||!current.password_reset_pending||!confirmed.checked;
+refresh.disabled=working;confirmed.disabled=working||!current;}
+async function load(){current=null;buttons();
+return reads.run(async()=>{
+ const r=await fetch('/api/v1/admin/trainers/'+t.id+'/login-account');
+ if(!r.ok)throw Error();const account=await r.json();
+ if(account.state!=='ACTIVE'||account.account_id===identity.account_id)return null;
+ const response=await fetch('/api/v1/admin/accounts/'+account.account_id+'/password-reset');
+ if(!response.ok)throw Error();return response.json();
+},value=>{current=value;
+ status.textContent=current?(current.password_reset_pending?'새 비밀번호 설정 대기':'재설정 가능'):
+ 'ACTIVE인 다른 연결 계정만 재설정할 수 있습니다.';buttons();});}
+async function send(again){if(working||!current||!confirmed.checked)return;
+const snapshot=current;working=true;reads.invalidate();result.replaceChildren();buttons();
+try{const c=await fetch('/api/v1/auth/csrf',{headers:{'X-Y3-Client':'trainer-reset'}});
+ if(!c.ok)throw Error();const response=await fetch('/api/v1/admin/accounts/'+snapshot.account_id+
+ '/password-reset'+(again?'/reissue':''),{method:'POST',
+ headers:{'Content-Type':'application/json','X-CSRF-Token':(await c.json()).csrf_token},
+ body:JSON.stringify({expected_account_version:snapshot.account_version,
+ expected_generation:snapshot.generation,identity_confirmed:true})});
+ if(!response.ok)throw Error();const issued=await response.json();
+ await refreshPanels();await load();
+ if(!current||!current.password_reset_pending||current.account_id!==snapshot.account_id||
+ current.generation!==snapshot.generation+1||
+ Date.parse(current.expires_at)!==Date.parse(issued.expires_at))throw Error();
+ const a=document.createElement('a');a.dataset.resetLink='';a.href=issued.reset_link;
+ a.referrerPolicy='no-referrer';a.textContent='본인 비밀번호 재설정 링크';result.append(a);
+ result.append(document.createTextNode(' 만료: '+issued.expires_at));
+}catch{reads.invalidate();result.replaceChildren();current=null;
+try{await refreshPanels();await load();
+ result.textContent='현재 상태를 다시 확인했습니다. 필요하면 명시적으로 재발급하세요.';
+}catch{current=null;result.textContent='현재 권한과 상태를 확인할 수 없습니다. 다시 조회하세요.';}}
+
+finally{working=false;confirmed.checked=false;buttons();}}
+start.addEventListener('click',()=>send(false));reissue.addEventListener('click',()=>send(true));
+confirmed.addEventListener('change',buttons);
+async function refreshState(){reads.invalidate();result.replaceChildren();confirmed.checked=false;
+try{await load();}catch{current=null;
+ status.textContent='현재 재설정 상태를 확인할 수 없습니다.';buttons();}}
+refresh.addEventListener('click',()=>{if(!working)refreshState();});
+buttons();refreshState();return refreshState;
+}
 function stateControls(li,t,refreshPanels){
 const box=document.createElement('section');box.dataset.stateTrainer=t.id;
 const status=document.createElement('p'),out=document.createElement('p');
@@ -1646,6 +1712,7 @@ out.textContent='새 등록';
 });
 
 async function init(){try{
+const me=await fetch('/api/v1/auth/me');if(!me.ok)throw Error();identity=await me.json();
 for(let offset=0;;offset+=100){
 const r=await fetch('/api/v1/admin/trainer-home-candidates?limit=100&offset='+offset);
 if(!r.ok)throw Error();

@@ -951,8 +951,11 @@ class Service:
     def reset_state(self, auth: str | None, ident: UUID) -> ResetState:
         self.require_mfa()
         with self.uow.open() as w:
-            current = w.iam.authenticate(auth, management=True, target=ident)
-            return w.mfa.reset_state(current.caller, ident)
+            current = w.iam.authenticate(auth, management=True, target=ident, touch=False)
+            snapshot = w.roles.snapshot(current)
+            result = w.mfa.reset_state(current.caller, ident)
+            w.roles.confirm_actor(snapshot, self_change=False, touch=True)
+            return result
 
     def reset_password(
         self,
@@ -976,8 +979,9 @@ class Service:
             slot = w.security.allocate("password_reset")
         try:
             with self.uow.open() as w:
-                current = w.iam.authenticate(auth, management=True, target=ident)
+                current = w.iam.authenticate(auth, management=True, target=ident, touch=False)
                 w.iam.csrf(current, nonce)
+                snapshot = w.roles.snapshot(current)
                 before, after, result, changes = w.mfa.start_reset(
                     current.caller, ident, version, generation, slot, reissue=reissue
                 )
@@ -993,6 +997,7 @@ class Service:
                         **asdict(changes),
                     )
                 )
+                w.roles.confirm_actor(snapshot, self_change=False, touch=True)
                 return result
         except Exception:
             self._release_login_slot(slot)

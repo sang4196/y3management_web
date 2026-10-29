@@ -210,6 +210,78 @@ await r.goto('about:blank');await r.goto(newLink);await r.locator('#new-password
 checks.new_source_setup=(await click(r,'#trainer-setup button','/trainer-credentials/complete')).status()===204;
 await r.goto(cfg.origin+'/login');await r.locator('#identifier').fill('pending.native');await r.locator('#password').fill(cfg.branchPassword);
 checks.pending_trainer_login=(await click(r,'#mfa button','/auth/login')).status()===204;
+stage='trainer-reset';
+await r.waitForURL('**/account');
+const resetBox=p.locator('[data-trainer-reset="'+pendingId+'"]');
+await resetBox.locator('[data-reset-refresh]').click();
+await p.waitForFunction(id=>!document.querySelector('[data-trainer-reset="'+id+'"] [data-reset-identity]').disabled,pendingId);
+checks.reset_requires_identity=await resetBox.locator('[data-reset-start]').isDisabled();
+await resetBox.locator('[data-reset-identity]').check();
+const resetIssued=await click(p,'[data-trainer-reset="'+pendingId+'"] [data-reset-start]','/password-reset');
+checks.reset_actual_master_form=resetIssued.status()===201;
+await resetBox.locator('[data-reset-link]').waitFor();
+const firstReset=(await resetIssued.json()).reset_link;
+checks.reset_old_session_revoked=(await get(r,'/auth/me')).status===401;
+const resetAccount=(await get(p,'/admin/trainers/'+pendingId+'/login-account')).body.account_id;
+const resetPath='/api/v1/admin/accounts/'+resetAccount+'/password-reset';
+const beforeAck=(await get(p,'/admin/accounts/'+resetAccount+'/password-reset')).body;
+let resetCommands=0,ackCommitted=false;
+await p.route('**'+resetPath+'/reissue',async route=>{
+ if(route.request().method()!=='POST'){await route.continue();return;}
+ resetCommands++;const response=await route.fetch();ackCommitted=response.status()===201;
+ await route.abort('failed');});
+await resetBox.locator('[data-reset-identity]').check();
+const resetReconciled=p.waitForResponse(response=>response.url().endsWith(resetPath)&&response.request().method()==='GET');
+await resetBox.locator('[data-reset-reissue]').click();
+const afterAck=await (await resetReconciled).json();
+await resetBox.getByText('현재 상태를 다시 확인했습니다. 필요하면 명시적으로 재발급하세요.',{exact:true}).waitFor();
+checks.reset_ack_committed=ackCommitted;
+checks.reset_ack_safe_get=afterAck.password_reset_pending&&afterAck.generation===beforeAck.generation+1;
+checks.reset_ack_no_auto_retry=resetCommands===1;
+checks.reset_ack_no_secret_link=await resetBox.locator('[data-reset-link]').count()===0;
+await p.unroute('**'+resetPath+'/reissue');
+
+await resetBox.locator('[data-reset-identity]').check();
+const resetAgain=await click(p,'[data-trainer-reset="'+pendingId+'"] [data-reset-reissue]','/password-reset/reissue');
+checks.reset_explicit_reissue=resetAgain.status()===201;
+await resetBox.locator('[data-reset-link]').waitFor();
+const resetLink=(await resetAgain.json()).reset_link;
+checks.reset_old_source_rejected=(await post(r,'/auth/password-reset/complete',{
+ reset_token:firstReset.split('#token=')[1],new_password:cfg.masterPassword})).status===401;
+let resetLeak=false;const resetRaw=resetLink.split('#token=')[1];
+r.on('request',request=>{if(request.url().includes(resetRaw))resetLeak=true;});
+await r.goto(resetLink);checks.reset_fragment_removed=await r.evaluate(()=>location.hash==='');
+await r.locator('#password').fill(cfg.masterPassword);
+checks.reset_recipient_form=(await click(r,'#mfa button','/auth/password-reset/complete')).status()===204;
+checks.reset_no_auto_login=(await get(r,'/auth/me')).status===401;
+checks.reset_no_url_secret=!resetLeak;
+await r.goto(cfg.origin+'/login');await r.locator('#identifier').fill('pending.native');
+await r.locator('#password').fill(cfg.masterPassword);
+checks.reset_password_only_login=(await click(r,'#mfa button','/auth/login')).status()===204;
+await r.waitForURL('**/account');
+checks.reset_no_passkey_privilege=(await get(r,'/auth/passkeys')).status===401;
+stage='branch-reset-boundary';
+const branchIssued=await post(p,'/admin/accounts',{
+ login_id:'reset.branch.native',branch_id:branch.body.id});
+if(branchIssued.status!==201)throw Error();
+const baContext=await browser.newContext({ignoreHTTPSErrors:false});
+const ba=await baContext.newPage(),baCdp=await baContext.newCDPSession(ba);
+await baCdp.send('WebAuthn.enable');
+await baCdp.send('WebAuthn.addVirtualAuthenticator',{options:{protocol:'ctap2',transport:'internal',
+ hasResidentKey:true,hasUserVerification:true,isUserVerified:true,automaticPresenceSimulation:true}});
+await ba.goto(branchIssued.body.setup_link);await ba.locator('#password').fill(cfg.branchPassword);
+if((await click(ba,'#mfa button','/auth/passkeys/enrollment/verify')).status()!==204)throw Error();
+await ba.goto(cfg.origin+'/login');await ba.locator('#identifier').fill('reset.branch.native');
+await ba.locator('#password').fill(cfg.branchPassword);
+if((await click(ba,'#mfa button','/auth/login/passkey/verify')).status()!==204)throw Error();
+let baResetReads=0;
+ba.on('request',request=>{if(request.method()==='GET'&&request.url().includes('/password-reset'))baResetReads++;});
+await ba.goto(cfg.origin+'/trainers');
+await ba.waitForFunction(()=>!document.getElementById('submit').disabled);
+checks.reset_ba_no_panel=await ba.locator('[data-trainer-reset]').count()===0;
+checks.reset_ba_no_metadata_fetch=baResetReads===0;
+checks.reset_ba_direct_denied=(await get(ba,'/admin/accounts/'+resetAccount+'/password-reset')).status===403;
+await baContext.close();
 stage='wrong-card';
 await roles.getByLabel('역할 작업 번호').fill(outcome.operation_id);
 const otherReceipt=p.waitForResponse(x=>x.url().endsWith('/trainer-role-operations/'+outcome.operation_id));

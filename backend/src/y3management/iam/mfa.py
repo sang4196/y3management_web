@@ -30,6 +30,7 @@ from y3management.contracts import Rejected
 from y3management.iam.infrastructure import IAM, digest
 from y3management.iam.public import (
     Account,
+    AccountRoles,
     Authentication,
     Caller,
     Ceremony,
@@ -823,9 +824,44 @@ class MFA:
             after["recovery_generation"],
         )
 
+    @staticmethod
+    def _reset_supported(roles: AccountRoles) -> bool:
+        return roles.admin or (
+            roles.binding is not None
+            and roles.binding.organization_id == roles.account.organization_id
+        )
+
+    def _reset_target(self, caller: Caller, ident: UUID) -> Account:
+        self.enabled()
+        self.iam.require_master(caller)
+        roles = self.iam.account_roles(ident)
+        account = roles.account
+        if (
+            account.organization_id != caller.organization_id
+            or ident == caller.account_id
+            or not self._reset_supported(roles)
+        ):
+            raise Rejected(404, "not_found")
+        if account.state != "ACTIVE":
+            raise Rejected(409, "conflict")
+        return account
+
+    def _reset_account(self, ident: UUID, *, lock: bool = True) -> dict[str, Any]:
+        row = (
+            self.s.execute(
+                text("SELECT * FROM iam_accounts WHERE id=:id" + (" FOR UPDATE" if lock else "")),
+                {"id": ident},
+            )
+            .mappings()
+            .first()
+        )
+        if row is None or not self._reset_supported(self.iam.account_roles(ident)):
+            raise Rejected(401, "invalid_reset")
+        return dict(row)
+
     def reset_state(self, caller: Caller, ident: UUID) -> ResetState:
-        target = self.recovery_target(caller, ident)
-        account = self.account(ident)
+        target = self._reset_target(caller, ident)
+        account = self._reset_account(ident)
         expiry = self.s.execute(
             text(
                 "SELECT expires_at FROM iam_reset_credentials WHERE account_id=:a "
@@ -842,7 +878,7 @@ class MFA:
         )
 
     def reset_change(self, before: dict[str, Any]) -> ResetChange:
-        after = self.account(before["id"])
+        after = self._reset_account(before["id"])
         return ResetChange(
             before["reset_generation"],
             after["reset_generation"],
@@ -860,8 +896,8 @@ class MFA:
         *,
         reissue: bool,
     ) -> tuple[Account, Account, Setup, ResetChange]:
-        before = self.recovery_target(caller, ident)
-        account = self.account(ident)
+        before = self._reset_target(caller, ident)
+        account = self._reset_account(ident)
         has_key = self.s.execute(
             text(
                 "SELECT EXISTS(SELECT 1 FROM iam_passkeys WHERE account_id=:a AND "
@@ -873,7 +909,7 @@ class MFA:
             before.version != version
             or account["reset_generation"] != generation
             or account["recovery_pending"]
-            or not has_key
+            or (self.iam.account_roles(ident).admin and not has_key)
             or account["password_reset_pending"] != reissue
         ):
             raise Rejected(409, "conflict")
@@ -894,7 +930,7 @@ class MFA:
         self.s.execute(
             text("UPDATE iam_reset_credentials SET consumed=true WHERE account_id=:a"), {"a": ident}
         )
-        current = self.account(ident)
+        current = self._reset_account(ident)
         expiry = self.s.execute(
             text(
                 "SELECT expires_at FROM iam_security_states WHERE id=:id AND kind='password_reset'"
@@ -947,8 +983,7 @@ class MFA:
             or account["state"] != "ACTIVE"
         ):
             raise Rejected(401, "invalid_reset")
-        target = self.iam._account(account["id"])
-        if not (target.master or target.branch_id is not None):
+        if not self._reset_supported(self.iam.account_roles(account["id"])):
             raise Rejected(401, "invalid_reset")
         return dict(source)
 
@@ -960,7 +995,7 @@ class MFA:
         ).first()
         if hint is None:
             raise Rejected(401, "invalid_reset")
-        account = self.account(hint.account_id, lock=False)
+        account = self._reset_account(hint.account_id, lock=False)
         self.reset_source(hint.id, account, lock=False)
         # Bounded Argon2 with no business row locks; final proof revalidation below.
         self.iam._upgrades[hint.account_id] = self.iam.passwords.create(
@@ -976,7 +1011,7 @@ class MFA:
 
     def complete_reset(self, proof: ResetProof) -> tuple[Account, Account, ResetChange]:
         self.iam.installation_lock()
-        account = self.account(proof.account_id)
+        account = self._reset_account(proof.account_id)
         self.s.execute(
             text("SELECT id FROM iam_sessions WHERE account_id=:a ORDER BY id FOR UPDATE"),
             {"a": proof.account_id},

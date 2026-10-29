@@ -1,3 +1,16 @@
+# IAM-013 독립 선정 검증·설계자 인수 완료 (2026-10-30)
+
+[계약](iam-013-trainer-password-reset-design.md), [결과](iam-013-trainer-password-reset-results.md),
+[최소 근거](iam-013-trainer-password-reset-review.json)를 따른다. Backend167개에서 fresh fast131,
+새 단일 PostgreSQL179(신규38+기존141), 같은 run의 native5사례·8manifest243조건을 확인했다.
+실제 exit0·XML 정확 노드·strict true·소스/Git/trust4개 불변과 소유 schema179개/등록 OS 식별188개/
+관찰 PG PID8개·자동 실행 폴더 정리를 대조했다. 기존 경고2개는 유지한다.
+
+전체 PG614 중435개 및 AB5/handoff 전체·전체 migration·운영/실물/브라우저 지원 목표 전체는 미검증이다.
+개발 분할77개나 collect-only745/PG614의 guard exit1을 실행 PASS로 합산하지 않는다. 초기 실패와
+실제 DB clock 인과 검증·가상 clock 순서 검사를 구분해 보존한다. 후속 계정 상태 선택 두 개는 사용자 결정 대기다.
+아래는 이전 단계의 계획·당시 결과이며 현재 인수로 다른 OPEN/운영 게이트를 닫지 않는다.
+
 # 후속 검증 계획
 
 2026-10-30 IAM-012 실제 로컬 인수: [승인 정책](../product/product-decisions.md#review-20261030-i2)과

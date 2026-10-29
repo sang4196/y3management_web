@@ -184,7 +184,11 @@ class TrainerRoles:
             row.expires_at,
         )
 
-    def confirm_actor(self, snapshot: RoleActorSnapshot, *, self_change: bool) -> None:
+    def confirm_actor(
+        self, snapshot: RoleActorSnapshot, *, self_change: bool, touch: bool = False
+    ) -> None:
+        if touch and self_change:
+            raise ValueError("Cannot touch a self-revoked session")
         auth = snapshot.authentication
         revoked = self.s.execute(
             text("SELECT revoked FROM iam_sessions WHERE id=:i"), {"i": auth.session_id}
@@ -200,6 +204,12 @@ class TrainerRoles:
             or snapshot.last_activity + timedelta(minutes=30) <= now
         ):
             raise Rejected(401, "unauthorized")
+
+        if touch:
+            self.s.execute(
+                text("UPDATE iam_sessions SET last_activity=:now WHERE id=:id"),
+                {"now": now, "id": auth.session_id},
+            )
 
     def change(
         self,

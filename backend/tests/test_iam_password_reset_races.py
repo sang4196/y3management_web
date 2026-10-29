@@ -4,7 +4,7 @@
 import secrets
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
-from threading import Barrier, Event
+from threading import Barrier, Event, local
 from typing import Any, cast
 from uuid import UUID
 
@@ -52,13 +52,25 @@ def test_reset_management_races(
             an, bn = csrf(first), csrf(second)
             service: Service = cast(FastAPI, first.app).state.iam_service
             original, barrier = IAM.authenticate, Barrier(2)
+            phase = local()
+            reached: list[int] = []
 
             def auth(adapter: IAM, token: str | None, **kwargs: Any) -> Authentication:
-                if kwargs.get("management") and kwargs.get("touch") is not False:
-                    barrier.wait(timeout=15)
+                if kwargs.get("management"):
+                    phase.calls += 1
+                    # Reset now preserves the original deadline with touch=False in BOTH
+                    # preflight and main. Synchronize main entry, not the touch option.
+                    final_reset = phase.reset and phase.calls == 2
+                    final_other = not phase.reset and kwargs.get("touch") is not False
+                    if final_reset or final_other:
+                        reached.append(phase.index)
+                        barrier.wait(timeout=15)
                 return original(adapter, token, **kwargs)
 
             def worker(index: int) -> int:
+                phase.index = index
+                phase.calls = 0
+                phase.reset = index == 0 or case in ("same", "cross")
                 try:
                     if index == 0 or case == "same":
                         service.reset_password(
@@ -102,6 +114,7 @@ def test_reset_management_races(
                 patch.setattr(IAM, "authenticate", auth)
                 futures = [pool.submit(worker, i) for i in range(2)]
                 results = sorted(f.result(timeout=25) for f in futures)
+            assert sorted(reached) == [0, 1]
             assert results in ([204, 401], [204, 409])
             with db.session() as s:
                 assert (
