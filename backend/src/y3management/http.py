@@ -16,7 +16,14 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from y3management.config import Settings
 from y3management.contracts import Rejected
-from y3management.iam.public import Account, Ceremony, EmergencySnapshot, HandoffRequest, Setup
+from y3management.iam.public import (
+    Account,
+    Ceremony,
+    EmergencySnapshot,
+    HandoffRequest,
+    Setup,
+    TrainerRoleRequest,
+)
 from y3management.use_cases import Service
 from y3management.workforce.public import RegisterTrainer
 
@@ -73,6 +80,20 @@ class TrainerAccountInput(Input):
 class TrainerSetupInput(Input):
     operation_id: UUID
     expected_account_version: int = Field(strict=True, ge=1)
+
+
+class TrainerRoleInput(Input):
+    operation_id: UUID
+    account_id: UUID
+    desired_granted: bool = Field(strict=True)
+    expected_account_version: int = Field(strict=True, ge=1)
+    expected_role_version: int = Field(strict=True, ge=0)
+    expected_trainer_version: int = Field(strict=True, ge=1)
+    identity_confirmed: bool = Field(strict=True)
+
+
+class TrainerRoleLookup(Input):
+    login_id: str = Field(strict=True, min_length=3, max_length=64)
 
 
 class TrainerInput(Input):
@@ -266,6 +287,7 @@ def attach(app: FastAPI, settings: Settings) -> None:
                 "/api/v1/admin/trainer-registrations",
                 "/api/v1/admin/trainer-home-candidates",
                 "/api/v1/admin/trainer-account-operations",
+                "/api/v1/admin/trainer-role-operations",
                 "/api/v1/auth/trainer-credentials/complete",
             )
         ):
@@ -416,34 +438,38 @@ def attach(app: FastAPI, settings: Settings) -> None:
 
     @router.get("/auth/me")
     def me(request: Request) -> dict[str, object]:
-        c, trainer = service(request).principal(read(request))
-        if trainer is not None and not (c.master or c.branch_id):
-            return {
-                "account_id": str(c.account_id),
-                "organization_id": str(c.organization_id),
-                "roles": [
-                    {
-                        "role": "TRAINER",
-                        "trainer_id": str(trainer.trainer_id),
-                        "home_branch_id": str(trainer.home_branch_id),
-                    }
-                ],
-                "capabilities": [],
-            }
-        return {
-            "account_id": str(c.account_id),
-            "organization_id": str(c.organization_id),
-            "roles": [
+        c, trainer, binding = service(request).identity_profile(read(request))
+        roles: list[dict[str, object]] = []
+        if c.master or c.branch_id:
+            roles.append(
                 {
                     "role": "ADMIN",
                     "scope": "ORGANIZATION" if c.master else "BRANCH",
                     "branch_id": str(c.branch_id) if c.branch_id else None,
                 }
-            ],
-            "capabilities": [
-                "branches:read",
-                *(["branches:create", "accounts:manage"] if c.master else []),
-            ],
+            )
+        if trainer is not None and trainer.active:
+            roles.append(
+                {
+                    "role": "TRAINER",
+                    "trainer_id": str(trainer.trainer_id),
+                    "home_branch_id": str(trainer.home_branch_id),
+                }
+            )
+        return {
+            "account_id": str(c.account_id),
+            "organization_id": str(c.organization_id),
+            "roles": roles,
+            "trainer_binding": (
+                {"trainer_id": str(binding.trainer_id), "granted": binding.granted}
+                if binding is not None
+                else None
+            ),
+            "capabilities": (
+                ["branches:read", *(["branches:create", "accounts:manage"] if c.master else [])]
+                if c.master or c.branch_id
+                else []
+            ),
         }
 
     @router.post("/auth/logout", status_code=204)
@@ -472,6 +498,34 @@ def attach(app: FastAPI, settings: Settings) -> None:
         )
         response = Response(status_code=204)
         clear(response, PREAUTH)
+        return response
+
+    @router.get("/admin/trainers/{trainer_id}/role")
+    def trainer_role_state(request: Request, trainer_id: UUID) -> object:
+        return jsonable_encoder(asdict(service(request).role_state(read(request), trainer_id)))
+
+    @router.post("/admin/trainers/{trainer_id}/role-account-lookup")
+    def trainer_role_lookup(request: Request, trainer_id: UUID, body: TrainerRoleLookup) -> object:
+        auth, nonce = write(request)
+        return jsonable_encoder(
+            asdict(service(request).role_lookup(auth, trainer_id, body.login_id, nonce))
+        )
+
+    @router.get("/admin/trainer-role-operations/{operation_id}")
+    def trainer_role_operation(request: Request, operation_id: UUID) -> object:
+        return jsonable_encoder(
+            asdict(service(request).role_operation(read(request), operation_id))
+        )
+
+    @router.post("/admin/trainers/{trainer_id}/role")
+    def trainer_role_change(request: Request, trainer_id: UUID, body: TrainerRoleInput) -> Response:
+        auth, nonce = write(request)
+        result = service(request).change_trainer_role(
+            auth, nonce, trainer_id, TrainerRoleRequest(**body.model_dump())
+        )
+        response = JSONResponse(jsonable_encoder(asdict(result)))
+        if result.reauthentication_required:
+            clear(response, AUTH)
         return response
 
     @router.get("/admin/trainers/{trainer_id}/login-account")
@@ -967,7 +1021,9 @@ required></label>
         return Response(script, media_type="application/javascript")
 
     def mfa_page(flow: str) -> str:
-        return f"""<!doctype html><meta charset="utf-8"><title>Y3 인증</title>
+        return f"""<!doctype html><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/trainers.css"><title>Y3 인증</title>
 <body data-flow="{flow}"><form id="mfa">
 <label>로그인 ID <input id="identifier" autocomplete="username"></label>
 <label>비밀번호 <input id="password" type="password" autocomplete="current-password"></label>
@@ -1170,8 +1226,207 @@ for(const t of data.items){
 const li=document.createElement('li');
 li.textContent=t.name+' ('+t.home_branch_id+')';
 $('trainers').append(li);
-accountControls(li,t);
+const accountRefresh=accountControls(li,t);
+roleControls(li,t,accountRefresh);
 }}
+function roleControls(li,t,accountRefresh){
+const box=document.createElement('section');
+box.dataset.roleTrainer=t.id;
+
+const title=document.createElement('h3');
+title.textContent='기존 계정 Trainer 역할';
+
+const status=document.createElement('p'),out=document.createElement('p');
+out.setAttribute('role','status');
+
+const form=document.createElement('form');
+form.method='post';
+form.action='/trainers';
+
+const login=document.createElement('input');
+login.setAttribute('aria-label','역할 연결할 기존 로그인 ID');
+
+login.autocomplete='off';
+login.required=true;
+
+const lookup=document.createElement('button');
+lookup.textContent='정확 계정 확인';
+
+const confirm=document.createElement('input');
+confirm.type='checkbox';
+
+const label=document.createElement('label');
+label.append(confirm,
+ document.createTextNode('이 Trainer와 계정 소유자가 같은 사람임을 확인했습니다.'));
+
+const grant=document.createElement('button'),revoke=document.createElement('button');
+
+const fresh=document.createElement('button'),check=document.createElement('button');
+
+const operation=document.createElement('input');
+operation.setAttribute('aria-label','역할 작업 번호');
+
+operation.autocomplete='off';
+operation.placeholder='결과를 조회할 작업 UUID';
+
+grant.textContent='Trainer 역할 부여';
+revoke.textContent='Trainer 역할 회수';
+
+fresh.textContent='새 역할 작업';
+check.textContent='역할 작업 결과 확인';
+
+for(const b of [grant,revoke,fresh,check])b.type='button';
+
+form.append(login,lookup);
+box.append(title,status,form,label,grant,revoke,fresh,operation,check,out);
+li.append(box);
+
+let current=null,candidate=null,version=t.version,pending=null,locked=false;
+
+function buttons(){for(const b of [lookup,grant,revoke,fresh,check])b.disabled=locked;
+
+grant.disabled=locked||(!current?.account_id&&!candidate)||!!pending;
+
+revoke.disabled=locked||!current?.account_id||!!pending;
+check.disabled=locked||!operation.value.trim();
+}
+async function load(){const [r,d]=await Promise.all([
+ fetch('/api/v1/admin/trainers/'+t.id+'/role'),fetch('/api/v1/admin/trainers/'+t.id)]);
+
+if(!r.ok||!d.ok)throw Error();
+current=await r.json();
+version=(await d.json()).version;
+
+status.textContent=current.account_id?'연결 계정: '+current.login_id+' / '+current.state+
+ ' / Trainer 역할 '+(current.granted?'부여됨':'회수됨'):'연결된 계정 없음';
+buttons();
+}
+async function post(path,body){const c=await fetch('/api/v1/auth/csrf',
+ {headers:{'X-Y3-Client':'trainer-role'}});
+if(!c.ok)throw Error();
+
+return fetch('/api/v1'+path,{method:'POST',headers:{'Content-Type':'application/json',
+ 'X-CSRF-Token':(await c.json()).csrf_token},body:JSON.stringify(body)});
+}
+form.addEventListener('submit',async e=>{e.preventDefault();
+if(locked||pending)return;
+
+locked=true;
+candidate=null;
+confirm.checked=false;
+buttons();
+try{
+const r=await post('/admin/trainers/'+t.id+'/role-account-lookup',{login_id:login.value});
+
+if(!r.ok)throw Error();
+candidate=await r.json();
+
+out.textContent='확인할 계정: '+candidate.login_id+' / '+candidate.state+
+ (candidate.eligible?' / 선택 가능':' / 현재 연결 불가');
+
+if(!candidate.eligible)candidate=null;
+
+}catch{out.textContent='현재 범위와 정확한 계정을 확인해 주세요.';
+}finally{locked=false;
+buttons();
+}});
+
+async function submit(desired){if(locked||pending)return;
+
+const selected=current?.account_id?current:candidate;
+if(!selected)return;
+
+if(!current?.account_id&&!confirm.checked){out.textContent='동일인 확인이 필요합니다.';
+return;
+}
+if(!window.confirm(
+ '실제 역할이 변경되면 대상의 모든 로그인이 종료됩니다. 진행하시겠습니까?'
+))return;
+
+pending={operation_id:crypto.randomUUID(),account_id:selected.account_id,desired_granted:desired,
+ expected_account_version:selected.account_version,expected_role_version:current?.role_version||0,
+ expected_trainer_version:version,identity_confirmed:confirm.checked};
+
+operation.value=pending.operation_id;
+
+out.textContent="작업 번호를 보관하세요: "+pending.operation_id;
+
+locked=true;
+buttons();
+try{const r=await post('/admin/trainers/'+t.id+'/role',pending);
+
+if(!r.ok){out.textContent='변경하지 못했습니다. 작업 결과를 확인한 뒤 새 작업으로 진행해 주세요.';
+return;
+}
+const data=await r.json();
+out.textContent=data.changed?'역할 변경 완료: 대상 로그인 종료':'역할이 같아 변경 없음';
+
+if(data.reauthentication_required){location.href='/login';
+return;
+}await load();
+await accountRefresh();
+
+}catch{out.textContent='결과가 불명확합니다. 자동 재시도하지 말고 작업 결과를 확인해 주세요.';
+}
+finally{locked=false;
+buttons();
+}}
+grant.addEventListener('click',()=>submit(true));
+revoke.addEventListener('click',()=>submit(false));
+
+operation.addEventListener('input',buttons);
+
+check.addEventListener('click',async()=>{if(locked)return;
+const id=operation.value.trim();
+
+if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)){
+ out.textContent='올바른 작업 번호를 입력하세요.';
+return;
+}locked=true;
+buttons();
+try{
+const r=await fetch('/api/v1/admin/trainer-role-operations/'+encodeURIComponent(id));
+
+if(!r.ok)throw Error();
+const data=await r.json();
+if(data.current_state.trainer_id!==t.id){
+ out.textContent='다른 Trainer의 작업 번호입니다.';return;
+}
+out.textContent=data.changed?
+ '역할 변경 기록 확인':'변경 없는 작업 확인';
+await load();
+await accountRefresh();
+
+}catch{out.textContent='작업 결과를 확인할 수 없습니다. 현재 권한과 로그인 상태를 확인해 주세요.';
+}
+finally{locked=false;
+buttons();
+}});
+
+fresh.addEventListener('click',async()=>{if(locked)return;
+pending=null;
+candidate=null;
+
+confirm.checked=false;
+out.textContent='';
+locked=true;
+buttons();
+try{await load();
+}
+catch{out.textContent='현재 역할을 확인할 수 없습니다.';
+}finally{locked=false;
+buttons();
+}});
+
+locked=true;
+buttons();
+load().catch(()=>{out.textContent='현재 역할을 확인할 수 없습니다.';
+})
+.finally(()=>{locked=false;
+buttons();
+});
+
+}
 function accountControls(li,t){
 const box=document.createElement('div'),status=document.createElement('p');
 const form=document.createElement('form'),input=document.createElement('input');
@@ -1185,11 +1440,13 @@ issue.disabled=reissue.disabled=true;
 form.append(input,issue);box.append(status,form,refresh,reissue,result);li.append(box);
 box.dataset.trainer=t.id;
 let state=null,pending=null,working=false;
-async function load(){const r=await fetch('/api/v1/admin/trainers/'+t.id+'/login-account');
-if(!r.ok)throw Error();state=await r.json();
+async function load(){const [r,g]=await Promise.all([
+ fetch('/api/v1/admin/trainers/'+t.id+'/login-account'),
+ fetch('/api/v1/admin/trainers/'+t.id+'/role')]);
+if(!r.ok||!g.ok)throw Error();state=await r.json();const role=await g.json();
 status.textContent=state.state?(state.login_id+': '+state.state):'계정 미발급';
 issue.disabled=!!state.account_id||!t.active;input.disabled=!!state.account_id;
-reissue.disabled=state.state!=='PENDING_SETUP'||!t.active;}
+reissue.disabled=state.state!=='PENDING_SETUP'||!t.active||!role.granted;}
 async function send(kind){if(working)return;working=true;refresh.disabled=true;
 result.replaceChildren();
 try{if(!pending)pending={kind,body:{operation_id:crypto.randomUUID(),
@@ -1218,6 +1475,7 @@ if(r.ok){pending=null;result.textContent='처리 확인. 링크가 필요하면 
 else if(r.status!==404)throw Error();}
 await load();}catch{result.textContent='현재 권한과 연결을 확인하세요.';}});
 load().catch(()=>{status.textContent='계정 상태를 조회할 수 없습니다.';});
+return async()=>{result.replaceChildren();issue.disabled=reissue.disabled=true;await load();};
 }
 $('trainer-form').addEventListener('submit',async e=>{e.preventDefault();
 if(busy)return;

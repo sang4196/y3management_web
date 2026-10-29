@@ -12,6 +12,7 @@ from y3management.audit.public import (
     InitialCompensationSet,
     TrainerIdentityEvent,
     TrainerRegistered,
+    TrainerRoleEvent,
 )
 from y3management.contracts import Rejected
 
@@ -26,6 +27,19 @@ class Audit:
         self.s.execute(
             text(
                 "INSERT INTO audit_trainer_identity_events(id,"
+                + ",".join(columns)
+                + ") VALUES(:id,"
+                + ",".join(":" + k for k in columns)
+                + ")"
+            ),
+            {"id": uuid4(), **asdict(event)},
+        )
+
+    def append_trainer_role(self, event: TrainerRoleEvent) -> None:
+        columns = tuple(asdict(event))
+        self.s.execute(
+            text(
+                "INSERT INTO audit_trainer_role_events(id,"
                 + ",".join(columns)
                 + ") VALUES(:id,"
                 + ",".join(":" + k for k in columns)

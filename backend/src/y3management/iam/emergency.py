@@ -311,11 +311,15 @@ class Emergency:
         ):
             raise Rejected(422, "invalid_request")
         account = self.iam._account(before["account_id"])
+        role_epoch = self.iam.account_roles(account.id).trainer_role_epoch
         encoded = (
             self.iam.passwords.create(password, account.login_id) if password is not None else None
         )
         source = self.source(token, lock=True)
-        if source["case_id"] != before["case_id"]:
+        if (
+            source["case_id"] != before["case_id"]
+            or self.iam.account_roles(account.id).trainer_role_epoch != role_epoch
+        ):
             raise Rejected(401, "invalid_recovery")
         self.s.execute(
             text(
@@ -340,9 +344,12 @@ class Emergency:
         if source["factors"] != "password":
             raise Rejected(401, "invalid_recovery")
         account = self.iam._account(source["account_id"])
+        role_epoch = self.iam.account_roles(account.id).trainer_role_epoch
         encoded = self.iam.passwords.create(password, account.login_id)
         source = self.source(token, lock=True)
         before = self.mfa.account(account.id)
+        if before["trainer_role_epoch"] != role_epoch:
+            raise Rejected(401, "invalid_recovery")
         self.s.execute(
             text(
                 "UPDATE iam_accounts SET password_hash=:h,password_reset_pending=false,"

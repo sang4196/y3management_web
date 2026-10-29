@@ -151,7 +151,7 @@ class IAM:
             self.s.execute(
                 text(
                     "SELECT id,state,password_hash,security_version,recovery_pending,"
-                    "password_reset_pending "
+                    "password_reset_pending,trainer_role_epoch "
                     "FROM iam_accounts "
                     "WHERE login_id=:login"
                 ),
@@ -182,7 +182,10 @@ class IAM:
         if upgrade:
             self._upgrades[row["id"]] = upgrade
         return LoginProof(
-            row["id"], row["security_version"], hmac.digest(self.key, encoded.encode(), "sha256")
+            row["id"],
+            row["security_version"],
+            hmac.digest(self.key, encoded.encode(), "sha256"),
+            row["trainer_role_epoch"],
         )
 
     def login(
@@ -196,7 +199,7 @@ class IAM:
         roles = self.account_roles(proof.account_id)
         if self.mode == "mfa" and roles.admin:
             raise Rejected(403, "mfa_required")
-        if not roles.admin and roles.binding is None:
+        if not roles.admin and not roles.trainer_granted:
             raise Rejected(401, "invalid_credentials")
         lock = "UPDATE" if proof.account_id in self._upgrades else "SHARE"
         row = (
@@ -213,6 +216,7 @@ class IAM:
             or row["recovery_pending"]
             or row["password_reset_pending"]
             or row["security_version"] != proof.security_version
+            or row["trainer_role_epoch"] != proof.trainer_role_epoch
             or not hmac.compare_digest(marker, proof.credential_marker)
         ):
             raise Rejected(401, "invalid_credentials")
@@ -243,9 +247,9 @@ class IAM:
         self.s.execute(
             text(
                 "INSERT INTO "
-                "iam_sessions(id,account_id,digest,csrf,security_version,"
+                "iam_sessions(id,account_id,digest,csrf,security_version,trainer_role_epoch,"
                 "created_at,last_activity,expires_at,revoked) "
-                "VALUES(:id,:a,:d,:c,:v,:n,:n,:e,false)"
+                "VALUES(:id,:a,:d,:c,:v,:re,:n,:n,:e,false)"
             ),
             {
                 "id": sid,
@@ -253,6 +257,7 @@ class IAM:
                 "d": digest(token),
                 "c": csrf,
                 "v": proof.security_version,
+                "re": proof.trainer_role_epoch,
                 "n": now,
                 "e": min(slot, now + timedelta(hours=8)),
             },
@@ -303,7 +308,8 @@ class IAM:
             self.s.execute(
                 text(
                     "SELECT s.*,a.state,a.recovery_pending,a.password_reset_pending,"
-                    "a.security_version AS current_version "
+                    "a.security_version AS current_version,"
+                    "a.trainer_role_epoch AS current_role_epoch "
                     "FROM iam_sessions s JOIN iam_accounts a ON a.id=s.account_id "
                     "WHERE s.id=:id"
                 ),
@@ -323,6 +329,7 @@ class IAM:
             or row["revoked"]
             or row["state"] != "ACTIVE"
             or row["security_version"] != row["current_version"]
+            or row["trainer_role_epoch"] != row["current_role_epoch"]
             or row["expires_at"] <= now
             or row["last_activity"] + timedelta(minutes=30) <= now
         ):
@@ -344,7 +351,7 @@ class IAM:
                 # A valid former administrator lacks current authorization. Never return
                 # this unsupported principal to management or refresh its session.
                 raise Rejected(403, "forbidden")
-            if roles.binding is None:
+            if not roles.trainer_granted:
                 raise Rejected(401, "unauthorized")
         account = self._account(hint.account_id)
         if touch:
@@ -354,7 +361,12 @@ class IAM:
             )
         caller = Caller(account.id, account.organization_id, account.branch_id, account.master)
         return Authentication(
-            caller, hint.id, str(row["csrf"]), str(row["assurance"]), roles.binding
+            caller,
+            hint.id,
+            str(row["csrf"]),
+            str(row["assurance"]),
+            roles.binding,
+            roles.trainer_granted,
         )
 
     def csrf(self, authentication: Authentication, nonce: str | None) -> None:
@@ -574,7 +586,7 @@ class IAM:
             self.s.execute(
                 text(
                     "SELECT login_id,state,password_hash,security_version,"
-                    "recovery_pending,password_reset_pending "
+                    "recovery_pending,password_reset_pending,trainer_role_epoch "
                     "FROM iam_accounts WHERE id=:a"
                 ),
                 {"a": ident},
@@ -590,7 +602,10 @@ class IAM:
             raise Rejected(401, "invalid_credentials")
         self._upgrades[ident] = self.passwords.create(new_password, row["login_id"])
         return LoginProof(
-            ident, row["security_version"], hmac.digest(self.key, encoded.encode(), "sha256")
+            ident,
+            row["security_version"],
+            hmac.digest(self.key, encoded.encode(), "sha256"),
+            row["trainer_role_epoch"],
         )
 
     def change_password(self, proof: LoginProof) -> tuple[Account, Account]:
@@ -599,7 +614,7 @@ class IAM:
             self.s.execute(
                 text(
                     "SELECT state,password_hash,security_version,recovery_pending,"
-                    "password_reset_pending "
+                    "password_reset_pending,trainer_role_epoch "
                     "FROM iam_accounts WHERE id=:a"
                 ),
                 {"a": proof.account_id},
@@ -613,6 +628,7 @@ class IAM:
             or row["recovery_pending"]
             or row["password_reset_pending"]
             or row["security_version"] != proof.security_version
+            or row["trainer_role_epoch"] != proof.trainer_role_epoch
             or not hmac.compare_digest(marker, proof.credential_marker)
         ):
             raise Rejected(401, "unauthorized")
@@ -759,7 +775,18 @@ class IAM:
             ),
             {"a": ident},
         ).first()
-        return AccountRoles(account, TrainerBinding(*row) if row else None)
+        grant = self.s.execute(
+            text("SELECT granted FROM iam_trainer_role_grants WHERE account_id=:a"), {"a": ident}
+        ).first()
+        epoch = self.s.execute(
+            text("SELECT trainer_role_epoch FROM iam_accounts WHERE id=:a"), {"a": ident}
+        ).scalar_one()
+        return AccountRoles(
+            account,
+            TrainerBinding(*row) if row else None,
+            bool(grant and grant.granted),
+            int(epoch),
+        )
 
     def lock_login(self, ident: UUID) -> AccountRoles:
         self.installation_lock()
@@ -829,7 +856,7 @@ class IAM:
 
     def identity_transition(self, ident: UUID) -> IdentityTransition:
         roles = self.account_roles(ident)
-        if roles.binding is None or roles.admin:
+        if roles.binding is None or roles.admin or not roles.trainer_granted:
             raise Rejected(409, "conflict")
         version = int(
             self.s.execute(
@@ -910,6 +937,18 @@ class IAM:
             self.s.execute(
                 text("UPDATE iam_accounts SET row_version=row_version+1 WHERE id=:a"), {"a": ident}
             )
+        if identifier is not None:
+            self.s.execute(
+                text("UPDATE iam_accounts SET trainer_role_epoch=1 WHERE id=:a"), {"a": ident}
+            )
+            self.s.execute(
+                text(
+                    "INSERT INTO iam_trainer_role_grants "
+                    "(account_id,organization_id,trainer_id,granted,role_version,origin) "
+                    "VALUES(:a,:o,:t,true,1,'i1_issue')"
+                ),
+                {"a": ident, "o": caller.organization_id, "t": trainer},
+            )
         current = self.identity_transition(ident)
         expiry = self.s.execute(
             text("SELECT expires_at FROM iam_security_states WHERE id=:i AND kind='credential'"),
@@ -922,8 +961,8 @@ class IAM:
             text(
                 "INSERT INTO iam_trainer_setup_credentials "
                 "(id,purpose,organization_id,account_id,trainer_id,digest,account_version,"
-                "security_version,binding_version,expires_at) "
-                "VALUES(:i,'trainer_initial',:o,:a,:t,:d,:v,:sv,1,:e)"
+                "security_version,binding_version,expires_at,trainer_role_epoch) "
+                "VALUES(:i,'trainer_initial',:o,:a,:t,:d,:v,:sv,1,:e,:re)"
             ),
             {
                 "i": slot,
@@ -933,6 +972,7 @@ class IAM:
                 "d": digest(token),
                 "v": current.account.version,
                 "sv": current.security_version,
+                "re": self.account_roles(ident).trainer_role_epoch,
                 "e": expiry,
             },
         )
@@ -985,6 +1025,7 @@ class IAM:
             row["security_version"],
             row["binding_version"],
             row["expires_at"],
+            row["trainer_role_epoch"],
         )
 
     def lock_trainer_setup(
@@ -1028,7 +1069,10 @@ class IAM:
             or row["organization_id"] != proof.organization_id
             or row["account_version"] != proof.account_version
             or row["security_version"] != proof.security_version
+            or row["trainer_role_epoch"] != proof.trainer_role_epoch
             or row["binding_version"] != proof.binding_version
+            or row["trainer_role_epoch"] != proof.trainer_role_epoch
+            or self.account_roles(proof.account_id).trainer_role_epoch != proof.trainer_role_epoch
             or current.binding
             != TrainerBinding(
                 proof.account_id, proof.organization_id, proof.trainer_id, proof.binding_version
@@ -1079,6 +1123,7 @@ class IAM:
             row["security_version"],
             row["binding_version"],
             row["expires_at"],
+            row["trainer_role_epoch"],
         )
         self._check_trainer_source(proof, consumed=False)
         if operation.committed_account_version != current.account.version:
@@ -1124,6 +1169,7 @@ class IAM:
             self.s.execute(
                 text(
                     "SELECT s.expires_at,s.account_id,s.security_version,s.revoked,a.state,"
+                    "s.trainer_role_epoch,a.trainer_role_epoch AS current_role_epoch,"
                     "a.security_version AS current_version,t.lease_until,t.outcome "
                     "FROM iam_sessions s JOIN iam_accounts a ON a.id=s.account_id "
                     "JOIN iam_attempts t ON t.id=:r AND t.key=:k WHERE s.id=:s"
@@ -1138,7 +1184,9 @@ class IAM:
             row is None
             or row["account_id"] != proof.account_id
             or row["security_version"] != proof.security_version
+            or row["trainer_role_epoch"] != proof.trainer_role_epoch
             or row["current_version"] != proof.security_version
+            or row["current_role_epoch"] != proof.trainer_role_epoch
             or row["state"] != "ACTIVE"
             or row["revoked"]
             or row["expires_at"] <= now

@@ -23,6 +23,7 @@ class Authentication:
     csrf: str
     assurance: str = "password"
     binding: TrainerBinding | None = None
+    trainer_granted: bool = False
 
 
 @dataclass(frozen=True)
@@ -41,6 +42,7 @@ class LoginProof:
     account_id: UUID
     security_version: int
     credential_marker: bytes
+    trainer_role_epoch: int = 0
 
 
 @dataclass(frozen=True, repr=False)
@@ -244,6 +246,7 @@ class ResetProof:
     account_id: UUID
     security_version: int
     generation: int
+    trainer_role_epoch: int = 0
 
 
 class MFAPort(Protocol):
@@ -431,6 +434,8 @@ class TrainerBinding:
 class AccountRoles:
     account: Account
     binding: TrainerBinding | None
+    trainer_granted: bool = False
+    trainer_role_epoch: int = 0
 
     @property
     def admin(self) -> bool:
@@ -467,6 +472,7 @@ class TrainerSetupProof:
     security_version: int
     binding_version: int
     expires_at: datetime
+    trainer_role_epoch: int = 0
 
 
 @dataclass(frozen=True)
@@ -474,3 +480,86 @@ class IdentityTransition:
     account: Account
     security_version: int
     binding: TrainerBinding
+
+
+@dataclass(frozen=True)
+class TrainerRoleRequest:
+    operation_id: UUID
+    account_id: UUID
+    desired_granted: bool
+    expected_account_version: int
+    expected_role_version: int
+    expected_trainer_version: int
+    identity_confirmed: bool
+
+
+@dataclass(frozen=True)
+class TrainerRoleState:
+    trainer_id: UUID
+    account_id: UUID | None
+    login_id: str | None
+    state: str | None
+    account_version: int | None
+    granted: bool
+    role_version: int
+
+
+@dataclass(frozen=True)
+class TrainerRoleCandidate:
+    account_id: UUID
+    login_id: str
+    state: str
+    account_version: int
+    role_version: int
+    eligible: bool
+
+
+@dataclass(frozen=True)
+class TrainerRoleResult:
+    operation_id: UUID
+    changed: bool
+    committed_granted: bool
+    committed_role_version: int
+    current_state: TrainerRoleState
+    reauthentication_required: bool = False
+
+
+@dataclass(frozen=True, repr=False)
+class RoleActorSnapshot:
+    authentication: Authentication
+    stable_digest: bytes
+    role_epoch: int
+    last_activity: datetime
+    expires_at: datetime
+
+
+@dataclass(frozen=True)
+class TrainerRoleChange:
+    kind: str
+    before_granted: bool
+    after_granted: bool
+    before_role_version: int
+    after_role_version: int
+    account_version: int
+    security_version: int
+
+
+class TrainerRolesPort(Protocol):
+    def lock(self, ident: UUID) -> None: ...
+    def state(self, organization: UUID, trainer: UUID) -> TrainerRoleState: ...
+    def lookup(
+        self, organization: UUID, trainer: UUID, identifier: str
+    ) -> TrainerRoleCandidate: ...
+    def operation(self, organization: UUID, operation: UUID) -> TrainerRoleResult | None: ...
+    def snapshot(self, authentication: Authentication) -> RoleActorSnapshot: ...
+    def confirm_actor(self, snapshot: RoleActorSnapshot, *, self_change: bool) -> None: ...
+    def change(
+        self,
+        caller: Caller,
+        trainer: UUID,
+        home: UUID,
+        active: bool,
+        trainer_version: int,
+        request: TrainerRoleRequest,
+    ) -> tuple[TrainerRoleResult, TrainerRoleChange | None]: ...
+    def confirm_change(self, result: TrainerRoleResult, change: TrainerRoleChange) -> None: ...

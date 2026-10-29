@@ -1,5 +1,17 @@
 # 후속 검증 계획
 
+2026-10-30 IAM-012 실제 로컬 인수: [승인 정책](../product/product-decisions.md#review-20261030-i2)과
+[제한 계약](iam-012-trainer-roles-design.md)에 따라 독립 fast131·새 단일 전체PG541(기존499+신규42)을
+확인했다. 정확한 node 집합/모든 개별 passed·실제 bash/pytest exit0·실패/error/skip/xfail/xpass/
+incomplete0을 대조했다. 같은 실행의 실제 HTTPS/native10개 manifest247항목은 모두 literal true다.
+[결과](iam-012-trainer-roles-results.md)와 [영구 최소 판정](iam-012-trainer-roles-review.json)에
+중요 실제 판정·전체 digest·테스트한 Backend155 raw SHA·초기 실패/원인 미확정·경계/정리를 남긴다.
+소스238·보호200·HEAD/index/trust4의 전후 일치와 소유 자동 환경 제거를 확인했고, 관찰538개 schema/
+558개 process identity의 잔존 없음은 전체 fixture 정리를 보충한다. 기존 S1/403·일대일/현재 Home/
+독립 관리자·복구 source·최종 clock·양방향 경합·실제 ACK/DDL guard를 검증했다.
+개발 분할 대상PG69/native59와 이번 독립 전체 결과를 구분한다. W1 상태 명령, I2 전용 emergency/
+handoff 모든 경합·C3 credential-row 경합·실물/모바일/전체 지원 브라우저·운영은 이번 결과 범위가 아니다.
+
 2026-10-27 IAM-011 실제 로컬 인수: [결과](iam-011-trainer-login-results.md)와
 [설계자 판정](iam-011-trainer-login-review.json)의 r3 동결225개/Backend145개에서 독립 fast131 및
 새 단일 전체 PostgreSQL499(기존419+신규80)을 확인했다. 실제 JUnit의 정확한499개 집합과 모든 passed,

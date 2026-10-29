@@ -960,11 +960,26 @@ Traceability: C11; PR-006/007/010/031; BR-010; BR-PAY-003/004/014/015; NFR-012. 
 
 상태: APPROVED-TO-BE
 
+2026-10-30 추가 승인: [I2-1/2/3 모두 1번](product-decisions.md#review-20261030-i2).
+첫 Trainer 연결은 ACTIVE이며 로그인 준비가 된 기존 계정과 실제 활성 Trainer에만 허용한다.
+같은 불변 연결의 재부여는 ACTIVE 또는 PENDING_SETUP 계정과 활성 Trainer에 허용하며 DISABLED는
+추가/재부여할 수 없다. Home Branch 비활성만으로 거부하지 않는다. 회수는 현재 E5 관리 Scope에서
+계정/Trainer 상태와 무관하게 허용한다. PENDING_SETUP 회수→재부여→명시 새 초기 링크 발급→설정
+완료 경로를 제공하며 회수된 옛 링크를 복원하지 않는다.
+
+유효 로그인 역할이 0이면 새 로그인과 기존 인증 접근을 허용하지 않는다. 마지막 역할 회수 자체는
+허용하되 계정·암호·동일인 연결·역사를 보존하며 자동 DISABLED/삭제/암호 reset은 하지 않는다.
+재부여 후에는 현재 계정 상태와 인증 조건을 충족할 때 기존 유효 암호를 다시 사용할 수 있다.
+실제 Trainer 역할 추가·회수·재부여 성공은 대상의 현재 로그인 포함 모든 AuthSession을 철회한다.
+독립 관리자 역할·Passkey·다른 계정·C2는 보존하며 남은 관리자는 password+UV로 재로그인한다.
+no-op·replay·status는 새 로그인을 다시 철회하지 않는다. 이 승인은 Trainer 역할 범위이며
+Operator 구현·관리자 승격·다른 사람 재연결·소속/상태 변경·분실 암호 reset을 포함하지 않는다.
+
 E5의 2번 승인: Master Admin은 자기 Organization, Branch Admin은 자기 관리 범위에서 기존 계정의 Operator·Trainer 역할만 추가·회수할 수 있다. Operator의 단일 지정 Branch/추가할 최초 Branch와 실제 Trainer의 현재 Home Branch를 각 대상 역할의 관리 범위로 검증한다. 같은 계정의 관리자 역할이나 다른 역할이 자기 지점이라는 사실만으로 범위 밖 대상 역할을 변경하지 않는다. 현재 Caller·대상 계정/역할·실제 Organization/지점 사실과 동일인/Trainer 연결 확인이 필요하다. 연결을 임의로 덮어쓰거나 역할 부여로 Trainer 소속을 변경하지 않는다.
 
 독립 Master/Branch Admin 역할·다른 역할/Scope, 기존 Trainer/계정 식별과 업무/감사 이력을 보존한다. Master 전용 관리 역할/관리 Branch 변경·Operator 지점 변경·Trainer Home Branch 이동·계정 전체 차단/복구·관리자 암호 reset·Login ID 변경/인증 감사 열람 권한은 위임하지 않는다. 역할 회수/재부여를 지점/소속/연결 변경의 우회 수단으로 사용하지 않는다. 기존 Trainer 업무 비활성화/재활성화와 계정 전체 상태는 별개다.
 
-저장 이후 후속 업무는 현재 역할/Scope로 검증하고 회수된 권한을 허용하지 않는다. 변경 전후 역할/Scope·대상·검증된 Actor/역할·Branch Context·시점을 감사하며 거부/저장·필수 감사 실패에 일부 권한 변경이나 이력 손실을 남기지 않는다. 구체 대상 상태/역할 조합·역할 없는 계정의 로그인·재부여/연결/최소 선택 계약·AuthSession 처리/진행 중 요청·UoW/잠금/경합은 Architecture 및 관련 OPEN 후속이다. A7 관리 역할/관리 Branch 변경의 전 로그인 철회와 혼동하지 않는다.
+저장 이후 후속 업무는 현재 역할/Scope로 검증하고 회수된 권한을 허용하지 않는다. 변경 전후 역할/Scope·대상·검증된 Actor/역할·Branch Context·시점을 감사하며 거부/저장·필수 감사 실패에 일부 권한 변경이나 이력 손실을 남기지 않는다. 2026-10-30 Trainer 대상 상태·무역할 로그인·전 로그인 철회는 위 I2 승인으로 해결됐다. Operator의 나머지 상태/역할 조합과 최소 선택/연결 기술 계약·진행 중 요청·UoW/잠금/경합은 Architecture 및 관련 OPEN 후속이다. A7 관리 역할/관리 Branch 변경의 전 로그인 철회와 혼동하지 않는다.
 
 Traceability: E5; PD-001/019; PR-001/021/027/029/030; BR-OPS-011/012/013/014; ARCH-001/002; MB-001/004; NFR-001/002/004. [2026-10-12 E 일괄 승인](product-decisions.md#review-20261012-e-batch).
 

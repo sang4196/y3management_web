@@ -12,6 +12,7 @@ from y3management.audit.public import (
     InitialCompensationSet,
     TrainerIdentityEvent,
     TrainerRegistered,
+    TrainerRoleEvent,
 )
 from y3management.contracts import CommitPhase, HashAdmissionRejected, Rejected
 from y3management.iam.public import (
@@ -34,6 +35,10 @@ from y3management.iam.public import (
     Setup,
     TrainerAccountState,
     TrainerOperation,
+    TrainerRoleCandidate,
+    TrainerRoleRequest,
+    TrainerRoleResult,
+    TrainerRoleState,
 )
 from y3management.organization.public import AssignmentCandidate, Branch, BranchPage
 from y3management.uow import UnitOfWork, Work
@@ -279,7 +284,7 @@ class Service:
                         if self.uow.settings.iam_mode == "mfa":
                             raise Rejected(401, "invalid_credentials")
                         fact = None
-                    elif roles.binding is not None:
+                    elif roles.binding is not None and roles.trainer_granted:
                         w.iam.preparation(preauth, nonce)
                         fact = w.workforce.lock_identity(
                             roles.account.organization_id, roles.binding.trainer_id
@@ -1292,14 +1297,14 @@ class Service:
         if credentials:
             w.iam.lock_trainer_credentials(a.caller.account_id)
         fact = None
-        if a.binding is not None:
+        if a.binding is not None and a.trainer_granted:
             fact = w.workforce.lock_identity(a.caller.organization_id, a.binding.trainer_id)
             if not fact.active and not (a.caller.master or a.caller.branch_id):
                 raise Rejected(401, "unauthorized")
         final = w.iam.authenticate(
             auth, management=management, target=target, touch=False, audience="account"
         )
-        if final.binding != a.binding:
+        if final.binding != a.binding or final.trainer_granted != a.trainer_granted:
             raise Rejected(401, "unauthorized")
         return final, fact
 
@@ -1449,3 +1454,114 @@ class Service:
             self._identity_audit(w, "setup_complete", before, fact)
             w.iam.confirm_trainer_setup(proof)
             w.iam.confirm_preparation(preauth, nonce)
+
+    def role_state(self, auth: str | None, trainer: UUID) -> TrainerRoleState:
+        self.require_mfa()
+        with self.uow.open() as w:
+            a = w.iam.authenticate(auth, management=True, touch=False)
+            self._trainer_scope(w, a.caller, trainer)
+            result = w.roles.state(a.caller.organization_id, trainer)
+            final = w.iam.authenticate(auth, management=True, touch=False)
+            self._trainer_scope(w, final.caller, trainer)
+            return result
+
+    def role_lookup(
+        self, auth: str | None, trainer: UUID, identifier: str, nonce: str | None
+    ) -> TrainerRoleCandidate:
+        self.require_mfa()
+        with self.uow.open() as w:
+            a = w.iam.authenticate(auth, management=True, touch=False)
+            w.iam.csrf(a, nonce)
+            self._trainer_scope(w, a.caller, trainer)
+            hint = w.roles.lookup(a.caller.organization_id, trainer, identifier)
+        with self.uow.open() as w:
+            a = w.iam.authenticate(auth, management=True, target=hint.account_id, touch=False)
+            w.iam.csrf(a, nonce)
+            self._trainer_scope(w, a.caller, trainer)
+            result = w.roles.lookup(a.caller.organization_id, trainer, identifier)
+            if result.account_id != hint.account_id:
+                raise Rejected(409, "conflict")
+            final = w.iam.authenticate(auth, management=True, target=hint.account_id, touch=False)
+            self._trainer_scope(w, final.caller, trainer)
+            return result
+
+    def role_operation(self, auth: str | None, operation: UUID) -> TrainerRoleResult:
+        self.require_mfa()
+        with self.uow.open() as w:
+            a = w.iam.authenticate(auth, management=True, touch=False)
+            result = w.roles.operation(a.caller.organization_id, operation)
+            if result is None:
+                raise Rejected(404, "not_found")
+            self._trainer_scope(w, a.caller, result.current_state.trainer_id)
+            final = w.iam.authenticate(auth, management=True, touch=False)
+            self._trainer_scope(w, final.caller, result.current_state.trainer_id)
+            return result
+
+    def change_trainer_role(
+        self,
+        auth: str | None,
+        nonce: str | None,
+        trainer: UUID,
+        request: TrainerRoleRequest,
+    ) -> TrainerRoleResult:
+        self.require_mfa()
+        with self.uow.open() as w:
+            a = w.iam.authenticate(auth, management=True, target=request.account_id, touch=False)
+            w.iam.csrf(a, nonce)
+            w.roles.lock(request.account_id)
+            fact = self._trainer_scope(w, a.caller, trainer, exclusive=True)
+            snapshot = w.roles.snapshot(a)
+            result, change = w.roles.change(
+                a.caller, trainer, fact.home_branch_id, fact.active, fact.version, request
+            )
+            if change is not None:
+                w.audit.append_trainer_role(
+                    TrainerRoleEvent(
+                        a.caller.organization_id,
+                        request.operation_id,
+                        request.account_id,
+                        trainer,
+                        a.caller.account_id,
+                        "MASTER" if a.caller.master else "BRANCH_ADMIN",
+                        a.caller.branch_id,
+                        fact.home_branch_id,
+                        change.kind,
+                        change.before_granted,
+                        change.after_granted,
+                        change.before_role_version,
+                        change.after_role_version,
+                        change.before_role_version,
+                        change.after_role_version,
+                        change.account_version,
+                        change.account_version,
+                        change.security_version,
+                        change.security_version,
+                    )
+                )
+                w.roles.confirm_change(result, change)
+            self_change = change is not None and a.caller.account_id == request.account_id
+            final_fact = self._trainer_scope(w, a.caller, trainer)
+            if final_fact != fact:
+                raise Rejected(409, "conflict")
+            w.roles.confirm_actor(snapshot, self_change=self_change)
+            return replace(result, reauthentication_required=self_change)
+
+    def self_role_state(self, auth: str | None) -> TrainerRoleState | None:
+        with self.uow.open() as w:
+            a, _ = self._current_principal(w, auth)
+            if a.binding is None:
+                return None
+            return w.roles.state(a.caller.organization_id, a.binding.trainer_id)
+
+    def identity_profile(
+        self,
+        auth: str | None,
+    ) -> tuple[Caller, TrainerIdentityFact | None, TrainerRoleState | None]:
+        with self.uow.open() as w:
+            a, fact = self._current_principal(w, auth)
+            role = (
+                w.roles.state(a.caller.organization_id, a.binding.trainer_id)
+                if a.binding is not None
+                else None
+            )
+            return a.caller, fact, role

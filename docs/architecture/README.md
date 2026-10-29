@@ -1,5 +1,23 @@
 # Architecture 및 현재 개발 단계
 
+2026-10-30 최신 인수: **IAM-012 기존 계정 Trainer 역할 로컬 인수 PASS**.
+[승인 I2 세 선택](../product/product-decisions.md#review-20261030-i2)을
+[제한 계약](iam-012-trainer-roles-design.md), [검증 결과](iam-012-trainer-roles-results.md),
+[설계자 최소 판정](iam-012-trainer-roles-review.json)으로 확인했다. 불변 동일인 연결과 현재 grant를
+분리하고, 실제 추가/회수/재부여의 대상 전 로그인 철회·무역할 접근 차단·독립 관리자/복구 source 보존,
+PENDING_SETUP 복귀·명시 새 링크, 현재 Home 인가와 작업 대사를 검증했다.
+
+동결238개/Backend155개에서 독립 fast **131개**, 새 단일 전체PG **541개**(기존499+신규42),
+같은 실행의 실제 HTTPS/native10개 manifest **247항목**이 통과했다. 실패/error/skip/xfail/xpass/
+incomplete는0이며, 실제 exit·정확한 node·개별 판정·소스/보호200·HEAD/index/trust·소유 자원 정리를
+대조했다. 초기 실패와 원인 미확정 native 응답 읽기 이력은 보존한다. 운영·실물/전체 브라우저·모바일
+전 흐름·다른 Product OPEN/전역 PROPOSED는 이번 인수로 승인하지 않는다.
+
+후속은 전담 한글 상세 커밋·일반 feature push 뒤 **Trainer 업무 비활성화/재활성화 W1**의 제한 계약이다.
+B1/B2의 Actor/현재 Home Scope는 이미 승인됐으므로 다시 묻지 않는다. IAM 계정/grant와 업무 상태,
+독립 관리자 세션과 유효 초기 source를 분리한다. 현재 W1 구현/검증은 미완료다.
+아래 각 증분의 미완료/대기 서술은 당시 이력이다. 설계자의 후속 변경은 문서뿐이고 Backend155개를 유지한다.
+
 2026-10-27 최신 인수: **IAM-011 실제 Trainer 계정 발급·로그인 로컬 인수 PASS**.
 [계약](iam-011-trainer-login-design.md), [검증 결과](iam-011-trainer-login-results.md),
 [설계자 판정](iam-011-trainer-login-review.json)을 따른다. 현재 Master/실제 Home Branch Admin의

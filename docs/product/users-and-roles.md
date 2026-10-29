@@ -269,3 +269,23 @@ Master Admin이 Branch Admin과 계정/권한을 관리한다. 관리자 발급 
 2026-10-12 C 일괄 승인 반영: C1은 유효 로그인/현재 행위·Scope 안에서 추가 비밀번호 재확인 없이 계정 관리 허용이다. 본인 암호 변경은 현재 암호 확인 후 현재 포함 전 로그인 종료(C3). 계정당 15분 5회 실패 후 15분 대기(C2), Master reset 확정 즉시 기존 자격/로그인 무효·마지막 Master 일반 reset 금지(C4/C5), Master Login ID 변경/전 로그인 종료(C6), 자기 Organization Master만 인증/계정 관리 감사 열람(C7), 로그인 최소 기록/원문 IP·브라우저 제외(C8)를 적용한다. 기존 계정 발급 Scope/관리자 겸임·보상 정보 제한/다른 업무 감사 권한·운영 전 MFA는 유지한다. [2026-10-12 C 일괄 승인](product-decisions.md#review-20261012-c-batch)
 
 2026-10-12 E 일괄 승인 반영: E1–E4/E6은 최초1회 설치 명령/본인 암호 설정, 관리자 본인 확인·대면/확인된 1:1 링크 전달, Login ID 대소문자 미구별·이전 ID 원래 계정 예약/다른 계정 재할당 금지·현재 ID만 로그인, Master 일반 계정 차단 해제 시 유효 기존 암호 재로그인이다. E5는 Master Organization/Branch Admin 자기 관리 범위에서 기존 Operator·Trainer 역할만 추가/회수 허용(BR-OPS-019)이다. 대상 역할의 지점 Scope를 따로 검증하고 독립 관리 역할/다른 Scope·연결/이력은 보존한다. 계정 차단/복구·관리자 reset/ID 변경·인증 감사 열람 및 기존 지점 이동의 Master 전용은 유지한다. 차단 해제가 옛 인증/무효 암호·회수한 역할·MFA/Trainer 상태를 복원하지 않는다. [2026-10-12 E 일괄 승인](product-decisions.md#review-20261012-e-batch)
+
+## 2026-10-30 Trainer 역할 부여와 동일인 연결의 구분
+
+2026-10-30 추가 승인: [I2-1/2/3 모두 1번](product-decisions.md#review-20261030-i2).
+첫 Trainer 연결은 ACTIVE이며 로그인 준비가 된 기존 계정과 실제 활성 Trainer에만 허용한다.
+같은 불변 연결의 재부여는 ACTIVE 또는 PENDING_SETUP 계정과 활성 Trainer에 허용하며 DISABLED는
+추가/재부여할 수 없다. Home Branch 비활성만으로 거부하지 않는다. 회수는 현재 E5 관리 Scope에서
+계정/Trainer 상태와 무관하게 허용한다. PENDING_SETUP 회수→재부여→명시 새 초기 링크 발급→설정
+완료 경로를 제공하며 회수된 옛 링크를 복원하지 않는다.
+
+유효 로그인 역할이 0이면 새 로그인과 기존 인증 접근을 허용하지 않는다. 마지막 역할 회수 자체는
+허용하되 계정·암호·동일인 연결·역사를 보존하며 자동 DISABLED/삭제/암호 reset은 하지 않는다.
+재부여 후에는 현재 계정 상태와 인증 조건을 충족할 때 기존 유효 암호를 다시 사용할 수 있다.
+실제 Trainer 역할 추가·회수·재부여 성공은 대상의 현재 로그인 포함 모든 AuthSession을 철회한다.
+독립 관리자 역할·Passkey·다른 계정·C2는 보존하며 남은 관리자는 password+UV로 재로그인한다.
+no-op·replay·status는 새 로그인을 다시 철회하지 않는다. 이 승인은 Trainer 역할 범위이며
+Operator 구현·관리자 승격·다른 사람 재연결·소속/상태 변경·분실 암호 reset을 포함하지 않는다.
+
+Branch Admin은 대상 Trainer의 현재 Home 관리 권한으로 Trainer 역할만 처리한다. 대상 계정의 독립
+관리 지점/조직 관리자 권한을 조회·변경하는 권한을 얻지 않는다. 동일인 확인은 자동 병합을 허용하지 않는다.

@@ -16,7 +16,15 @@ from y3management.iam.handoff import Handoff
 from y3management.iam.infrastructure import IAM
 from y3management.iam.mfa import MFA
 from y3management.iam.passwords import Passwords
-from y3management.iam.public import EmergencyPort, HandoffPort, IAMPort, MFAPort, SecurityPort
+from y3management.iam.public import (
+    EmergencyPort,
+    HandoffPort,
+    IAMPort,
+    MFAPort,
+    SecurityPort,
+    TrainerRolesPort,
+)
+from y3management.iam.roles import TrainerRoles
 from y3management.iam.security import Security
 from y3management.organization.application import Organization
 from y3management.organization.infrastructure import Organization as OrganizationRepository
@@ -36,6 +44,7 @@ class Work:
     emergency: EmergencyPort
     handoff: HandoffPort
     workforce: WorkforcePort
+    roles: TrainerRolesPort
 
 
 class UnitOfWork:
@@ -74,6 +83,7 @@ class UnitOfWork:
                     Emergency(MFA(iam, self.settings.canonical_origin)),
                     Handoff(Emergency(MFA(iam, self.settings.canonical_origin))),
                     Workforce(WorkforceRepository(session)),
+                    TrainerRoles(iam),
                 )
                 try:
                     yield work

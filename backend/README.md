@@ -515,3 +515,16 @@ Trainer-only는 비밀번호 인증 후 `/account`에서 자기 정보·암호 �
 새 이력이 있으면 downgrade를 거부한다. `test_iam_trainer*.py`는 기존 소유 QA fixture를
 재사용한다. native 검사는 기존 TLS/NSS/cleanup helper의 Trainer 분기를 이용한다.
 부분 개발 검사와 독립 전체 회귀·운영 인수를 구별한다.
+
+## IAM-012 기존 계정 Trainer 역할 (2026-10-30)
+
+[제한 계약](../docs/architecture/iam-012-trainer-roles-design.md)과
+[개발 결과](../docs/architecture/iam-012-trainer-roles-results.md)를 따른다. 기존 계정의 정확한
+Login ID를 확인하고 동일인 확인 후 Trainer 역할을 연결한다. 회수/재부여는 같은 불변 쌍에만 적용한다.
+실제 역할 변경은 대상 모든 로그인을 종료하며 관리자·암호·Passkey·계정 상태는 보존한다.
+PENDING_SETUP 재부여 후 새 초기 링크는 별도 명시 발급이다. 응답 유실 시 작업 UUID를 보관해
+재로그인 후 역할 작업 결과 조회에 입력한다. 결과 조회는 현재 권한을 다시 확인하며 자동 재전송하지 않는다.
+
+0012는 기존 binding을 grant/version1로 backfill한다. 이후 역할 이력 또는 보존할 epoch 사실이
+있으면 downgrade를 거부한다. 기존 migration을 수정하거나 이력을 지워 내려가지 않는다.
+개발 대상 실행과 독립 전체 인수를 구분하며 기존 QA fixture와 WSL 검사 절차를 유지한다.

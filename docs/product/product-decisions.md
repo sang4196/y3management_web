@@ -1460,3 +1460,23 @@ ARCH-001/002, MB-004/008. 기존 B2/G1/C3/AB4/A4/E5, Login ID·암호·C2 정책
 I2 기존 계정 역할 연결·회수 후 역할 없는 계정 정책, 분실 암호 reset, 상태/소속 이동,
 Operator·회원/PT/정산·실운영은 이번 세 선택의 승인 범위가 아니다.
 ARCH-001/002·MB-004 등 잔여 OPEN과 ADR 상태는 유지한다.
+
+<a id="review-20261030-i2"></a>
+## 2026-10-30 — I2 기존 계정 Trainer 역할 세 선택
+
+사용자 실제 답변: **“전부 1”**. I2-1/I2-2/I2-3 모두 1번 확정이다.
+추천안이 아닌 이번 사용자 결정이며 Product 승인과 IAM-012 기술 계약 검토·구현·인수는 구분한다.
+
+| ID | 승인된 선택 | 보존할 경계 |
+| --- | --- | --- |
+| I2-1 | 첫 연결은 ACTIVE/login-ready 기존 계정+활성 Trainer. 같은 연결 재부여는 ACTIVE 또는 PENDING_SETUP+활성 Trainer. DISABLED 추가/재부여 금지 | Home 비활성만은 허용. 회수는 현재 E5 Scope에서 대상 계정/Trainer 상태 무관. 미설정 회수→재부여→명시 새 링크→설정 완료 허용. 동일인 일대일 연결은 불변이다. |
+| I2-2 | 유효 로그인 역할0이면 새 로그인/기존 인증 접근 불가. 마지막 역할 회수 허용 | 계정/암호/연결/역사 보존, 자동 DISABLED/삭제/reset 없음. 재부여 후 현재 상태/인증 조건에 따라 기존 유효 암호 재사용. |
+| I2-3 | 실제 추가/회수/재부여 성공 시 대상 모든 AuthSession 철회, 본인 포함 | 독립 관리자 역할/Passkey/다른 계정/C2 보존. 남은 관리자는 password+UV. no-op/replay/status는 신규 세션 재철회 금지. |
+
+기존 E5의 Master Organization/Branch Admin 실제 현재 Trainer Home Scope, 한 계정의 관리자+Trainer
+겸임, I1 일대일 동일인 연결, B2/G1/C3/AB4는 유지한다. Trainer 역할 회수가 마지막 Master의 관리
+역할 회수를 뜻하지 않으며 A9 보호를 우회하지 않는다. Operator 구현·관리자 승격·Home/상태 변경·
+다른 사람 재연결·분실 암호 reset·PT/금융/운영은 범위 밖이다.
+Traceability: BR-OPS-019/012/014/016; PD-001/019; PR-001/021/026/029/030;
+ARCH-001/002, MB-004. 관련 OPEN은 위 선택만 부분 해결하며 22 OPEN/8 CLOSED,
+PD 1 OPEN/26 CLOSED와 ADR 상태·전체 모듈 PROPOSED를 유지한다.

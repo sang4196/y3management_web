@@ -725,6 +725,21 @@ R2 수정 수용 기준: Master의 기존 Organization 범위와 Branch Admin의
 <a id="pr-021"></a>
 ## PR-021. 관리자 발급 운영 계정·권한 관리
 
+2026-10-30 추가 승인: [I2-1/2/3 모두 1번](product-decisions.md#review-20261030-i2).
+첫 Trainer 연결은 ACTIVE이며 로그인 준비가 된 기존 계정과 실제 활성 Trainer에만 허용한다.
+같은 불변 연결의 재부여는 ACTIVE 또는 PENDING_SETUP 계정과 활성 Trainer에 허용하며 DISABLED는
+추가/재부여할 수 없다. Home Branch 비활성만으로 거부하지 않는다. 회수는 현재 E5 관리 Scope에서
+계정/Trainer 상태와 무관하게 허용한다. PENDING_SETUP 회수→재부여→명시 새 초기 링크 발급→설정
+완료 경로를 제공하며 회수된 옛 링크를 복원하지 않는다.
+
+유효 로그인 역할이 0이면 새 로그인과 기존 인증 접근을 허용하지 않는다. 마지막 역할 회수 자체는
+허용하되 계정·암호·동일인 연결·역사를 보존하며 자동 DISABLED/삭제/암호 reset은 하지 않는다.
+재부여 후에는 현재 계정 상태와 인증 조건을 충족할 때 기존 유효 암호를 다시 사용할 수 있다.
+실제 Trainer 역할 추가·회수·재부여 성공은 대상의 현재 로그인 포함 모든 AuthSession을 철회한다.
+독립 관리자 역할·Passkey·다른 계정·C2는 보존하며 남은 관리자는 password+UV로 재로그인한다.
+no-op·replay·status는 새 로그인을 다시 철회하지 않는다. 이 승인은 Trainer 역할 범위이며
+Operator 구현·관리자 승격·다른 사람 재연결·소속/상태 변경·분실 암호 reset을 포함하지 않는다.
+
 2026-10-26 수용 조건 추가: [I1 세 선택](product-decisions.md#review-20261026-i1)에 따라 실제 활성 Trainer의
 신규 계정 발급·미설정 초기 링크 재발급·최초 설정만 허용한다. Trainer와 계정은 일대일 연결하며
 중복/덮어쓰기/자동 동일인 연결을 금지한다. PENDING_SETUP 재발급은 현재 Master 조직/실제 Home Branch
@@ -737,7 +752,7 @@ v1 범위: IN-V1
 
 출처: AS-IS-DERIVED + APPROVED-TO-BE
 
-제품 요구: Master Admin이 Branch Admin 및 계정/권한을 관리한다. 관리자 발급 방식을 유지하며 Trainer 로그인 계정과 사용자·Branch 관계도 다룬다. Branch Admin은 자기 단일 관리 Branch의 새 Operator 계정을 발급하고 최초 업무 Branch를 지정할 수 있다(2026-10-12, BR-OPS-011). 기존 Operator 업무 Branch 변경은 Master Organization 범위 전용이며 Branch Admin은 불가하다(2026-10-12, BR-OPS-011). 신규 Trainer 로그인 계정 발급은 Master Organization 전체/Branch Admin 대상 Trainer의 현재 Home Branch 관리 범위에서 승인됐다(2026-10-12, BR-OPS-012). E5로 기존 계정 Operator·Trainer 역할 추가/회수의 Branch Admin 관리 범위는 승인됐다(BR-OPS-019). 다른 역할/Scope·계정 수명 위임과 구체 상태/연결/재부여·계약은 후속이다.
+제품 요구: Master Admin이 Branch Admin 및 계정/권한을 관리한다. 관리자 발급 방식을 유지하며 Trainer 로그인 계정과 사용자·Branch 관계도 다룬다. Branch Admin은 자기 단일 관리 Branch의 새 Operator 계정을 발급하고 최초 업무 Branch를 지정할 수 있다(2026-10-12, BR-OPS-011). 기존 Operator 업무 Branch 변경은 Master Organization 범위 전용이며 Branch Admin은 불가하다(2026-10-12, BR-OPS-011). 신규 Trainer 로그인 계정 발급은 Master Organization 전체/Branch Admin 대상 Trainer의 현재 Home Branch 관리 범위에서 승인됐다(2026-10-12, BR-OPS-012). E5로 기존 계정 Operator·Trainer 역할 추가/회수의 Branch Admin 관리 범위는 승인됐다(BR-OPS-019). Trainer의 대상 상태/재부여/무역할 로그인/전 인증 철회는 2026-10-30 I2 승인으로 구체화했다. 다른 역할/Scope·계정 수명 위임과 저장/선택/경합 계약은 후속이다.
 
 수용 기준 / 범위 경계: 기존 계정·암호를 이관하지 않는다. Role/Data Scope를 분리하고 계정/권한 변경을 감사한다. 계정 발급 권한과 PR-007 보상 설정 권한은 별개다. 계정 수명과 기술 모델은 ARCH-001/002다.
 

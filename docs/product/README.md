@@ -1,5 +1,10 @@
 # Product Specification — Architecture Input Baseline
 
+2026-10-30 승인: [I2 기존 계정 Trainer 역할 세 선택](product-decisions.md#review-20261030-i2) 모두1번.
+첫 연결/같은 연결 재부여 대상 상태, 유효 역할0 로그인 금지와 계정 보존, 실제 역할 변경의 대상 전 로그인
+철회를 확정했다. E5 현재 Home Scope·겸임·불변 연결은 유지한다. 정책 승인과 IAM-012 계약 검토/구현은
+구분하며 전체22 OPEN/8 CLOSED·PD1 OPEN/26 CLOSED 및 ADR/모듈 상태는 유지한다.
+
 2026-10-26 승인: [I1 Trainer 신규 로그인 계정 세 선택](product-decisions.md#review-20261026-i1) 모두1번이다.
 실제 활성 Trainer 대상·계정/Trainer 일대일 연결 및 중복 금지·현재 관리자의 미설정 링크 재발급과
 활성 Trainer의 비활성 Home 발급/재발급/유효 링크 설정을 확정했다. 기존 인증·권한 정책과 잔여 OPEN을 유지한다.

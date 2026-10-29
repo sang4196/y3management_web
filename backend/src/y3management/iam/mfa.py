@@ -99,6 +99,7 @@ class MFA:
             or row["expires_at"] <= self.iam.now()
             or row["security_version"] != account["security_version"]
             or row["row_version"] != account["row_version"]
+            or row["trainer_role_epoch"] != account["trainer_role_epoch"]
             or account["state"] == "DISABLED"
         ):
             raise Rejected(401, "invalid_ceremony")
@@ -152,6 +153,7 @@ class MFA:
             expires_at=expiry,
             security_version=account["security_version"],
             row_version=account["row_version"],
+            trainer_role_epoch=account["trainer_role_epoch"],
             challenge=None,
             password_hash=None,
             marker=None,
@@ -242,6 +244,7 @@ class MFA:
         if source is None:
             raise Rejected(400, "invalid_setup")
         before = self.iam._account(source["account_id"])
+        role_epoch = self.iam.account_roles(before.id).trainer_role_epoch
         encoded = self.iam.passwords.create(password, before.login_id)
         account = self.account(before.id)
         source = (
@@ -254,6 +257,7 @@ class MFA:
         )
         if (
             source["consumed"]
+            or account["trainer_role_epoch"] != role_epoch
             or source["expires_at"] <= self.iam.now()
             or account["state"] != "PENDING_SETUP"
             or source["row_version"] != account["row_version"]
@@ -322,6 +326,7 @@ class MFA:
             account["state"] != "ACTIVE"
             or account["password_reset_pending"]
             or account["security_version"] != proof.security_version
+            or account["trainer_role_epoch"] != proof.trainer_role_epoch
             or not hmac.compare_digest(
                 proof.credential_marker,
                 hmac.digest(self.iam.key, account["password_hash"].encode(), "sha256"),
@@ -580,8 +585,8 @@ class MFA:
         self.s.execute(
             text(
                 "INSERT INTO iam_sessions(id,account_id,digest,csrf,security_version,"
-                "created_at,last_activity,expires_at,assurance) "
-                "VALUES(:id,:a,:d,:c,:v,:n,:n,:e,'password_uv')"
+                "created_at,last_activity,expires_at,assurance,trainer_role_epoch) "
+                "VALUES(:id,:a,:d,:c,:v,:n,:n,:e,'password_uv',:re)"
             ),
             {
                 "id": sid,
@@ -589,6 +594,7 @@ class MFA:
                 "d": digest(raw),
                 "c": csrf,
                 "v": row["security_version"],
+                "re": row["trainer_role_epoch"],
                 "n": now,
                 "e": expiry,
             },
@@ -961,7 +967,11 @@ class MFA:
             password, account["login_id"]
         )
         return ResetProof(
-            hint.id, hint.account_id, account["security_version"], account["reset_generation"]
+            hint.id,
+            hint.account_id,
+            account["security_version"],
+            account["reset_generation"],
+            account["trainer_role_epoch"],
         )
 
     def complete_reset(self, proof: ResetProof) -> tuple[Account, Account, ResetChange]:
@@ -975,6 +985,7 @@ class MFA:
         if (
             proof.security_version != account["security_version"]
             or proof.generation != account["reset_generation"]
+            or proof.trainer_role_epoch != account["trainer_role_epoch"]
         ):
             raise Rejected(401, "invalid_reset")
         before = self.iam._account(proof.account_id)

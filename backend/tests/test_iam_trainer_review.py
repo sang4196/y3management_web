@@ -411,7 +411,7 @@ def test_downgrade_waits_for_actual_issue_then_preserves_history(
             with t.base.db.session() as reader:
                 assert (
                     reader.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                    == "0011_iam_trainer_login"
+                    == "0012_iam_trainer_roles"
                 )
             assert t.complete(source(issued)).status_code == 204
         finally:

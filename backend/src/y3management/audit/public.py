@@ -48,6 +48,8 @@ class Event:
 
 
 class AuditPort(Protocol):
+    def append_trainer_role(self, event: TrainerRoleEvent) -> None: ...
+
     def append_trainer_identity(self, event: TrainerIdentityEvent) -> None: ...
 
     def append_trainer_registered(self, event: TrainerRegistered) -> None: ...
@@ -92,4 +94,27 @@ class TrainerIdentityEvent:
     before_version: int | None
     after_version: int
     before_security_version: int | None
+    after_security_version: int
+
+
+@dataclass(frozen=True)
+class TrainerRoleEvent:
+    organization_id: UUID
+    operation_id: UUID
+    account_id: UUID
+    trainer_id: UUID
+    actor_id: UUID
+    actor_role: str
+    actor_branch: UUID | None
+    target_home: UUID
+    kind: str
+    before_granted: bool
+    after_granted: bool
+    before_role_version: int
+    after_role_version: int
+    before_epoch: int
+    after_epoch: int
+    before_account_version: int
+    after_account_version: int
+    before_security_version: int
     after_security_version: int

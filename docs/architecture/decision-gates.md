@@ -1,5 +1,14 @@
 # 결정 게이트
 
+2026-10-30 부분 해결: [I2 세 선택](../product/product-decisions.md#review-20261030-i2) 모두1 승인으로
+Trainer 첫 연결/재부여 상태·role0 로그인 금지·실제 역할 변경 전 인증 철회 사용자 게이트를 해소했다.
+이전 I2 답변 대기는 해당 부분만 대체한다. [IAM-012 제한 계약](iam-012-trainer-roles-design.md)의
+자체 role epoch/복구 source 보존·잠금·자기 철회 confirm을 구현하고, 독립 fast131·새 단일 전체PG541/
+native247 및 [설계자 인수](iam-012-trainer-roles-review.json)로 검증했다. 다음 W1 업무 상태 관리의
+Actor/Scope는 B1/B2로 승인됐으며 구체 기술 계약·검증은 별도다. 역할 변경의 전 세션 철회를 업무 상태
+변경에 복사하거나, 재활성화로 계정/회수 grant/폐기된 인증을 복원하지 않는다.
+Operator/다른 수명/운영·기존22 OPEN/8 CLOSED 및 전역 PROPOSED는 유지한다.
+
 2026-10-27 IAM-011 로컬 인수: [사용자 I1-Q1–Q3 승인](../product/product-decisions.md#review-20261026-i1)의 활성 Trainer·일대일 신규 계정/PENDING_SETUP 명시 재발급·비활성 Home 허용을 [제한 계약](iam-011-trainer-login-design.md)과 [실제 인수](iam-011-trainer-login-review.json)로 검증했다. 독립 fast131·새 단일 전체PG499 및 같은 실행 native211을 통과했다. I2의 기존 계정 역할 부여 대상 상태·무역할 로그인·역할 변경 시 AuthSession 처리만 다음 사용자 게이트로 검토하며, E5 Actor/현재 Home Scope·겸임 허용을 다시 질문하지 않는다. 다른 Product OPEN/전체 모듈 PROPOSED/운영 게이트는 유지한다.
 
 2026-10-21 WORKFORCE-001 최소 등록 구현·독립 인수: BR-OPS-024/028/029·BR-PAY-018/022와 Q/R/AA 승인으로

@@ -70,7 +70,7 @@ def test_identity_history_blocks_downgrade(
     with trainer.base.db.session() as s:
         assert (
             s.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-            == "0011_iam_trainer_login"
+            == "0012_iam_trainer_roles"
         )
 
 

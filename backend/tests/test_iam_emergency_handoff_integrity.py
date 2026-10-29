@@ -83,7 +83,7 @@ def test_variants_nulls_parent_factors_and_history_downgrade(scene: Scene) -> No
     with scene.db.session() as db:
         assert (
             db.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-            == "0011_iam_trainer_login"
+            == "0012_iam_trainer_roles"
         )
     assert scene.state()["operation_id"] == operation
 

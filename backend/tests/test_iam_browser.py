@@ -45,10 +45,18 @@ def run_browser(
     handoff_db: Database | None = None,
     workforce: bool = False,
     trainer: bool = False,
+    trainer_roles: bool = False,
 ) -> None:
     root = tmp_path / "https-browser"
     root.mkdir(mode=0o700)
-    if token and emergency_db is None and handoff_db is None and not workforce and not trainer:
+    if (
+        token
+        and emergency_db is None
+        and handoff_db is None
+        and not workforce
+        and not trainer
+        and not trainer_roles
+    ):
         for name in (
             "management.cjs",
             "management-checks.json",
@@ -172,7 +180,9 @@ def run_browser(
     shutil.copy(
         Path(__file__).parent
         / (
-            "browser/trainer.cjs"
+            "browser/trainer-roles.cjs"
+            if trainer_roles
+            else "browser/trainer.cjs"
             if trainer
             else "browser/workforce.cjs"
             if workforce
@@ -187,7 +197,9 @@ def run_browser(
     shutil.copy(
         Path(__file__).parent
         / (
-            "browser/trainer-checks.json"
+            "browser/trainer-roles-checks.json"
+            if trainer_roles
+            else "browser/trainer-checks.json"
             if trainer
             else "browser/workforce-checks.json"
             if workforce
@@ -401,13 +413,19 @@ def run_browser(
                     qa_root() / "latest-emergency-failure.json",
                     {"stage": safe_stage, "diagnostic": json.loads(diagnostic.group(1))},
                 )
-        if (workforce or trainer) and result.returncode != 0:
+        if (workforce or trainer or trainer_roles) and result.returncode != 0:
             diagnostic = re.search(rb"(?:WORKFORCE|TRAINER)_DIAGNOSTIC=(.*)", result.stderr)
             values = json.loads(diagnostic.group(1)) if diagnostic else {}
             required_names = json.loads((root / "required-checks.json").read_text())
             _qa_write(
                 qa_root()
-                / ("latest-trainer-failure.json" if trainer else "latest-workforce-failure.json"),
+                / (
+                    "latest-trainer-roles-failure.json"
+                    if trainer_roles
+                    else "latest-trainer-failure.json"
+                    if trainer
+                    else "latest-workforce-failure.json"
+                ),
                 {
                     "stage": safe_stage,
                     "checks": {key: values.get(key) is True for key in required_names},
@@ -428,7 +446,9 @@ def run_browser(
             "run_id": root.parents[2].name,
         }
         evidence = (
-            "latest-trainer-browser.json"
+            "latest-trainer-roles-browser.json"
+            if trainer_roles
+            else "latest-trainer-browser.json"
             if trainer
             else "latest-workforce-browser.json"
             if workforce
@@ -439,7 +459,14 @@ def run_browser(
             else ("latest-mfa-browser.json" if token else "latest-browser.json")
         )
         _qa_write(qa_root() / evidence, safe)
-        if token and emergency_db is None and handoff_db is None and not workforce and not trainer:
+        if (
+            token
+            and emergency_db is None
+            and handoff_db is None
+            and not workforce
+            and not trainer
+            and not trainer_roles
+        ):
             management = report.get("management", {})
             expected = json.loads((root / "management-checks.json").read_text())
             _qa_write(
@@ -483,7 +510,13 @@ def run_browser(
             )
             assert set(management) == set(expected) and all(management[k] is True for k in expected)
             assert set(checks) == set(required) and all(checks[name] is True for name in required)
-        elif emergency_db is not None or handoff_db is not None or workforce or trainer:
+        elif (
+            emergency_db is not None
+            or handoff_db is not None
+            or workforce
+            or trainer
+            or trainer_roles
+        ):
             assert set(checks) == set(required) and all(checks[name] is True for name in required)
         else:
             validate_browser_report(report)
