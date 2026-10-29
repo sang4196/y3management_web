@@ -799,6 +799,22 @@ class IAM:
         ).all()
         return self.account_roles(ident)
 
+    def revoke_trainer_only_sessions(self, binding: TrainerBinding) -> int:
+        roles = self.account_roles(binding.account_id)
+        if roles.binding != binding:
+            raise Rejected(409, "conflict")
+        if roles.admin:
+            return 0
+        return len(
+            self.s.execute(
+                text(
+                    "UPDATE iam_sessions SET revoked=true WHERE account_id=:a "
+                    "AND NOT revoked RETURNING id"
+                ),
+                {"a": binding.account_id},
+            ).all()
+        )
+
     def trainer_binding(self, org: UUID, trainer: UUID) -> TrainerBinding | None:
         row = self.s.execute(
             text(

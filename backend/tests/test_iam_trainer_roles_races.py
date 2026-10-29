@@ -19,6 +19,7 @@ from tests.test_iam_trainer import TrainerScene, source, trainer  # noqa: F401
 from tests.test_iam_trainer_roles import body, change, state
 from tests.test_workforce import scene  # noqa: F401
 from tests.test_workforce_integrity import branch_actor, observe_waiter, wait_for_owned_block
+from tests.workforce_state_seed import legacy_trainer  # noqa: F401
 from y3management.audit.infrastructure import Audit
 from y3management.audit.public import TrainerRoleEvent
 from y3management.config import Settings
@@ -230,10 +231,11 @@ def test_first_binding_competition_observed_one_immutable_pair(
 
 
 def test_downgrade_waits_for_actual_role_change_and_preserves_committed_history(
-    trainer: TrainerScene,
+    legacy_trainer: TrainerScene,
     mfa: tuple[Settings, Database, str, str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    trainer = legacy_trainer
     import subprocess
     import sys
     import time
@@ -293,10 +295,17 @@ def test_downgrade_waits_for_actual_role_change_and_preserves_committed_history(
             assert changing.result(timeout=10).status_code == 200
             process.communicate(timeout=10)
             assert process.returncode != 0
+            from tests.workforce_state_seed import assert_loss_guard
+
+            assert_loss_guard(
+                t.base.db,
+                ["0013_workforce_trainer_state.py", "0012_iam_trainer_roles.py"],
+                "trainer role history must be preserved",
+            )
             with t.base.db.session() as reader:
                 assert (
                     reader.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                    == "0012_iam_trainer_roles"
+                    == "0013_workforce_trainer_state"
                 )
                 assert (
                     reader.execute(

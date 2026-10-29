@@ -1,5 +1,8 @@
 """Current Home authority and initial registration/replay policy."""
 
+import hashlib
+import json
+from dataclasses import asdict
 from uuid import UUID
 
 from y3management.contracts import Rejected
@@ -12,6 +15,9 @@ from y3management.workforce.public import (
     RegistrationResult,
     TrainerIdentityFact,
     TrainerPage,
+    TrainerStateChange,
+    TrainerStateRequest,
+    TrainerStateResult,
 )
 from y3management.workforce.validation import fingerprint, normalize
 
@@ -79,4 +85,54 @@ class Workforce:
 
     def confirm(self, caller: Caller, result: RegistrationResult) -> None:
         if self.get(caller, result.trainer.id) != result.trainer:
+            raise Rejected(409, "conflict")
+
+    def state_operation(self, caller: Caller, operation_id: UUID) -> TrainerStateResult | None:
+        row = self.repo.state_operation(caller.organization_id, operation_id)
+        if row is None:
+            return None
+        result = row[0]
+        self._scope(
+            caller, result.current_state.home_branch_id, result.current_state.organization_id
+        )
+        return result
+
+    def change_state(
+        self,
+        caller: Caller,
+        branch: ScopedBranchFact,
+        trainer: TrainerIdentityFact,
+        request: TrainerStateRequest,
+    ) -> tuple[TrainerStateResult, TrainerStateChange | None]:
+        self._scope(caller, trainer.home_branch_id, trainer.organization_id)
+        if (
+            branch.branch_id != trainer.home_branch_id
+            or branch.organization_id != trainer.organization_id
+        ):
+            raise Rejected(409, "conflict")
+        if (
+            type(request.desired_active) is not bool
+            or type(request.expected_trainer_version) is not int
+            or request.expected_trainer_version < 1
+        ):
+            raise Rejected(422, "invalid_request")
+        fingerprint = hashlib.sha256(
+            json.dumps(
+                {**asdict(request), "trainer_id": trainer.trainer_id, "canonical_version": 1},
+                sort_keys=True,
+                default=str,
+                separators=(",", ":"),
+            ).encode()
+        ).digest()
+        old = self.repo.state_operation(caller.organization_id, request.operation_id)
+        if old is not None:
+            if old[1] != fingerprint:
+                raise Rejected(409, "operation_conflict")
+            return old[0], None
+        if trainer.version != request.expected_trainer_version:
+            raise Rejected(409, "conflict")
+        return self.repo.change_state(caller.account_id, trainer, request, fingerprint)
+
+    def confirm_state(self, caller: Caller, result: TrainerStateResult) -> None:
+        if self.state_operation(caller, result.operation_id) != result:
             raise Rejected(409, "conflict")

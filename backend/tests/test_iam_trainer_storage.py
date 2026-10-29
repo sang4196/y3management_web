@@ -12,6 +12,7 @@ from tests.test_iam import child_env
 from tests.test_iam_mfa import mfa  # noqa: F401
 from tests.test_iam_trainer import TrainerScene, counts, source, trainer  # noqa: F401
 from tests.test_workforce import scene  # noqa: F401
+from tests.workforce_state_seed import legacy_trainer  # noqa: F401
 from y3management.config import Settings
 from y3management.database import Database
 from y3management.uow import UnitOfWork
@@ -56,8 +57,9 @@ def test_gc_preserves_operation_and_binding(
 
 
 def test_identity_history_blocks_downgrade(
-    trainer: TrainerScene, mfa: tuple[Settings, Database, str, str]
+    legacy_trainer: TrainerScene, mfa: tuple[Settings, Database, str, str]
 ) -> None:
+    trainer = legacy_trainer
     source(trainer.issue())
     before = counts(trainer)
     r = subprocess.run(
@@ -67,10 +69,17 @@ def test_identity_history_blocks_downgrade(
         timeout=30,
     )
     assert r.returncode != 0 and counts(trainer) == before
+    from tests.workforce_state_seed import assert_loss_guard
+
+    assert_loss_guard(
+        trainer.base.db,
+        ["0013_workforce_trainer_state.py", "0012_iam_trainer_roles.py"],
+        "trainer role history must be preserved",
+    )
     with trainer.base.db.session() as s:
         assert (
             s.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-            == "0012_iam_trainer_roles"
+            == "0013_workforce_trainer_state"
         )
 
 

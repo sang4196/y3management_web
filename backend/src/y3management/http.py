@@ -25,7 +25,7 @@ from y3management.iam.public import (
     TrainerRoleRequest,
 )
 from y3management.use_cases import Service
-from y3management.workforce.public import RegisterTrainer
+from y3management.workforce.public import RegisterTrainer, TrainerStateRequest
 
 AUTH = "__Host-y3-auth"
 PREAUTH = "__Host-y3-preauth"
@@ -80,6 +80,12 @@ class TrainerAccountInput(Input):
 class TrainerSetupInput(Input):
     operation_id: UUID
     expected_account_version: int = Field(strict=True, ge=1)
+
+
+class TrainerStateInput(Input):
+    operation_id: UUID
+    desired_active: bool = Field(strict=True)
+    expected_trainer_version: int = Field(strict=True, ge=1)
 
 
 class TrainerRoleInput(Input):
@@ -288,6 +294,7 @@ def attach(app: FastAPI, settings: Settings) -> None:
                 "/api/v1/admin/trainer-home-candidates",
                 "/api/v1/admin/trainer-account-operations",
                 "/api/v1/admin/trainer-role-operations",
+                "/api/v1/admin/trainer-state-operations",
                 "/api/v1/auth/trainer-credentials/complete",
             )
         ):
@@ -884,6 +891,23 @@ def attach(app: FastAPI, settings: Settings) -> None:
         result = service(request).trainer_registration(read(request), operation)
         return {"operation_id": result.operation_id, "trainer": asdict(result.trainer)}
 
+    @router.post("/admin/trainers/{ident}/state")
+    def change_trainer_state(
+        request: Request, ident: UUID, body: TrainerStateInput
+    ) -> dict[str, object]:
+        workforce_query(request, set())
+        auth, nonce = write(request)
+        return asdict(
+            service(request).change_trainer_state(
+                auth, nonce, ident, TrainerStateRequest(**body.model_dump())
+            )
+        )
+
+    @router.get("/admin/trainer-state-operations/{operation}")
+    def trainer_state_operation(request: Request, operation: UUID) -> dict[str, object]:
+        workforce_query(request, set())
+        return asdict(service(request).trainer_state_operation(read(request), operation))
+
     @router.get("/admin/trainers/{ident}")
     def trainer(request: Request, ident: UUID) -> dict[str, object]:
         workforce_query(request, set())
@@ -1227,8 +1251,27 @@ const li=document.createElement('li');
 li.textContent=t.name+' ('+t.home_branch_id+')';
 $('trainers').append(li);
 const accountRefresh=accountControls(li,t);
-roleControls(li,t,accountRefresh);
+const roleRefresh=roleControls(li,t,accountRefresh);
+stateControls(li,t,async()=>{await roleRefresh();await accountRefresh(true);});
 }}
+// Only the newest read may publish a complete snapshot; writes invalidate older reads.
+function latestRead(){let epoch=0,current=Promise.resolve();
+return {invalidate(){epoch++;},run(read,apply){
+const mine=++epoch;
+const task=(async()=>{const value=await read();if(mine===epoch)apply(value);})();
+current=task;
+return (async()=>{let waiting=task;for(;;){
+try{await waiting;}catch(error){if(waiting===current)throw error;}
+if(waiting===current)return;waiting=current;
+}})();
+}};}
+function updateTrainer(t,next){
+if(next.id!==t.id)throw Error();
+if(next.version<t.version)return;
+if(next.version===t.version&&(next.active!==t.active||next.home_branch_id!==t.home_branch_id))
+ throw Error();
+Object.assign(t,next);
+}
 function roleControls(li,t,accountRefresh){
 const box=document.createElement('section');
 box.dataset.roleTrainer=t.id;
@@ -1282,25 +1325,27 @@ box.append(title,status,form,label,grant,revoke,fresh,operation,check,out);
 li.append(box);
 
 let current=null,candidate=null,version=t.version,pending=null,locked=false;
+const reads=latestRead();
 
 function buttons(){for(const b of [lookup,grant,revoke,fresh,check])b.disabled=locked;
 
-grant.disabled=locked||(!current?.account_id&&!candidate)||!!pending;
+grant.disabled=locked||!t.active||(!current?.account_id&&!candidate)||!!pending;
 
 revoke.disabled=locked||!current?.account_id||!!pending;
 check.disabled=locked||!operation.value.trim();
 }
-async function load(){const [r,d]=await Promise.all([
+function load(){return reads.run(async()=>{
+const [r,d]=await Promise.all([
  fetch('/api/v1/admin/trainers/'+t.id+'/role'),fetch('/api/v1/admin/trainers/'+t.id)]);
-
 if(!r.ok||!d.ok)throw Error();
-current=await r.json();
-version=(await d.json()).version;
-
+return Promise.all([r.json(),d.json()]);
+},([role,trainer])=>{
+updateTrainer(t,trainer);current=role;version=t.version;
 status.textContent=current.account_id?'연결 계정: '+current.login_id+' / '+current.state+
  ' / Trainer 역할 '+(current.granted?'부여됨':'회수됨'):'연결된 계정 없음';
 buttons();
-}
+});}
+
 async function post(path,body){const c=await fetch('/api/v1/auth/csrf',
  {headers:{'X-Y3-Client':'trainer-role'}});
 if(!c.ok)throw Error();
@@ -1332,6 +1377,7 @@ buttons();
 }});
 
 async function submit(desired){if(locked||pending)return;
+reads.invalidate();
 
 const selected=current?.account_id?current:candidate;
 if(!selected)return;
@@ -1426,6 +1472,7 @@ load().catch(()=>{out.textContent='현재 역할을 확인할 수 없습니다.'
 buttons();
 });
 
+return load;
 }
 function accountControls(li,t){
 const box=document.createElement('div'),status=document.createElement('p');
@@ -1439,16 +1486,30 @@ reissue.textContent='초기 설정 링크 재발급';refresh.type=reissue.type='
 issue.disabled=reissue.disabled=true;
 form.append(input,issue);box.append(status,form,refresh,reissue,result);li.append(box);
 box.dataset.trainer=t.id;
-let state=null,pending=null,working=false;
-async function load(){const [r,g]=await Promise.all([
+let state=null,pending=null,working=false,link=null;
+const reads=latestRead();
+function load(){return reads.run(async()=>{const [r,g,d]=await Promise.all([
  fetch('/api/v1/admin/trainers/'+t.id+'/login-account'),
- fetch('/api/v1/admin/trainers/'+t.id+'/role')]);
-if(!r.ok||!g.ok)throw Error();state=await r.json();const role=await g.json();
+ fetch('/api/v1/admin/trainers/'+t.id+'/role'),fetch('/api/v1/admin/trainers/'+t.id)]);
+if(!r.ok||!g.ok||!d.ok)throw Error();
+return Promise.all([r.json(),g.json(),d.json()]);
+},([account,role,trainer])=>{
+updateTrainer(t,trainer);state=account;
+if(link){
+if(state.state!=='PENDING_SETUP'||!role.granted||state.account_id!==link.account_id||
+ state.account_version!==link.version||
+ Date.parse(state.initial_setup_expires_at)!==Date.parse(link.expires_at)||
+ Date.parse(link.expires_at)<=Date.now()){link=null;result.replaceChildren();}
+else{const a=result.querySelector('a');if(a){
+ a.textContent=t.active?'본인 비밀번호 설정 링크':'본인 비밀번호 설정 링크 (일시 보류)';
+ a.setAttribute('aria-disabled',String(!t.active));
+ if(t.active)a.href=link.url;else a.removeAttribute('href');}}
+}
 status.textContent=state.state?(state.login_id+': '+state.state):'계정 미발급';
 issue.disabled=!!state.account_id||!t.active;input.disabled=!!state.account_id;
-reissue.disabled=state.state!=='PENDING_SETUP'||!t.active||!role.granted;}
-async function send(kind){if(working)return;working=true;refresh.disabled=true;
-result.replaceChildren();
+reissue.disabled=state.state!=='PENDING_SETUP'||!t.active||!role.granted;});}
+async function send(kind){if(working)return;working=true;reads.invalidate();refresh.disabled=true;
+result.replaceChildren();link=null;
 try{if(!pending)pending={kind,body:{operation_id:crypto.randomUUID(),
 ...(kind==='login-account'?{login_id:input.value}:{expected_account_version:state.account_version})}};
 if(pending.kind!==kind){result.textContent='먼저 계정 상태를 확인하세요.';return;}
@@ -1459,7 +1520,9 @@ headers:{'Content-Type':'application/json','X-CSRF-Token':(await c.json()).csrf_
 body:JSON.stringify(pending.body)});
 if(!r.ok){result.textContent='처리 결과를 확인하세요 ('+r.status+').';return;}
 const data=await r.json();pending=null;
-if(data.setup_link){const a=document.createElement('a');a.href=data.setup_link;
+if(data.setup_link){link={url:data.setup_link,expires_at:data.expires_at,
+ account_id:data.operation.account_id,version:data.operation.committed_account_version};
+const a=document.createElement('a');a.href=data.setup_link;
 a.textContent='본인 비밀번호 설정 링크';a.referrerPolicy='no-referrer';result.append(a);
 result.append(document.createTextNode(' 만료: '+data.expires_at));}
 else result.textContent='이미 처리된 요청입니다. 링크가 필요하면 명시적으로 재발급하세요.';
@@ -1475,7 +1538,59 @@ if(r.ok){pending=null;result.textContent='처리 확인. 링크가 필요하면 
 else if(r.status!==404)throw Error();}
 await load();}catch{result.textContent='현재 권한과 연결을 확인하세요.';}});
 load().catch(()=>{status.textContent='계정 상태를 조회할 수 없습니다.';});
-return async()=>{result.replaceChildren();issue.disabled=reissue.disabled=true;await load();};
+return async(preserve=false)=>{
+if(!preserve){reads.invalidate();result.replaceChildren();link=null;}
+issue.disabled=reissue.disabled=true;await load();};
+}
+function stateControls(li,t,refreshPanels){
+const box=document.createElement('section');box.dataset.stateTrainer=t.id;
+const status=document.createElement('p'),out=document.createElement('p');
+out.setAttribute('role','status');
+const change=document.createElement('button'),fresh=document.createElement('button');
+const check=document.createElement('button'),operation=document.createElement('input');
+operation.setAttribute('aria-label','업무 상태 작업 번호');operation.autocomplete='off';
+fresh.textContent='새 상태 작업';check.textContent='상태 작업 결과 확인';
+for(const b of [change,fresh,check])b.type='button';
+box.append(status,change,fresh,operation,check,out);li.append(box);
+let pending=null,locked=false,ready=false;
+function buttons(){status.textContent='업무 상태: '+(t.active?'활성':'비활성');
+change.textContent=t.active?'Trainer 비활성화':'Trainer 재활성화';
+change.disabled=locked||!ready||!!pending;fresh.disabled=locked;check.disabled=locked;
+}
+async function load(){ready=false;buttons();await refreshPanels();ready=true;buttons();}
+async function reconcile(id){const r=await fetch(
+ '/api/v1/admin/trainer-state-operations/'+encodeURIComponent(id));
+if(!r.ok)throw Error();const data=await r.json();
+if(data.trainer_id!==t.id){out.textContent='다른 Trainer의 작업 번호입니다.';return;}
+await load();out.textContent=data.changed?'상태 변경 기록 확인':'변경 없는 상태 작업 확인';
+}
+change.addEventListener('click',async()=>{
+if(locked||pending||!ready)return;
+pending={operation_id:crypto.randomUUID(),desired_active:!t.active,
+ expected_trainer_version:t.version};operation.value=pending.operation_id;
+locked=true;buttons();
+try{const c=await fetch('/api/v1/auth/csrf',{headers:{'X-Y3-Client':'trainer-state'}});
+if(!c.ok)throw Error();
+const r=await fetch('/api/v1/admin/trainers/'+t.id+'/state',{method:'POST',
+ headers:{'Content-Type':'application/json','X-CSRF-Token':(await c.json()).csrf_token},
+ body:JSON.stringify(pending)});
+if(!r.ok)throw Error();await r.json();await load();
+out.textContent='업무 상태 처리 완료. 작업 번호를 보관하세요.';
+}catch{ready=false;
+out.textContent='결과가 불명확합니다. 작업 번호로 결과를 확인해 주세요.';
+}finally{locked=false;buttons();}});
+check.addEventListener('click',async()=>{if(locked)return;
+const id=operation.value.trim();
+if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)){
+ out.textContent='올바른 작업 번호를 입력하세요.';return;}
+locked=true;buttons();try{await reconcile(id);}
+catch{ready=false;out.textContent='현재 권한과 작업 결과를 확인할 수 없습니다.';}
+finally{locked=false;buttons();}});
+fresh.addEventListener('click',async()=>{if(locked)return;locked=true;buttons();
+try{await load();pending=null;operation.value='';out.textContent='';}
+catch{ready=false;out.textContent='현재 상태를 확인할 수 없습니다.';}
+finally{locked=false;buttons();}});
+load().catch(()=>{ready=false;buttons();out.textContent='현재 상태를 확인할 수 없습니다.';});
 }
 $('trainer-form').addEventListener('submit',async e=>{e.preventDefault();
 if(busy)return;

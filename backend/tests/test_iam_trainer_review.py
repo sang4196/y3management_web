@@ -18,6 +18,7 @@ from tests.test_iam_mfa import call, mfa  # noqa: F401
 from tests.test_iam_trainer import TrainerScene, counts, source, trainer  # noqa: F401
 from tests.test_workforce import scene  # noqa: F401
 from tests.test_workforce_integrity import branch_actor
+from tests.workforce_state_seed import legacy_trainer  # noqa: F401
 from y3management.audit.infrastructure import Audit
 from y3management.audit.public import TrainerIdentityEvent
 from y3management.config import Settings
@@ -345,10 +346,11 @@ def test_original_actor_deadline_after_audit_without_touch(
 
 
 def test_downgrade_waits_for_actual_issue_then_preserves_history(
-    trainer: TrainerScene,
+    legacy_trainer: TrainerScene,
     mfa: tuple[Settings, Database, str, str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    trainer = legacy_trainer
     import subprocess
     import sys
     import time
@@ -407,11 +409,19 @@ def test_downgrade_waits_for_actual_issue_then_preserves_history(
             issued = issuing.result(timeout=10)
             assert issued.status_code == 201
             process.communicate(timeout=10)
-            assert process.returncode != 0 and counts(t) == (1, 1, 1, 1)
+            assert process.returncode != 0
+            from tests.workforce_state_seed import assert_loss_guard
+
+            assert_loss_guard(
+                t.base.db,
+                ["0013_workforce_trainer_state.py", "0012_iam_trainer_roles.py"],
+                "trainer role history must be preserved",
+            )
+            assert counts(t) == (1, 1, 1, 1)
             with t.base.db.session() as reader:
                 assert (
                     reader.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                    == "0012_iam_trainer_roles"
+                    == "0013_workforce_trainer_state"
                 )
             assert t.complete(source(issued)).status_code == 204
         finally:

@@ -5,6 +5,7 @@ import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
+from pathlib import Path
 from threading import Barrier
 from typing import Any
 
@@ -176,15 +177,28 @@ def test_commit_ack_loss_replay(scene: Scene, monkeypatch: pytest.MonkeyPatch) -
 
 
 def test_migration_roundtrip_and_information_guard(
-    scene: Scene, mfa: tuple[Settings, Database, str, str]
+    scene: Scene, mfa: tuple[Settings, Database, str, str], tmp_path: Path
 ) -> None:
     def migrate(revision: str) -> None:
-        subprocess.run(
+        downgrade = subprocess.run(
             [sys.executable, "-m", "alembic", "downgrade", revision],
             env=child_env(mfa[0]),
             capture_output=True,
             timeout=30,
         )
+        if downgrade.returncode != 0:
+            from tests.workforce_state_seed import assert_loss_guard
+
+            assert_loss_guard(
+                scene.db,
+                [
+                    "0013_workforce_trainer_state.py",
+                    "0012_iam_trainer_roles.py",
+                    "0011_iam_trainer_login.py",
+                    "0010_workforce_initial_registration.py",
+                ],
+                "workforce history or branch facts must be preserved",
+            )
 
     def current() -> str:
         with scene.db.session() as s:
@@ -198,19 +212,24 @@ def test_migration_roundtrip_and_information_guard(
         capture_output=True,
         timeout=30,
     )
-    assert result.returncode == 0 and current() == "0012_iam_trainer_roles"
+    assert result.returncode == 0 and current() == "0013_workforce_trainer_state"
     with scene.db.session() as s:
         s.execute(text("UPDATE organization_branches SET active=false,row_version=2"))
         s.commit()
     migrate("0009_iam_emergency_handoff")
-    assert current() == "0012_iam_trainer_roles"
+    assert current() == "0013_workforce_trainer_state"
     with scene.db.session() as s:
         assert s.execute(text("SELECT active FROM organization_branches")).scalar_one() is False
         s.execute(text("UPDATE organization_branches SET active=true,row_version=1"))
         s.commit()
-    assert scene.send(scene.body()).status_code == 201
+    from tests.test_iam_trainer_roles_storage import migrate as migration
+    from tests.workforce_state_seed import register_legacy
+
+    assert migration(mfa[0], "downgrade", "0012_iam_trainer_roles") == 0
+    assert register_legacy(scene, mfa[0], tmp_path)["active"] is True
+    assert migration(mfa[0], "upgrade", "head") == 0
     migrate("0009_iam_emergency_handoff")
-    assert current() == "0012_iam_trainer_roles" and counts(scene.db) == (1, 1, 1, 2)
+    assert current() == "0013_workforce_trainer_state" and counts(scene.db) == (1, 1, 1, 2)
 
 
 @pytest.mark.parametrize("registration_first", [True, False])

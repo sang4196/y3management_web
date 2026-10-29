@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
@@ -48,6 +49,8 @@ class Event:
 
 
 class AuditPort(Protocol):
+    def append_trainer_state(self, event: TrainerStateEvent) -> None: ...
+
     def append_trainer_role(self, event: TrainerRoleEvent) -> None: ...
 
     def append_trainer_identity(self, event: TrainerIdentityEvent) -> None: ...
@@ -118,3 +121,20 @@ class TrainerRoleEvent:
     after_account_version: int
     before_security_version: int
     after_security_version: int
+
+
+@dataclass(frozen=True)
+class TrainerStateEvent:
+    organization_id: UUID
+    operation_id: UUID
+    trainer_id: UUID
+    account_id: UUID | None
+    actor_id: UUID
+    actor_role: str
+    actor_branch: UUID | None
+    target_home: UUID
+    before_active: bool
+    after_active: bool
+    before_version: int
+    after_version: int
+    recorded_at: datetime

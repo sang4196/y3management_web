@@ -1,7 +1,9 @@
 """Immutable Workforce contracts; no phone or money in identity facts."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from typing import Protocol
 from uuid import UUID
 
@@ -61,6 +63,16 @@ class RegistrationResult:
 
 
 class WorkforcePort(Protocol):
+    def state_operation(self, caller: Caller, operation_id: UUID) -> TrainerStateResult | None: ...
+    def change_state(
+        self,
+        caller: Caller,
+        branch: ScopedBranchFact,
+        trainer: TrainerIdentityFact,
+        request: TrainerStateRequest,
+    ) -> tuple[TrainerStateResult, TrainerStateChange | None]: ...
+    def confirm_state(self, caller: Caller, result: TrainerStateResult) -> None: ...
+
     def lock_identity(
         self, organization_id: UUID, ident: UUID, *, exclusive: bool = False
     ) -> TrainerIdentityFact: ...
@@ -74,3 +86,32 @@ class WorkforcePort(Protocol):
         self, caller: Caller, branch: ScopedBranchFact, command: RegisterTrainer
     ) -> RegistrationResult: ...
     def confirm(self, caller: Caller, result: RegistrationResult) -> None: ...
+
+
+@dataclass(frozen=True)
+class TrainerStateRequest:
+    operation_id: UUID
+    desired_active: bool
+    expected_trainer_version: int
+
+
+@dataclass(frozen=True)
+class TrainerStateResult:
+    operation_id: UUID
+    trainer_id: UUID
+    changed: bool
+    committed_active: bool
+    committed_trainer_version: int
+    current_state: TrainerIdentityFact
+
+
+@dataclass(frozen=True)
+class TrainerStateChange:
+    organization_id: UUID
+    operation_id: UUID
+    trainer_id: UUID
+    before_active: bool
+    after_active: bool
+    before_version: int
+    after_version: int
+    recorded_at: datetime

@@ -13,6 +13,7 @@ from y3management.audit.public import (
     TrainerIdentityEvent,
     TrainerRegistered,
     TrainerRoleEvent,
+    TrainerStateEvent,
 )
 from y3management.contracts import CommitPhase, HashAdmissionRejected, Rejected
 from y3management.iam.public import (
@@ -48,6 +49,8 @@ from y3management.workforce.public import (
     RegistrationResult,
     TrainerIdentityFact,
     TrainerPage,
+    TrainerStateRequest,
+    TrainerStateResult,
 )
 
 
@@ -1565,3 +1568,70 @@ class Service:
                 else None
             )
             return a.caller, fact, role
+
+    def trainer_state_operation(self, auth: str | None, operation: UUID) -> TrainerStateResult:
+        self.require_mfa()
+        with self.uow.open() as w:
+            a = w.iam.authenticate(auth, management=True, touch=False)
+            snapshot = w.roles.snapshot(a)
+            result = w.workforce.state_operation(a.caller, operation)
+            if result is None:
+                raise Rejected(404, "not_found")
+            fact = self._trainer_scope(w, a.caller, result.trainer_id)
+            if fact != result.current_state:
+                raise Rejected(409, "conflict")
+            w.workforce.confirm_state(a.caller, result)
+            w.roles.confirm_actor(snapshot, self_change=False)
+            return result
+
+    def change_trainer_state(
+        self,
+        auth: str | None,
+        nonce: str | None,
+        trainer: UUID,
+        request: TrainerStateRequest,
+    ) -> TrainerStateResult:
+        self.require_mfa()
+        with self.uow.open() as w:
+            a = w.iam.authenticate(auth, management=True, touch=False)
+            w.iam.csrf(a, nonce)
+            self._trainer_scope(w, a.caller, trainer)
+            hint = w.iam.trainer_binding(a.caller.organization_id, trainer)
+        with self.uow.open() as w:
+            a = w.iam.authenticate(
+                auth, management=True, target=hint.account_id if hint else None, touch=False
+            )
+            w.iam.csrf(a, nonce)
+            binding = w.iam.trainer_binding(a.caller.organization_id, trainer)
+            if binding != hint:
+                raise Rejected(409, "conflict")
+            snapshot = w.roles.snapshot(a)
+            fact = self._trainer_scope(w, a.caller, trainer, exclusive=True)
+            branch = w.organization.lock_scoped_branch(a.caller, fact.home_branch_id)
+            result, change = w.workforce.change_state(a.caller, branch, fact, request)
+            if change is not None:
+                if not change.after_active and binding is not None:
+                    w.iam.revoke_trainer_only_sessions(binding)
+                w.audit.append_trainer_state(
+                    TrainerStateEvent(
+                        change.organization_id,
+                        change.operation_id,
+                        change.trainer_id,
+                        binding.account_id if binding else None,
+                        a.caller.account_id,
+                        "MASTER" if a.caller.master else "BRANCH_ADMIN",
+                        a.caller.branch_id,
+                        fact.home_branch_id,
+                        change.before_active,
+                        change.after_active,
+                        change.before_version,
+                        change.after_version,
+                        change.recorded_at,
+                    )
+                )
+            w.organization.confirm_scoped_branch(a.caller, branch)
+            w.workforce.confirm_state(a.caller, result)
+            if self._trainer_scope(w, a.caller, trainer) != result.current_state:
+                raise Rejected(409, "conflict")
+            w.roles.confirm_actor(snapshot, self_change=False)
+            return result

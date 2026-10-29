@@ -1,3 +1,22 @@
+# 현재 WORKFORCE-002 인수 완료 — 분할 검증
+
+2026-10-30 **Trainer 업무 비활성화·재활성화 로컬 설계자 인수 PASS**.
+[계약](workforce-002-trainer-state-design.md), [결과](workforce-002-trainer-state-results.md),
+[최소 인수 근거](workforce-002-trainer-state-review.json)를 따른다. 현재 Master/실제 Home Branch Admin의
+상태 관리, 독립 관리자 인증·원래 초기 source 보존, Trainer-only 기존 로그인 철회, 원자적 상태 이력과
+감사를 검증했다. 오래된 실제 조회 응답이 새 링크/현재 상태를 덮는 UI 결함을 인과 재현해 수정했다.
+
+최종 동결248개/Backend162개에서 fresh fast **131개**, PostgreSQL **315개 분할 근거**를 확인했다.
+이는 R1의 변경 없는 서버 검사206개와 R2의 새109개이며 최종 단일315/전체576 실행을 뜻하지 않는다.
+R2 같은 실행의 native8개 manifest **225항목**이 모두 true였다. 최초 R1 **209 passed/1 failed/105 미실행**은
+실패로 보존한다. 동일 증상의 실제 지연 응답을 재현·수정했지만 최초 통신 순서는 미확정이다.
+소스/Git/trust 불변과 자동 실행21개 정리·실제 경로 부재를 대조했다. 설계자는 runtime을 추가 실행하지 않았다.
+
+전담 변경 검토·상세 한글 커밋·일반 feature push 뒤, 이미 승인된 A8/C4/AB3/M8에 따른 **IAM-013 Trainer
+분실 암호 reset** 제한 계약으로 이어간다. A8 Master 전용 권한을 재질문하지 않는다. 해당 후속은 QA 초안의
+기술 검토만 완료했으며 별도 진입 지시 전 미구현이다. 현재 source 인수로 운영·실물/전체 브라우저·전체 모바일,
+다른 Product OPEN·전역 PROPOSED 또는 PT/지급/정산 검증을 승인하지 않는다. 아래 서술은 각 증분 당시 이력이다.
+
 # Architecture 및 현재 개발 단계
 
 2026-10-30 최신 인수: **IAM-012 기존 계정 Trainer 역할 로컬 인수 PASS**.

@@ -188,10 +188,23 @@ def test_downgrade_rejects_epoch_facts_that_would_revive_auth(
         assert s.execute(text("SELECT count(*) FROM " + table)).scalar_one() > 0
         s.execute(text("UPDATE " + table + " SET trainer_role_epoch=1"))
         s.commit()
-    assert migrate(mfa[0], "downgrade", "0011_iam_trainer_login") != 0
+    result = subprocess.run(
+        [sys.executable, "-m", "alembic", "downgrade", "0011_iam_trainer_login"],
+        env=child_env(mfa[0]),
+        capture_output=True,
+        timeout=30,
+    )
+    assert result.returncode != 0
+    from tests.workforce_state_seed import assert_loss_guard
+
+    assert_loss_guard(
+        scene.db,
+        ["0013_workforce_trainer_state.py", "0012_iam_trainer_roles.py"],
+        "trainer role history must be preserved",
+    )
     with scene.db.session() as s:
         assert (
             s.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-            == "0012_iam_trainer_roles"
+            == "0013_workforce_trainer_state"
         )
         assert s.execute(text("SELECT min(trainer_role_epoch) FROM " + table)).scalar_one() == 1

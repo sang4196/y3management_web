@@ -288,3 +288,26 @@ N 승인 후 경계: V-108/109는 비관리자 Trainer 본인/타 Home Trainer�
 ## 이번 단계의 문서 검증 기록
 
 문서 링크/앵커 검사와 설계 검토는 별개다. 완료 시 Architecture README에 실제 수행 결과를 기록한다. 공식 문서 읽기는 실행/호환성 시험이 아니며, 위 V-01–20은 후속 계획으로 유지한다.
+
+
+## WORKFORCE-002 W1 예정 검증
+
+[제한 계약](workforce-002-trainer-state-design.md)의 실제 상태 명령, I1 source/독립 관리자 보존, 현재 사실 선형화, operation 대사·감사 rollback, 관찰 baseline·신규 초기 사실·전이 및 손실 guard, native 카드/패널 갱신을 검증한다. 현재 구현 진입 시점이며 실행 결과가 아니다. 기존 회귀 node와 신규 causal 사례는 계약 끝에 명시한다.
+
+
+2026-10-30 W1 개발 대상 결과: [WORKFORCE-002 결과](workforce-002-trainer-state-results.md).
+fast131·고유PG52·실제native49 통과. 수집707/PG576, 전체native260은 미실행 부분을 포함한 목록이다.
+독립 인수는 별도이며 예정 검증을 전체 완료로 표시하지 않는다.
+
+
+## 2026-10-30 WORKFORCE-002 실제 인수 — 분할 검증
+
+[W1 결과](workforce-002-trainer-state-results.md)와 [최소 근거](workforce-002-trainer-state-review.json)가 최신이다.
+R2 fresh fast131 및 fresh PG109, 서버/15개 testfile 불변으로 보존한 R1 non-UI206의 분할315를 확인했다.
+최초209 passed/1 failed/105 미실행은 실패로 유지하며 최종 새 단일315/전체576을 실행한 것은 아니다.
+R2 같은 실행의 native8 manifest225조건은 모두 true다. 기존49조건과 실제 지연 HTTP 응답의 새 인과5조건을 포함한다.
+모든 정확 node·실제 exit·소스/Git/trust·자동환경21개 정리를 Root가 대조했다. 문서 작성은 runtime 재검증이 아니다.
+
+W1 실제 상태/기존 인증·source/현재 Scope/typed 이력/clock·ACK·DB guard·공유 잠금은 이번 관련 pytest로 검증했다.
+기존 native/guard 단언을 완화하지 않았다. 최초 원래 통신 순서 미확정과 physical/production·다른 미래 업무 검증은 유지한다.
+전역 미구성 검사와 Product/ADR의 PROPOSED/OPEN 상태를 이번 기능 인수로 일괄 완료 처리하지 않는다.

@@ -403,7 +403,8 @@ def run_browser(
             result = subprocess.run(args, capture_output=True, timeout=90)
         (root / "browser.log").write_bytes(result.stdout + result.stderr)
         stage_match = re.search(
-            rb"(?:MFA|WORKFORCE|TRAINER)_BROWSER_FAILED stage=([a-z-]+)", result.stderr
+            rb"(?:MFA|WORKFORCE|TRAINER)_BROWSER_FAILED stage=([a-z0-9-]{1,64})(?:\r?\n|$)",
+            result.stderr,
         )
         safe_stage = stage_match.group(1).decode() if stage_match else "unspecified"
         if emergency_db is not None and result.returncode != 0:
@@ -429,6 +430,8 @@ def run_browser(
                 {
                     "stage": safe_stage,
                     "checks": {key: values.get(key) is True for key in required_names},
+                    "actual_false": [key for key in required_names if values.get(key) is False],
+                    "missing": [key for key in required_names if key not in values],
                 },
             )
         assert result.returncode == 0, "Actual HTTPS browser failed at " + safe_stage
