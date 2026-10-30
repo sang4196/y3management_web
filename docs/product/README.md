@@ -1,5 +1,13 @@
 # Product Specification — Architecture Input Baseline
 
+2026-10-31 최신 승인: [Passkey 완전 제거·아이디/비밀번호 로그인](product-decisions.md#review-20261031-password-only).
+모든 지원 v1 Actor/겸임은 비밀번호만으로 로그인하며 관리자 MFA 의무·Passkey 등록/관리/분실 재등록은 대체됐다.
+기존 계정/현재 Role·Scope/CSRF·세션/암호·실패 제한·Master 보호·비상 암호 복구는 유지한다.
+[ADR-0005](../decisions/0005-password-only-authentication.md)는 이 인증수단 선택만 ACCEPTED다.
+현재 코드7855786은 여전히 이전 MFA 구현이며 새 설계·코드·DB 전환·실행 인수는 구분한다.
+아래 이전 날짜의 MFA 승인·운영 의무 표현은 당시 이력이며 PW-1–PW-6의 대체 범위에서 현재 기준으로 사용하지 않는다.
+다른 Product OPEN/ADR/모듈/운영 게이트와 Member Future Scope는 유지한다.
+
 2026-10-30 승인: [I2 기존 계정 Trainer 역할 세 선택](product-decisions.md#review-20261030-i2) 모두1번.
 첫 연결/같은 연결 재부여 대상 상태, 유효 역할0 로그인 금지와 계정 보존, 실제 역할 변경의 대상 전 로그인
 철회를 확정했다. E5 현재 Home Scope·겸임·불변 연결은 유지한다. 정책 승인과 IAM-012 계약 검토/구현은

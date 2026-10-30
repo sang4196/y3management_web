@@ -1,3 +1,27 @@
+# IAM-014 password-only 검증 계획 — 미구현·미실행
+
+[직접 영향 전환 상세](iam-014-password-only-transition.md)는 방향 설계를 구체화한 문서이며 실제 SQL/코드·DB 전환 검증은 아직 수행하지 않았다.
+
+2026-10-31 [현재 Product](../product/product-decisions.md#review-20261031-password-only),
+[인증수단 ADR](../decisions/0005-password-only-authentication.md), [설계](iam-014-password-only-design.md)를 따른다.
+현재 검토는 문서·소스 읽기이며 아래 검사를 실행하지 않았다. 이전 MFA PASS는 새 정책의 PASS가 아니다.
+
+| 계획 ID | 필요한 증거 | 현재 상태 |
+| --- | --- | --- |
+| PW-V01 | 새 명시 password 설정/정책 marker·readiness, 구 mfa/s1 설정/미전환 schema 거부, 새 앱/CLI/pytest의 WebAuthn import·폐기 route/JS/옵션 없음 | 미구현·미실행 |
+| PW-V02 | 실제 ID/PW의 Master/Branch Admin/Trainer/겸임, role0/inactive/DISABLED/현재 Scope·다른 조직·보상 설정 제한 및401/403/404 | 미구현·미실행 |
+| PW-V03 | 최초 Master TTY 단회 설치, 관리자/추가Master/Trainer 발급·본인 설정·만료/명시재발급·동일인/발급 Scope | 미구현·미실행 |
+| PW-V04 | C3/C4/C5/M8·마지막 Master·audit/rollback/실제 ACK·safeGET/명시재발급, 원래 Actor clock과 단회소스의 최종시각 | 미구현·미실행 |
+| PW-V05 | AB5/R4 password 복구·허용된 legacy password/both lineage·key-only 승인 비확대·원본링크 만료 뒤 새source30분 | 미구현·미실행 |
+| PW-V06 | 새빈DB+0013기존 각 상태 upgrade, 원본13보존/FK·감사, staged hash 비승격·순수key retired/다른권한비복원·분류불능 fail-closed | 미구현·미실행 |
+| PW-V07 | 전환의 실제 DB 잠금/원자 rollback/commitACK/중복 version 증가 없음, 이전 양assurance cookie/원본token/준비 proof 전부거부·구 worker 정지 전환 한계 | 미구현·미실행 |
+| PW-V08 | C2/안정budget/ID예약·해시 admission·capacity/timeout·DB503·generic422·I2/W1 자기철회/원래기한/현재인가 단언의 등가성 | 미구현·미실행 |
+| PW-V09 | 실제 trusted HTTPS/native의 password-only form·링크 fragment 비노출·자동로그인/자동재발급 없음·기존 지연응답 대사 | 미구현·미실행 |
+| PW-V10 | 기존 test node/assertion별 유지/재작성/기능폐기 근거와 신규 node·실제 수집/개별 결과·소스/HEAD/trust/소유 자원 정리 | 설계 계획만 작성 |
+
+수집/삭제·정리된 과거 테스트 수를 성공 성적과 혼동하거나 숫자 맞추기·skip/xfail/guard 약화를 하지 않는다.
+운영 배포·실물/지원 목표 전체 브라우저·원본 DB 실행·전체 업무/정산 검증은 별도 게이트다. 아래는 기존 인수 이력이다.
+
 # IAM-013 독립 선정 검증·설계자 인수 완료 (2026-10-30)
 
 [계약](iam-013-trainer-password-reset-design.md), [결과](iam-013-trainer-password-reset-results.md),

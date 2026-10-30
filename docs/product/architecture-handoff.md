@@ -1,5 +1,12 @@
 # Architecture 설계를 위한 Product Input Baseline
 
+2026-10-31 최우선 인증 인계는 [PW-1–PW-6](product-decisions.md#review-20261031-password-only)와
+[ADR-0005](../decisions/0005-password-only-authentication.md)다. 전 역할/겸임 password-only이며 Passkey 기능을 완전히 제거한다.
+기존 PG AuthSession/쿠키·현재 Caller/Scope·C1/C2/C3·Master/마지막 Master·비상 암호 복구를 유지한다.
+설치·발급·reset·계정관리·구버전 세션/단회 원본/파생 권한·과거 감사 참조의 안전한 전환과 증거별 검증이 필요하다.
+현재 구현7855786과 새 정책의 차이를 인정하며 과거 MFA PASS·migration을 삭제/승격하지 않는다.
+아래 날짜별 MFA 의무·요인 선택·Passkey 등록/복구는 대체 범위의 이력이다. 다른 업무/정산/전역 모듈 게이트는 유지한다.
+
 현재 후속 정책: [2026-10-13 AB 승인](product-decisions.md#review-20261013-ab-batch)의 AB1–AB6 모두 1번이다. 월 정산 대상은 적용 기본급/월별 지정·유효 PT/보상대기 지원 PT/추가실적 등으로 자동 선정하며, 한 달 전체 Trainer 비활성·명시 기본급0·무활동·정정 대기 없는 경우 새 정산 확정 의무에서 제외한다. 기존 이력/미완료와 비활성만으로 기본급을 자동0으로 바꾸지 않음은 유지한다. 후속 reset 링크30분·운영 관리자 비밀번호 뒤 Passkey·업무책임자 승인/별도 운영담당자 비상 복구·Chrome/Edge/Safari 최신2개 안정 주버전을 선택했다. K3/X1 첫 IAM/별도 구현 지시·구체 계약 PROPOSED와 22 OPEN/8 CLOSED는 유지한다.
 
 2026-10-12 일괄 승인 반영: B1–B7/A1–A10의 선택은 [2026-10-12 일괄 승인](product-decisions.md#review-20261012-batch)을 따른다. A4/A5만 2번으로 최초 설정 링크 30분 및 전 역할 공통 idle 30분/absolute 8시간이다. 다른 항목은 1번이며 v1 PG AuthSession+opaque Cookie 방식은 ADR-0004 ACCEPTED, JWT는 후속 버전의 재검토 후보다. 새 Pass 활성 담당 필수/상품 횟수 최초 부여·인가 관리자 발급 횟수 초과 추가, Trainer 재활성화/비활성 전용 로그인 제한, 데이터 있는 Branch 비활성화/신규 업무 차단·원본 보존, 공통 한국 시간도 확정됐다. 모듈·저장/계약/UoW·경합의 기술 제안/남은 Product OPEN은 유지하며 코드/migration·의존성·실행 검사는 변경/수행하지 않았다. 앞선 PROPOSED/미결정 기록은 당시 이력이고 이번 승인 범위에 한해 대체한다.

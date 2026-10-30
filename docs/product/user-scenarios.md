@@ -1,5 +1,10 @@
 # 핵심 사용자 시나리오
 
+2026-10-31 SC-001/SC-010의 인증은 [PW-1–PW-6](product-decisions.md#review-20261031-password-only)를 따른다.
+최초 계정 암호 설정 후 아이디·비밀번호로 로그인하며 Passkey 등록·선택·추가 인증·분실 재등록을 요구하지 않는다.
+정상 관리자의 암호 재설정과 마지막 Master 비상 암호 복구, 기존 Actor/권한·업무 전제는 유지한다.
+이 시나리오는 현재 제품 목표이며 이전 MFA 코드의 새 구현/실행 완료를 뜻하지 않는다.
+
 승인된 TO-BE 업무 시나리오다. AS-IS에서 유래한 업무와 새 승인 방향을 근거에 구분한다. 세부 정책의 미정 부분은 실행 규칙으로 확정하지 않는다. 모든 흐름에 Role과 Data Scope를 적용하며 Master Admin은 Organization 전체, Branch Admin은 허용 Branch, Operator는 허용 Branch·업무, Trainer는 Allowed PT Scope에 한정한다. Branch 관계 정책은 MB-001–008을 따른다. [요구사항](requirements.md), [결정](product-decisions.md), [후속 질문](open-questions.md).
 
 <a id="sc-001"></a>

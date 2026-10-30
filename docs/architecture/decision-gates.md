@@ -1,3 +1,21 @@
+# 2026-10-31 인증수단 변경의 현재 게이트
+
+[직접 영향 전환 상세](iam-014-password-only-transition.md)는 방향 설계를 구체화한 문서이며 실제 SQL/코드·DB 전환 검증은 아직 수행하지 않았다.
+
+사용자 [PW-1–PW-6](../product/product-decisions.md#review-20261031-password-only)와
+[ADR-0005](../decisions/0005-password-only-authentication.md)로 전 지원 v1 Actor는 아이디·비밀번호만 사용한다.
+Passkey/운영 MFA 의무를 재질문하지 않는다. 기존 A8/M6/M8/C1/C3/C5/A9·AB5/R4와 현재 인가를 유지한다.
+현재 [IAM-014 설계](iam-014-password-only-design.md)는 독립 제한 설계 검토를 마쳤으며, 실제 DDL/미분류 영향군의 기술 진입 확인·구현·전환검증은 후속이다.
+
+P0 진입 조건은 모든 source/DDL/FK/GC 및 기존 node/assertion의 의미별 대응, 정책 marker/원본과 준비 proof
+폐기·원래기한·전환 audit/ACK 대사, legacy both의 password 승인 범위와 인계 연결을 구체화하는 것이다.
+폐지 key요인만 대기한 ACTIVE 계정은 실제 사실을 분류해 retired 이력으로 종료하며, password 복구/차단/권한
+복원과 혼동하지 않는다. 모순·분류 불능 자료가 있으면 실제 전환은 중단하고 원자료를 보존한다.
+원본13 migration/감사·옛 PASS는 보존하고 물리 삭제/원본DB 전환·운영 인수는 이번 설계 승인이 아니다.
+설정 전 차단/복구·ID 변경 상태 확대의 이전 미답변 두 선택은 여전히 보류다.
+다른22 OPEN/8 CLOSED·PD1 OPEN/26 CLOSED와 전역 모듈 PROPOSED/운영 게이트를 닫지 않는다.
+아래 이전 MFA 게이트는 명시 대체 범위에서 당시 이력이다.
+
 # 결정 게이트
 
 2026-10-30 부분 해결: [I2 세 선택](../product/product-decisions.md#review-20261030-i2) 모두1 승인으로

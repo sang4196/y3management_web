@@ -1,5 +1,10 @@
 # Trainer Payment Business Rules
 
+2026-10-31 인증수단은 [PW-1–PW-6](product-decisions.md#review-20261031-password-only)에 따라 모든 지원 Actor/겸임의
+아이디·비밀번호로 통일한다. 현재 권한·조직/Branch Scope/Trainer 상태와 보상/업무 규칙은 그대로다.
+추가 MFA/Passkey 유무를 관리자 권한 조건으로 쓰지 않으며 C1/C3/A8/C5/A9 및 비상 암호 복구는 유지한다.
+아래 날짜별 MFA/UV/Passkey 조건은 과거 정책 이력이며 현재 인증수단으로 적용하지 않는다.
+
 상태: APPROVED-TO-BE / 사용자 확정(2026-09-16/17 및 2026-10-10). 2026-09-17 Multi-Branch 변경 지시가 이전 결정과 충돌하면 우선하며 비충돌 규칙은 유지한다. 보상 설정 권한은 BR-PAY-010으로 갱신한다. 2026-10-10 사용자 정정으로 타 지점 수업의 보상 전체를 일반 PT 수당 대신 추가실적으로 처리하도록 MB-009를 확정했다(BR-PAY-015/016). AS-IS 구현 사실이나 DB Column/Table 정의가 아니다. [결정](product-decisions.md), [요구사항](requirements.md), [남은 질문](open-questions.md).
 
 ## 지급 규칙의 적용 범위 — 2026-10-10 정정
@@ -971,7 +976,7 @@ Traceability: C11; PR-006/007/010/031; BR-010; BR-PAY-003/004/014/015; NFR-012. 
 허용하되 계정·암호·동일인 연결·역사를 보존하며 자동 DISABLED/삭제/암호 reset은 하지 않는다.
 재부여 후에는 현재 계정 상태와 인증 조건을 충족할 때 기존 유효 암호를 다시 사용할 수 있다.
 실제 Trainer 역할 추가·회수·재부여 성공은 대상의 현재 로그인 포함 모든 AuthSession을 철회한다.
-독립 관리자 역할·Passkey·다른 계정·C2는 보존하며 남은 관리자는 password+UV로 재로그인한다.
+독립 관리자 역할·다른 계정·C2는 보존하며 남은 관리자는 현재 승인된 아이디·비밀번호 인증으로 재로그인한다. 기존 Passkey 관련 감사 원본은 역사 자료로 보존한다.
 no-op·replay·status는 새 로그인을 다시 철회하지 않는다. 이 승인은 Trainer 역할 범위이며
 Operator 구현·관리자 승격·다른 사람 재연결·소속/상태 변경·분실 암호 reset을 포함하지 않는다.
 

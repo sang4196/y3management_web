@@ -1,3 +1,18 @@
+# 현재 IAM-014 — Passkey 완전 제거·password-only 재설계
+
+[직접 영향 전환 상세](iam-014-password-only-transition.md)는 방향 설계를 구체화한 문서이며 실제 SQL/코드·DB 전환 검증은 아직 수행하지 않았다.
+
+2026-10-31 사용자 [PW-1–PW-6](../product/product-decisions.md#review-20261031-password-only)에 따라
+[ADR-0005](../decisions/0005-password-only-authentication.md)는 전 지원 역할의 아이디·비밀번호 인증수단을 채택했다.
+[전환 설계](iam-014-password-only-design.md)는 독립 방향·상세 설계 검토를 마쳤다. 실제 DDL/미분류 영향군의 구현 전 기술 확인은 남아 있다. 서버 AuthSession/쿠키·현재 역할/Scope·
+세션/암호/실패 제한·Master/마지막 Master·비상 암호 복구를 유지하고 Passkey 기능과 추가 MFA 의무를 제거한다.
+
+**현재 실행 코드7855786에는 아직 이전 MFA가 있다.** 새 설정/화면/전환 migration은 미구현이며
+이전 IAM-013 fast131/선정PG179/native243을 새 정책의 실행 PASS로 사용하지 않는다.
+구현 전 P0의 기존 의존/FK·상태별 전환/소스·proof version/AB5 lineage/기존 assertion 대응표를 기술 검토한다.
+실제 코드·DB/실행 인수는 그 뒤 범위다. 운영/production 거부·다른 Product OPEN/전역 모듈 상태는 유지한다.
+이전 미답변 계정 상태 확장 두 질문은 별도 보류다. 아래는 각 증분 당시 정책/결과 이력이다.
+
 # 현재 IAM-013 로컬 인수 완료 — 다음 계정 상태 정책 결정 대기
 
 2026-10-30 **Trainer 비밀번호 재설정 로컬 설계자 인수 PASS**.

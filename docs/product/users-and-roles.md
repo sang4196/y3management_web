@@ -1,5 +1,10 @@
 # 사용자 및 역할
 
+2026-10-31 [PW-1–PW-6](product-decisions.md#review-20261031-password-only): Master·Branch Admin·Operator·Trainer 및
+겸임의 인증수단은 아이디·비밀번호뿐이다. 관리자 Passkey 등록/사용을 요구하지 않는다.
+Actor별 발급/차단/reset/업무 권한과 현재 Scope, 무역할/차단/Trainer 비활성 제한은 유지하며 Member는 v1 로그인 Actor가 아니다.
+과거 날짜별 MFA/UV 조건은 이번 인증수단 선택에 한해 대체하며 코드·운영 인수 완료와 구분한다.
+
 2026-09-17 Multi-Branch 변경 승인 반영. 아래는 Product 개념이며 RBAC/ABAC 기술 모델이나 Permission 목록이 아니다. AS-IS 계정·특수 메뉴 및 실제 권한 운영 미검증 사실은 [AS-IS 인증](../analysis/08-auth-and-permissions.md), [VAL-001](validation-needed.md#val-001)에 구분한다.
 
 ## Role과 Data Scope
@@ -283,7 +288,7 @@ Master Admin이 Branch Admin과 계정/권한을 관리한다. 관리자 발급 
 허용하되 계정·암호·동일인 연결·역사를 보존하며 자동 DISABLED/삭제/암호 reset은 하지 않는다.
 재부여 후에는 현재 계정 상태와 인증 조건을 충족할 때 기존 유효 암호를 다시 사용할 수 있다.
 실제 Trainer 역할 추가·회수·재부여 성공은 대상의 현재 로그인 포함 모든 AuthSession을 철회한다.
-독립 관리자 역할·Passkey·다른 계정·C2는 보존하며 남은 관리자는 password+UV로 재로그인한다.
+독립 관리자 역할·다른 계정·C2는 보존하며 남은 관리자는 현재 승인된 아이디·비밀번호 인증으로 재로그인한다. 기존 Passkey 관련 감사 원본은 역사 자료로 보존한다.
 no-op·replay·status는 새 로그인을 다시 철회하지 않는다. 이 승인은 Trainer 역할 범위이며
 Operator 구현·관리자 승격·다른 사람 재연결·소속/상태 변경·분실 암호 reset을 포함하지 않는다.
 

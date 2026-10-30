@@ -2,6 +2,10 @@
 
 Status: **ACCEPTED**
 
+2026-10-31 후속: [ADR-0005](0005-password-only-authentication.md)가 현재 인증수단을 아이디·비밀번호로 변경했다.
+이 ADR의 PG AuthSession+opaque Cookie 채택은 그대로 ACCEPTED다. 아래 과거 Product 인용의 운영 MFA 의무는
+[PW-1–PW-6](../product/product-decisions.md#review-20261031-password-only)의 대체 범위에서 현재 정책이 아니다.
+
 작성일: 2026-09-18. 채택일: 2026-10-12. Approval source: 사용자 일괄 답변 “A4,5번은 2번. 나머지 전부 1번. A1은 v1에서 1번으로 진행하되 추후 버전에서 jwt사용을 고려.” A1의 v1 PG 서버 AuthSession+opaque Cookie 방식 채택에 한정한다. JWT는 후속 버전의 재검토 후보이며 의무 전환/도입 시점 승인이 아니다.
 
 Scope: v1 브라우저 인증의 PG 서버 저장 AuthSession+opaque Cookie 방식만 채택한다. 라이브러리/해시·쿠키/CSRF·모듈/계약/UoW/잠금·배포의 상세 후보는 이 ACCEPTED 범위에 포함하지 않는다. 전체 비교·정책 후보는 [IAM-001 설계](../architecture/iam-001-design.md), 첫 증분의 승인 질문·정확한 범위·인수 조건은 [IAM-001 결정안](../architecture/iam-001-decision-pack.md)이다. [ADR-0001](0001-backend-stack.md)~[ADR-0003](0003-foundation-tooling.md)의 승인 기술을 대체하지 않으며, 6개 모듈·운영 배포·계정 정책을 일괄 승인하지 않는다.
