@@ -35,6 +35,7 @@ class TrainerRoles:
             "iam_recovery_credentials",
             "iam_reset_credentials",
             "iam_emergency_credentials",
+            "iam_password_emergency_credentials",
             "iam_trainer_setup_credentials",
         ):
             self.s.execute(
@@ -76,10 +77,6 @@ class TrainerRoles:
             and not row.recovery_pending
             and not row.password_reset_pending
             and roles.admin
-            and self.s.execute(
-                text("SELECT 1 FROM iam_passkeys WHERE account_id=:a AND revoked_at IS NULL"),
-                {"a": ident},
-            ).first()
         )
 
     def lookup(self, organization: UUID, trainer: UUID, identifier: str) -> TrainerRoleCandidate:
@@ -152,20 +149,9 @@ class TrainerRoles:
             .one()
         )
         roles = self.iam.account_roles(ident)
-        keys = (
-            self.s.execute(
-                text(
-                    "SELECT key_id FROM iam_passkeys WHERE account_id=:a "
-                    "AND revoked_at IS NULL ORDER BY key_id"
-                ),
-                {"a": ident},
-            )
-            .scalars()
-            .all()
-        )
         return hashlib.sha256(
             json.dumps(
-                [dict(account), dict(session), asdict(roles.account), keys],
+                [dict(account), dict(session), asdict(roles.account), asdict(self.iam.policy())],
                 sort_keys=True,
                 default=str,
             ).encode()
@@ -182,11 +168,13 @@ class TrainerRoles:
             self.iam.account_roles(authentication.caller.account_id).trainer_role_epoch,
             row.last_activity,
             row.expires_at,
+            policy=self.iam.policy(),
         )
 
     def confirm_actor(
         self, snapshot: RoleActorSnapshot, *, self_change: bool, touch: bool = False
     ) -> None:
+        self.iam.check_policy(snapshot.policy)
         if touch and self_change:
             raise ValueError("Cannot touch a self-revoked session")
         auth = snapshot.authentication
@@ -327,7 +315,8 @@ class TrainerRoles:
         self.s.execute(
             text(
                 "INSERT INTO iam_trainer_role_operations "
-                "(organization_id,operation_id,trainer_id,account_id,actor_id,target_home,fingerprint,"
+                "(organization_id,operation_id,trainer_id,account_id,actor_id,target_home,"
+                "fingerprint,"
                 "changed,granted,committed_role_version) VALUES(:o,:i,:t,:a,:actor,:h,:f,:c,:g,:v)"
             ),
             {

@@ -3,12 +3,11 @@
 
 import concurrent.futures
 import secrets
-import subprocess
-import sys
 import threading
 import time
 from dataclasses import replace
 from datetime import datetime, timedelta
+from pathlib import Path
 from uuid import UUID, uuid4
 
 import httpx
@@ -19,12 +18,16 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from tests.test_iam import ORIGIN, SyntheticSecret, child_env, iam, login  # noqa: F401
+from tests.historical_backend import archive_backend, execute_original
+from tests.legacy_helpers import legacy_database, migration_status  # noqa: F401
+from tests.test_iam import ORIGIN, SyntheticSecret, iam, login  # noqa: F401
 from tests.test_iam_s2 import fingerprint_rows
 from tests.test_iam_s2b import World, auth, expect, facts, headers, nonce, world  # noqa: F401
 from y3management.audit.infrastructure import Audit
 from y3management.audit.public import Event
+from y3management.config import Settings
 from y3management.contracts import Rejected
+from y3management.database import Database
 from y3management.iam.infrastructure import IAM
 from y3management.iam.public import Account, LoginProof, Reservation
 from y3management.iam.security import Security
@@ -420,46 +423,45 @@ def test_final_login_requires_actual_admission(world: World, field: str) -> None
 
 
 @pytest.mark.parametrize("guard", ["unused", "history", "key_only", "history_only"])
-def test_login_id_migration_guards(world: World, guard: str) -> None:
-    def migrate(direction: str, target: str) -> int:
-        return subprocess.run(
-            [sys.executable, "-m", "alembic", direction, target],
-            env=child_env(world.settings),
-            capture_output=True,
-            timeout=30,
-        ).returncode
-
-    if guard in ("history", "history_only"):
-        expect(rename(world), 200)
-        if guard == "history_only":
-            # Isolate the audit guard in this disposable schema.
-            with world.db.session() as s:
-                s.execute(
-                    text("UPDATE iam_accounts SET login_budget_key=NULL WHERE id=:a"),
-                    {"a": world.ident},
-                )
-                s.commit()
-    elif guard == "key_only":
-        # Isolate the nonnull-key guard without management history in this owned test schema.
-        with world.db.session() as s:
-            s.execute(
-                text("UPDATE iam_accounts SET login_budget_key=:k WHERE id=:a"),
-                {"k": b"k" * 32, "a": world.ident},
-            )
-            s.commit()
-    with world.db.session() as s:
-        before_revision = s.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-    before = facts(world.db)
-    result = migrate("downgrade", "0003_iam_password")
-    if guard == "unused":
-        assert result == 0
-        assert migrate("upgrade", "head") == 0
-    else:
-        assert result != 0
-    assert facts(world.db) == before
-    with world.db.session() as s:
-        revision = s.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-    assert revision == before_revision
+def test_login_id_migration_guards(
+    legacy_database: tuple[Settings, Database], tmp_path: Path, guard: str
+) -> None:
+    # Historical contract: prepare real CLI/API input before 0014, never bypass its guard.
+    settings, db = legacy_database
+    assert migration_status(settings, "downgrade", "0004_iam_login_id") == 0
+    old = archive_backend(tmp_path, "1cf16c6bd83968ef05c5327def3d36cc7bee115e")
+    migration = Path("alembic/versions/0004_iam_login_id.py")
+    assert (old / migration).read_bytes() == migration.read_bytes()
+    execute_original(
+        old,
+        settings,
+        f"""from contextlib import closing
+import secrets
+from sqlalchemy import text
+from tests.test_iam import cli_bootstrap
+from tests.test_iam_s2b import world
+from tests.test_iam_s2c import test_login_id_migration_guards
+from y3management.config import load_settings
+from y3management.database import Database
+cfg=load_settings()
+password="Historical revision password " + secrets.token_urlsafe(24)
+db=Database(cfg)
+try:
+    with db.session() as session:
+        revision=session.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+        assert revision=="0004_iam_login_id"
+    cli_bootstrap(cfg,password)
+    with closing(world.__wrapped__((cfg,db,password))) as prepared:
+        subject=next(prepared)
+        test_login_id_migration_guards(subject, {guard!r})
+finally:
+    db.close()
+""",
+    )
+    with db.session() as session:
+        assert session.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == (
+            "0004_iam_login_id"
+        )
 
 
 @pytest.mark.parametrize("competitor", ["disable", "scope", "password", "claim", "rename"])

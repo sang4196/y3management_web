@@ -1,5 +1,5 @@
 # ruff: noqa: F811
-"""Purpose-bound password reset through actual provisioned MFA administrators."""
+"""Purpose-bound password reset through actual password-only administrators."""
 
 import hashlib
 import json
@@ -13,18 +13,17 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-from tests.test_iam import ORIGIN, SyntheticSecret, csrf
-from tests.test_iam_mfa import (  # noqa: F401
-    Authenticator,
-    begin,
+from tests.password_helpers import (
+    activate,
+    assert_prepared_rejected,
     call,
-    enroll,
-    login_mfa,
-    mfa,
+    link_token,
+    login_password,
+    prepare_login,
     protect,
+    provision,
 )
-from tests.test_iam_mfa_management import add, keys, link_token, recovery_options, recovery_request
-from tests.test_iam_mfa_management_races import provision
+from tests.test_iam import ORIGIN, SyntheticSecret, csrf
 from y3management.application import create_app
 from y3management.audit.infrastructure import Audit
 from y3management.audit.public import Event
@@ -82,21 +81,19 @@ def fingerprint(db: Database) -> str:
 
 
 @pytest.mark.parametrize("master_target", [True, False])
-def test_reset_preserves_keys_and_scope_revokes_password_sessions_and_proofs(
-    mfa: tuple[Settings, Database, str, str],
+def test_reset_preserves_scope_revokes_password_sessions_and_proofs(
+    password_app: tuple[Settings, Database, str],
     master_target: bool,
 ) -> None:
-    settings, db, password, token = mfa
+    settings, db, password = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as first:
-        actor_key = Authenticator()
-        enroll(first, token, actor_key)
-        login_mfa(first, password, actor_key)
+        login_password(first, password)
         with (
             closing(TestClient(first.app, base_url=ORIGIN)) as second,
             closing(TestClient(first.app, base_url=ORIGIN)) as third,
         ):
             if master_target:
-                ident, key = provision(first, second, password)
+                ident = provision(first, second, password)
                 identifier = "second.master"
             else:
                 branch = call(
@@ -108,39 +105,18 @@ def test_reset_preserves_keys_and_scope_revokes_password_sessions_and_proofs(
                     csrf(first),
                     {"login_id": "target.test", "branch_id": branch["id"]},
                 ).json()
-                ident, identifier, key = issued["account_id"], "target.test", Authenticator()
-                enroll(second, link_token(issued["setup_link"]), key, password)
-                login_mfa(second, password, key, identifier)
-            another = Authenticator()
-            add(second, another)
-            login_mfa(third, password, another, identifier)
-            before_keys, before_me = keys(second), second.get("/api/v1/auth/me").json()
-            pending_add = call(second, "/auth/passkeys/options", csrf(second), {}).json()
-            with closing(TestClient(first.app, base_url=ORIGIN)) as pending_client:
-                pending_login = begin(pending_client, password, identifier)
-                issued = reset_request(first, ident)
-                assert issued.status_code == 201
-                raw = link_token(issued.json()["reset_link"])
-                assert second.get("/api/v1/auth/me").status_code == 401
-                assert third.get("/api/v1/auth/me").status_code == 401
-                assert (
-                    call(
-                        second,
-                        "/auth/passkeys/verify",
-                        pending_add["csrf_token"],
-                        {"credential": Authenticator().registration(pending_add["publicKey"])},
-                    ).status_code
-                    == 401
-                )
-                assert (
-                    call(
-                        pending_client,
-                        "/auth/login/passkey/verify",
-                        pending_login["csrf_token"],
-                        {"credential": key.assertion(pending_login["publicKey"])},
-                    ).status_code
-                    == 401
-                )
+                ident, identifier = issued["account_id"], "target.test"
+                activate(second, link_token(issued["setup_link"]), password)
+                login_password(second, password, identifier)
+            login_password(third, password, identifier)
+            before_me = second.get("/api/v1/auth/me").json()
+            pending_login = prepare_login(second, identifier, password)
+            issued = reset_request(first, ident)
+            assert issued.status_code == 201
+            raw = link_token(issued.json()["reset_link"])
+            assert second.get("/api/v1/auth/me").status_code == 401
+            assert third.get("/api/v1/auth/me").status_code == 401
+            assert_prepared_rejected(second, pending_login)
             assert (
                 call(
                     second,
@@ -173,8 +149,7 @@ def test_reset_preserves_keys_and_scope_revokes_password_sessions_and_proofs(
             assert "__Host-y3-auth" not in second.cookies
             assert second.get("/api/v1/auth/me").status_code == 401
             assert complete(second, raw, new_password).status_code == 401
-            login_mfa(second, new_password, key, identifier)
-            assert keys(second) == before_keys
+            login_password(second, new_password, identifier)
             assert second.get("/api/v1/auth/me").json() == before_me
             with db.session() as s:
                 rows = s.execute(
@@ -189,16 +164,16 @@ def test_reset_preserves_keys_and_scope_revokes_password_sessions_and_proofs(
 
 
 @pytest.mark.parametrize(
-    "case", ["reissue", "expiry", "purpose", "issuer_logout", "policy", "same_password", "overlap"]
+    "case", ["reissue", "expiry", "purpose", "issuer_logout", "policy", "same_password"]
 )
-def test_reset_authority_boundaries(mfa: tuple[Settings, Database, str, str], case: str) -> None:
-    settings, db, password, token = mfa
+def test_reset_authority_boundaries(
+    password_app: tuple[Settings, Database, str], case: str
+) -> None:
+    settings, db, password = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as first:
-        key = Authenticator()
-        enroll(first, token, key)
-        login_mfa(first, password, key)
+        login_password(first, password)
         with closing(TestClient(first.app, base_url=ORIGIN)) as second:
-            ident, _ = provision(first, second, password)
+            ident = provision(first, second, password)
             issued = reset_request(first, ident)
             assert issued.status_code == 201
             raw = link_token(issued.json()["reset_link"])
@@ -228,11 +203,10 @@ def test_reset_authority_boundaries(mfa: tuple[Settings, Database, str, str], ca
                 assert complete(second, raw, password).status_code == 401
                 raw = link_token(replaced.json()["reset_link"])
             if case == "purpose":
-                assert recovery_options(second, raw).status_code == 401
                 assert (
                     call(
                         second,
-                        "/auth/passkeys/enrollment/options",
+                        "/auth/credentials/complete",
                         csrf(second),
                         {"setup_token": raw, "new_password": password},
                     ).status_code
@@ -242,47 +216,24 @@ def test_reset_authority_boundaries(mfa: tuple[Settings, Database, str, str], ca
                 assert call(first, "/auth/logout", csrf(first), {}).status_code == 204
             if case == "policy":
                 assert complete(second, raw, "short").status_code == 422
-            if case == "overlap":
-                assert recovery_request(first, ident).status_code == 409
             # Existing password policy permits reuse: no new history/reuse prohibition.
             assert complete(second, raw, password).status_code == 204
             assert second.get("/api/v1/auth/me").status_code == 401
-            if case == "overlap":
-                # Both factors lost: restricted reset then recovery, no intermediate login.
-                recovery = recovery_request(first, ident)
-                assert recovery.status_code == 201
-                assert reset_request(first, ident).status_code == 409
-                options = recovery_options(
-                    second, link_token(recovery.json()["recovery_link"])
-                ).json()
-                fresh = Authenticator()
-                assert (
-                    call(
-                        second,
-                        "/auth/passkeys/recovery/verify",
-                        options["csrf_token"],
-                        {"credential": fresh.registration(options["publicKey"])},
-                    ).status_code
-                    == 204
-                )
-                assert reset_request(first, ident).status_code == 201
 
 
 @pytest.mark.parametrize("action", ["start", "reissue", "complete"])
 @pytest.mark.parametrize("failure", ["audit", "ack"])
 def test_reset_atomicity(
-    mfa: tuple[Settings, Database, str, str],
+    password_app: tuple[Settings, Database, str],
     monkeypatch: pytest.MonkeyPatch,
     action: str,
     failure: str,
 ) -> None:
-    settings, db, password, token = mfa
+    settings, db, password = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as first:
-        key = Authenticator()
-        enroll(first, token, key)
-        login_mfa(first, password, key)
+        login_password(first, password)
         with closing(TestClient(first.app, base_url=ORIGIN)) as second:
-            ident, _ = provision(first, second, password)
+            ident = provision(first, second, password)
             raw = SyntheticSecret("")
             if action != "start":
                 raw = link_token(reset_request(first, ident).json()["reset_link"])

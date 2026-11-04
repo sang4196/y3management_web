@@ -1,1 +1,20 @@
-["trusted_https","initial_enrollment","target_initial_mfa","actor_setup_uv","actor_normal_mfa","expired_case_status","authenticated_takeover","explicit_live_reissue","superseded_status_no_token","fragment_removed","target_revoked","both_real_uv_completion","no_auto_login","normal_relogin","completed_status","actor_preserved","no_token_request_url"]
+[
+  "target_initial_password",
+  "trusted_https",
+  "actor_password_setup",
+  "actor_setup_no_auto_login",
+  "actor_normal_password",
+  "expired_case_status",
+  "authenticated_takeover",
+  "explicit_live_reissue",
+  "superseded_status_no_token",
+  "superseded_source_denied",
+  "fragment_removed",
+  "target_revoked",
+  "password_completion",
+  "no_auto_login",
+  "normal_relogin",
+  "completed_status",
+  "actor_preserved",
+  "no_token_request_url"
+]

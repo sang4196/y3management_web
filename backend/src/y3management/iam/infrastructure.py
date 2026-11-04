@@ -6,7 +6,7 @@ import json
 import re
 import secrets
 from datetime import datetime, timedelta
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID, uuid4
 
 from sqlalchemy import text
@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from y3management.contracts import Rejected
 from y3management.iam.passwords import Passwords
+from y3management.iam.policy import check_policy, current_policy
 from y3management.iam.public import (
     Account,
     AccountRoles,
@@ -21,6 +22,8 @@ from y3management.iam.public import (
     Caller,
     IdentityTransition,
     LoginProof,
+    PasswordChangeActor,
+    PolicyStamp,
     Reservation,
     Setup,
     TrainerAccountState,
@@ -49,6 +52,12 @@ class IAM:
         self.key = key.encode()
         self.mode = mode
         self._upgrades: dict[UUID, str] = {}
+
+    def policy(self) -> PolicyStamp:
+        return current_policy(self.s)
+
+    def check_policy(self, expected: PolicyStamp) -> None:
+        check_policy(self.s, expected)
 
     def now(self) -> datetime:
         result: datetime = self.s.execute(text("SELECT clock_timestamp()")).scalar_one()
@@ -120,7 +129,9 @@ class IAM:
     def preparation(self, token: str | None, nonce: str | None, consume: bool = False) -> None:
         row = (
             self.s.execute(
-                text("SELECT * FROM iam_preparations WHERE digest=:d FOR UPDATE"),
+                text(
+                    "SELECT * FROM iam_preparations WHERE policy_version=2 AND digest=:d FOR UPDATE"
+                ),
                 {"d": digest(token or "")},
             )
             .mappings()
@@ -147,6 +158,8 @@ class IAM:
     def verify_login(
         self, identifier: str, password: str, reservation: Reservation
     ) -> LoginProof | None:
+        policy = self.policy()
+        self.check_policy(reservation.policy)
         row = (
             self.s.execute(
                 text(
@@ -186,6 +199,7 @@ class IAM:
             row["security_version"],
             hmac.digest(self.key, encoded.encode(), "sha256"),
             row["trainer_role_epoch"],
+            policy=policy,
         )
 
     def login(
@@ -196,9 +210,9 @@ class IAM:
         nonce: str | None,
         reservation: Reservation,
     ) -> tuple[str, Account]:
+        self.check_policy(proof.policy)
+        self.check_policy(reservation.policy)
         roles = self.account_roles(proof.account_id)
-        if self.mode == "mfa" and roles.admin:
-            raise Rejected(403, "mfa_required")
         if not roles.admin and not roles.trainer_granted:
             raise Rejected(401, "invalid_credentials")
         lock = "UPDATE" if proof.account_id in self._upgrades else "SHARE"
@@ -248,8 +262,8 @@ class IAM:
             text(
                 "INSERT INTO "
                 "iam_sessions(id,account_id,digest,csrf,security_version,trainer_role_epoch,"
-                "created_at,last_activity,expires_at,revoked) "
-                "VALUES(:id,:a,:d,:c,:v,:re,:n,:n,:e,false)"
+                "created_at,last_activity,expires_at,revoked,policy_version,login_attempt_id) "
+                "VALUES(:id,:a,:d,:c,:v,:re,:n,:n,:e,false,2,:attempt)"
             ),
             {
                 "id": sid,
@@ -258,6 +272,7 @@ class IAM:
                 "c": csrf,
                 "v": proof.security_version,
                 "re": proof.trainer_role_epoch,
+                "attempt": reservation.id,
                 "n": now,
                 "e": min(slot, now + timedelta(hours=8)),
             },
@@ -275,7 +290,7 @@ class IAM:
         audience: Literal["admin", "account"] = "admin",
     ) -> Authentication:
         hint = self.s.execute(
-            text("SELECT id,account_id FROM iam_sessions WHERE digest=:d"),
+            text("SELECT id,account_id FROM iam_sessions WHERE policy_version=2 AND digest=:d"),
             {"d": digest(token or "")},
         ).first()
         if hint is None:
@@ -311,7 +326,7 @@ class IAM:
                     "a.security_version AS current_version,"
                     "a.trainer_role_epoch AS current_role_epoch "
                     "FROM iam_sessions s JOIN iam_accounts a ON a.id=s.account_id "
-                    "WHERE s.id=:id"
+                    "WHERE s.policy_version=2 AND s.id=:id"
                 ),
                 {"id": hint.id},
             )
@@ -319,11 +334,10 @@ class IAM:
             .first()
         )
         roles = self.account_roles(hint.account_id)
-        require_uv = self.mode == "mfa" and (audience == "admin" or roles.admin)
         now = self.now()
         if (
             row is None
-            or (require_uv and row["assurance"] != "password_uv")
+            or row["assurance"] != "password"
             or row["recovery_pending"]
             or row["password_reset_pending"]
             or row["revoked"]
@@ -332,16 +346,6 @@ class IAM:
             or row["trainer_role_epoch"] != row["current_role_epoch"]
             or row["expires_at"] <= now
             or row["last_activity"] + timedelta(minutes=30) <= now
-        ):
-            raise Rejected(401, "unauthorized")
-        if (
-            require_uv
-            and not self.s.execute(
-                text(
-                    "SELECT 1 FROM iam_passkeys WHERE account_id=:a AND revoked_at IS NULL LIMIT 1"
-                ),
-                {"a": hint.account_id},
-            ).first()
         ):
             raise Rejected(401, "unauthorized")
         if not roles.admin:
@@ -367,6 +371,7 @@ class IAM:
             str(row["assurance"]),
             roles.binding,
             roles.trainer_granted,
+            policy=self.policy(),
         )
 
     def csrf(self, authentication: Authentication, nonce: str | None) -> None:
@@ -440,7 +445,12 @@ class IAM:
         if expiry <= self.now():
             raise Rejected(503, "unavailable")
         self.s.execute(
-            text("INSERT INTO iam_credentials VALUES(:id,:a,:d,:v,:e,false)"),
+            text(
+                "INSERT INTO "
+                "iam_credentials(id,account_id,digest,row_version,expires_at,"
+                "consumed,policy_version) "
+                "VALUES(:id,:a,:d,:v,:e,false,2)"
+            ),
             {
                 "id": state_id,
                 "a": account.id,
@@ -454,13 +464,13 @@ class IAM:
     def complete(
         self, token: str, password: str, preauth: str | None, nonce: str | None
     ) -> Account:
-        if self.mode == "mfa":
-            raise Rejected(403, "mfa_required")
+        policy = self.policy()
         hint = self.s.execute(
             text(
                 "SELECT c.account_id FROM iam_credentials c JOIN iam_accounts a ON "
                 "a.id=c.account_id "
-                "WHERE c.digest=:d AND NOT c.consumed AND c.expires_at>clock_timestamp() "
+                "WHERE c.policy_version=2 AND c.digest=:d AND NOT c.consumed AND "
+                "c.expires_at>clock_timestamp() "
                 "AND a.state='PENDING_SETUP' AND c.row_version=a.row_version"
             ),
             {"d": digest(token)},
@@ -468,6 +478,7 @@ class IAM:
         if hint is None:
             raise Rejected(400, "invalid_setup")
         before = self._account(hint.account_id)
+        epoch = self.account_roles(before.id).trainer_role_epoch
         encoded = self.passwords.create(password, before.login_id)
         self.s.execute(
             text("SELECT id FROM iam_accounts WHERE id=:a FOR UPDATE"), {"a": before.id}
@@ -479,19 +490,24 @@ class IAM:
         self.preparation(preauth, nonce)
         row = (
             self.s.execute(
-                text("SELECT * FROM iam_credentials WHERE digest=:d FOR UPDATE"),
+                text(
+                    "SELECT * FROM iam_credentials WHERE policy_version=2 AND digest=:d FOR UPDATE"
+                ),
                 {"d": digest(token)},
             )
             .mappings()
             .first()
         )
         account = self._account(before.id)
+        self.check_policy(policy)
         if (
             row is None
             or row["consumed"]
             or row["expires_at"] <= self.now()
             or account.state != "PENDING_SETUP"
             or row["row_version"] != account.version
+            or row["account_id"] != before.id
+            or self.account_roles(before.id).trainer_role_epoch != epoch
         ):
             raise Rejected(400, "invalid_setup")
         self.s.execute(
@@ -506,6 +522,18 @@ class IAM:
         )
         self.preparation(preauth, nonce, consume=True)
         return self._account(account.id)
+
+    def confirm_setup(self, token: str) -> None:
+        self.policy()
+        valid = self.s.execute(
+            text(
+                "SELECT 1 FROM iam_credentials WHERE policy_version=2 AND digest=:d "
+                "AND consumed AND expires_at>clock_timestamp()"
+            ),
+            {"d": digest(token)},
+        ).first()
+        if valid is None:
+            raise Rejected(400, "invalid_setup")
 
     def lock_credentials(self, ident: UUID) -> None:
         self.s.execute(
@@ -581,6 +609,7 @@ class IAM:
     def prepare_password_change(
         self, ident: UUID, current_password: str, new_password: str
     ) -> LoginProof:
+        policy = self.policy()
         # This adapter has only unlocked snapshots until final authentication below.
         row = (
             self.s.execute(
@@ -606,9 +635,83 @@ class IAM:
             row["security_version"],
             hmac.digest(self.key, encoded.encode(), "sha256"),
             row["trainer_role_epoch"],
+            policy=policy,
         )
 
+    def _password_change_facts(self, ident: UUID) -> dict[str, list[dict[str, Any]]]:
+        # IAM-owned facts only. Secrets stay inside the adapter; the public snapshot is a digest.
+        tables = {
+            "iam_accounts": ("id", "id"),
+            "iam_sessions": ("account_id", "id"),
+            "iam_admin_grants": ("account_id", "account_id"),
+            "iam_trainer_bindings": ("account_id", "account_id"),
+            "iam_trainer_role_grants": ("account_id", "account_id"),
+            "iam_login_ids": ("account_id", "login_id"),
+            "iam_credentials": ("account_id", "id"),
+            "iam_trainer_setup_credentials": ("account_id", "id"),
+        }
+        return {
+            table: [
+                dict(row)
+                for row in self.s.execute(
+                    text(f"SELECT * FROM {table} WHERE {field}=:a ORDER BY {order}"), {"a": ident}
+                ).mappings()
+            ]
+            for table, (field, order) in tables.items()
+        }
+
+    def _password_change_digest(self, facts: dict[str, list[dict[str, Any]]]) -> bytes:
+        return hmac.digest(
+            self.key, json.dumps(facts, sort_keys=True, default=str).encode(), "sha256"
+        )
+
+    def password_change_actor(
+        self, authentication: Authentication, proof: LoginProof
+    ) -> PasswordChangeActor:
+        self.check_policy(authentication.policy)
+        if authentication.caller.account_id != proof.account_id:
+            raise Rejected(401, "unauthorized")
+        facts = self._password_change_facts(proof.account_id)
+        original = next(
+            (r for r in facts["iam_sessions"] if r["id"] == authentication.session_id), None
+        )
+        if original is None or original["revoked"]:
+            raise Rejected(401, "unauthorized")
+        activity, expiry = original["last_activity"], original["expires_at"]
+        account = facts["iam_accounts"][0]
+        account["password_hash"] = self._upgrades[proof.account_id]
+        account["row_version"] += 1
+        account["security_version"] += 1
+        for session in facts["iam_sessions"]:
+            session["revoked"] = True
+        for table in ("iam_credentials", "iam_trainer_setup_credentials"):
+            for credential in facts[table]:
+                credential["consumed"] = True
+        return PasswordChangeActor(
+            authentication,
+            self._password_change_digest(facts),
+            activity,
+            expiry,
+            authentication.policy,
+        )
+
+    def confirm_password_change(self, snapshot: PasswordChangeActor) -> None:
+        self.check_policy(snapshot.policy)
+        actual = self._password_change_digest(
+            self._password_change_facts(snapshot.authentication.caller.account_id)
+        )
+        # Mandatory facts and audit have completed. This is the final DB clock;
+        # C3 intentionally revokes every session and must never refresh the actor.
+        now = self.now()
+        if (
+            not hmac.compare_digest(actual, snapshot.expected_digest)
+            or snapshot.last_activity + timedelta(minutes=30) <= now
+            or snapshot.expires_at <= now
+        ):
+            raise Rejected(401, "unauthorized")
+
     def change_password(self, proof: LoginProof) -> tuple[Account, Account]:
+        self.check_policy(proof.policy)
         # Account and every affected session are already locked in the canonical order.
         row = (
             self.s.execute(
@@ -716,6 +819,7 @@ class IAM:
             "iam_recovery_credentials",
             "iam_reset_credentials",
             "iam_emergency_credentials",
+            "iam_password_emergency_credentials",
         ):
             self.s.execute(
                 text(f"SELECT id FROM {table} WHERE account_id=:a ORDER BY id FOR UPDATE"),
@@ -977,8 +1081,8 @@ class IAM:
             text(
                 "INSERT INTO iam_trainer_setup_credentials "
                 "(id,purpose,organization_id,account_id,trainer_id,digest,account_version,"
-                "security_version,binding_version,expires_at,trainer_role_epoch) "
-                "VALUES(:i,'trainer_initial',:o,:a,:t,:d,:v,:sv,1,:e,:re)"
+                "security_version,binding_version,expires_at,trainer_role_epoch,policy_version) "
+                "VALUES(:i,'trainer_initial',:o,:a,:t,:d,:v,:sv,1,:e,:re,2)"
             ),
             {
                 "i": slot,
@@ -995,7 +1099,8 @@ class IAM:
         self.s.execute(
             text(
                 "INSERT INTO iam_trainer_account_operations "
-                "(organization_id,operation_id,kind,trainer_id,account_id,actor_id,target_home_at_commit,"
+                "(organization_id,operation_id,kind,trainer_id,account_id,actor_id,"
+                "target_home_at_commit,"
                 "canonical_version,fingerprint,committed_account_version) "
                 "VALUES(:o,:i,:k,:t,:a,:actor,:h,1,:f,:v)"
             ),
@@ -1016,9 +1121,13 @@ class IAM:
         return result, Setup(token, expiry), before
 
     def prepare_trainer_setup(self, token: str, password: str) -> TrainerSetupProof:
+        policy = self.policy()
         row = (
             self.s.execute(
-                text("SELECT * FROM iam_trainer_setup_credentials WHERE digest=:d"),
+                text(
+                    "SELECT * FROM iam_trainer_setup_credentials WHERE policy_version=2 AND "
+                    "digest=:d"
+                ),
                 {"d": digest(token)},
             )
             .mappings()
@@ -1042,6 +1151,7 @@ class IAM:
             row["binding_version"],
             row["expires_at"],
             row["trainer_role_epoch"],
+            policy=policy,
         )
 
     def lock_trainer_setup(
@@ -1054,6 +1164,7 @@ class IAM:
         return self.identity_transition(proof.account_id).binding
 
     def _check_trainer_source(self, proof: TrainerSetupProof, *, consumed: bool) -> None:
+        self.check_policy(proof.policy)
         row = (
             self.s.execute(
                 text(
@@ -1061,7 +1172,7 @@ class IAM:
                     "a.recovery_pending,a.password_reset_pending "
                     "FROM iam_trainer_setup_credentials c "
                     "JOIN iam_security_states s ON s.id=c.id "
-                    "JOIN iam_accounts a ON a.id=c.account_id WHERE c.id=:i"
+                    "JOIN iam_accounts a ON a.id=c.account_id WHERE c.policy_version=2 AND c.id=:i"
                 ),
                 {"i": proof.source_id},
             )
@@ -1122,6 +1233,7 @@ class IAM:
         self._check_trainer_source(proof, consumed=True)
 
     def confirm_trainer_delivery(self, operation: TrainerOperation, slot: UUID) -> None:
+        policy = self.policy()
         current = self.identity_transition(operation.account_id)
         row = (
             self.s.execute(
@@ -1140,6 +1252,7 @@ class IAM:
             row["binding_version"],
             row["expires_at"],
             row["trainer_role_epoch"],
+            policy=policy,
         )
         self._check_trainer_source(proof, consumed=False)
         if operation.committed_account_version != current.account.version:
@@ -1181,6 +1294,8 @@ class IAM:
                 raise Rejected(401, "unauthorized")
 
     def confirm_login(self, proof: LoginProof, reservation: Reservation, sid: UUID) -> None:
+        self.check_policy(proof.policy)
+        self.check_policy(reservation.policy)
         row = (
             self.s.execute(
                 text(
@@ -1188,7 +1303,8 @@ class IAM:
                     "s.trainer_role_epoch,a.trainer_role_epoch AS current_role_epoch,"
                     "a.security_version AS current_version,t.lease_until,t.outcome "
                     "FROM iam_sessions s JOIN iam_accounts a ON a.id=s.account_id "
-                    "JOIN iam_attempts t ON t.id=:r AND t.key=:k WHERE s.id=:s"
+                    "JOIN iam_attempts t ON t.id=:r AND t.key=:k WHERE s.policy_version=2 AND "
+                    "t.policy_version=2 AND s.login_attempt_id=t.id AND s.id=:s"
                 ),
                 {"s": sid, "r": reservation.id, "k": reservation.key},
             )
@@ -1211,12 +1327,22 @@ class IAM:
         ):
             raise Rejected(401, "invalid_credentials")
 
-    def revoke_undelivered_session(self, sid: UUID) -> None:
-        self.s.execute(text("UPDATE iam_sessions SET revoked=true WHERE id=:i"), {"i": sid})
+    def revoke_undelivered_session(
+        self, sid: UUID, *, attempt_id: UUID, account_id: UUID, policy: PolicyStamp
+    ) -> None:
+        self.check_policy(policy)
+        self.s.execute(
+            text("""UPDATE iam_sessions SET revoked=true WHERE id=:i
+          AND account_id=:a AND login_attempt_id=:r AND policy_version=2"""),
+            {"i": sid, "a": account_id, "r": attempt_id},
+        )
 
     def confirm_preparation(self, token: str | None, nonce: str | None) -> None:
         row = self.s.execute(
-            text("SELECT consumed,expires_at,csrf FROM iam_preparations WHERE digest=:d"),
+            text(
+                "SELECT consumed,expires_at,csrf FROM iam_preparations WHERE policy_version=2 "
+                "AND digest=:d"
+            ),
             {"d": digest(token or "")},
         ).first()
         if (

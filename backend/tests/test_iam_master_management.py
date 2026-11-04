@@ -12,19 +12,18 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-from tests.test_iam import ORIGIN, csrf
-from tests.test_iam_mfa import (  # noqa: F401
-    Authenticator,
+from tests.password_helpers import (
     PrivateResponse,
-    begin,
+    assert_prepared_rejected,
     call,
-    enroll,
-    login_mfa,
-    mfa,
+    complete,
+    link_token,  # noqa: F401
+    login_password,
+    prepare_login,
+    provision,
+    reset_request,
 )
-from tests.test_iam_mfa_management import link_token, recovery_options, recovery_request
-from tests.test_iam_mfa_management_races import provision
-from tests.test_iam_password_reset import complete, reset_request
+from tests.test_iam import ORIGIN, csrf
 from y3management.application import create_app
 from y3management.audit.infrastructure import Audit
 from y3management.audit.public import Event
@@ -114,21 +113,20 @@ def factors(db: Database, ident: str) -> str:
     return hashlib.sha256(json.dumps(rows).encode()).hexdigest()
 
 
-def test_master_lifecycle_id_and_proof_revocation(mfa: tuple[Settings, Database, str, str]) -> None:
-    settings, db, password, token = mfa
+def test_master_lifecycle_id_and_proof_revocation(
+    password_app: tuple[Settings, Database, str],
+) -> None:
+    settings, db, password = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as first:
-        actor = Authenticator()
-        enroll(first, token, actor)
-        login_mfa(first, password, actor)
+        login_password(first, password)
         with (
             closing(TestClient(first.app, base_url=ORIGIN)) as second,
             closing(TestClient(first.app, base_url=ORIGIN)) as third,
             closing(TestClient(first.app, base_url=ORIGIN)) as pending,
         ):
-            ident, key = provision(first, second, password)
-            login_mfa(third, password, key, "second.master")
-            proof = begin(pending, password, "second.master")
-            add = call(second, "/auth/passkeys/options", csrf(second), {}).json()
+            ident = provision(first, second, password)
+            login_password(third, password, "second.master")
+            proof = prepare_login(pending, "second.master", password)
             before = factors(db, ident)
             version = state(first, ident)["version"]
             assert command(first, ident, "status", version).status_code == 200
@@ -136,31 +134,14 @@ def test_master_lifecycle_id_and_proof_revocation(mfa: tuple[Settings, Database,
             assert first.get("/api/v1/auth/me").status_code == 200
             for client in (second, third):
                 assert client.get("/api/v1/auth/me").status_code == 401
-            assert (
-                call(
-                    pending,
-                    "/auth/login/passkey/verify",
-                    proof["csrf_token"],
-                    {"credential": key.assertion(proof["publicKey"])},
-                ).status_code
-                == 401
-            )
-            assert (
-                call(
-                    second,
-                    "/auth/passkeys/verify",
-                    add["csrf_token"],
-                    {"credential": Authenticator().registration(add["publicKey"])},
-                ).status_code
-                == 401
-            )
+            assert_prepared_rejected(pending, proof)
             assert command(first, ident, "status", version + 1).status_code == 409
             assert command(first, ident, "restore", version + 1).status_code == 200
             assert command(first, ident, "restore", version + 2).status_code == 409
             assert factors(db, ident) == before
             assert second.get("/api/v1/auth/me").status_code == 401
             second.cookies.clear()
-            login_mfa(second, password, key, "second.master")
+            login_password(second, password, "second.master")
             nonce = csrf(first)
             same = snapshot(db)
             assert (
@@ -187,7 +168,7 @@ def test_master_lifecycle_id_and_proof_revocation(mfa: tuple[Settings, Database,
                 == 401
             )
             second.cookies.clear()
-            login_mfa(second, password, key, "renamed.master")
+            login_password(second, password, "renamed.master")
             assert (
                 call(
                     first, "/admin/master-accounts", csrf(first), {"login_id": "second.master"}
@@ -200,26 +181,22 @@ def test_master_lifecycle_id_and_proof_revocation(mfa: tuple[Settings, Database,
             )
             assert factors(db, ident) == before
             second.cookies.clear()
-            login_mfa(second, password, key, "second.master")
+            login_password(second, password, "second.master")
 
 
-@pytest.mark.parametrize("pending_kind", ["reset", "recovery"])
 @pytest.mark.parametrize("operation", ["status", "login-id"])
 def test_pending_preserved_requires_reissue(
-    mfa: tuple[Settings, Database, str, str], pending_kind: str, operation: str
+    password_app: tuple[Settings, Database, str], operation: str
 ) -> None:
-    settings, db, password, token = mfa
+    settings, db, password = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as first:
-        actor = Authenticator()
-        enroll(first, token, actor)
-        login_mfa(first, password, actor)
+        login_password(first, password)
         with closing(TestClient(first.app, base_url=ORIGIN)) as second:
-            ident, key = provision(first, second, password)
-            request = reset_request if pending_kind == "reset" else recovery_request
+            ident = provision(first, second, password)
+            request = reset_request
             issued = request(first, ident)
             assert issued.status_code == 201
-            raw = link_token(issued.json()[pending_kind + "_link"])
-            options = recovery_options(second, raw).json() if pending_kind == "recovery" else None
+            raw = link_token(issued.json()["reset_link"])
             version = state(first, ident)["version"]
             saved = factors(db, ident)
             nonce = csrf(first)
@@ -233,60 +210,29 @@ def test_pending_preserved_requires_reissue(
             if operation == "status":
                 assert command(first, ident, "restore", version + 1).status_code == 200
             assert factors(db, ident) == saved
-            if pending_kind == "reset":
-                assert complete(second, raw, password).status_code == 401
-            else:
-                assert options is not None
-                assert (
-                    call(
-                        second,
-                        "/auth/passkeys/recovery/verify",
-                        options["csrf_token"],
-                        {"credential": Authenticator().registration(options["publicKey"])},
-                    ).status_code
-                    == 401
-                )
-                assert recovery_options(second, raw).status_code == 401
+            assert complete(second, raw, password).status_code == 401
             reissued = request(first, ident, reissue=True)
             assert reissued.status_code == 201
-            new = link_token(reissued.json()[pending_kind + "_link"])
-            if pending_kind == "reset":
-                assert complete(second, new, password).status_code == 204
-            else:
-                options = recovery_options(second, new).json()
-                key = Authenticator()
-                assert (
-                    call(
-                        second,
-                        "/auth/passkeys/recovery/verify",
-                        options["csrf_token"],
-                        {"credential": key.registration(options["publicKey"])},
-                    ).status_code
-                    == 204
-                )
-            login_mfa(
-                second,
-                password,
-                key,
-                "renamed.master" if operation == "login-id" else "second.master",
+            new = link_token(reissued.json()["reset_link"])
+            assert complete(second, new, password).status_code == 204
+            login_password(
+                second, password, "renamed.master" if operation == "login-id" else "second.master"
             )
 
 
 @pytest.mark.parametrize("operation", ["status", "restore", "login-id"])
 @pytest.mark.parametrize("failure", ["audit", "db", "ack"])
 def test_master_atomicity(
-    mfa: tuple[Settings, Database, str, str],
+    password_app: tuple[Settings, Database, str],
     monkeypatch: pytest.MonkeyPatch,
     operation: str,
     failure: str,
 ) -> None:
-    settings, db, password, token = mfa
+    settings, db, password = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as first:
-        actor = Authenticator()
-        enroll(first, token, actor)
-        login_mfa(first, password, actor)
+        login_password(first, password)
         with closing(TestClient(first.app, base_url=ORIGIN)) as second:
-            ident, _ = provision(first, second, password)
+            ident = provision(first, second, password)
             version = state(first, ident)["version"]
             if operation == "restore":
                 assert command(first, ident, "status", version).status_code == 200
@@ -338,17 +284,15 @@ def test_master_atomicity(
                     )
 
 
-def test_master_rename_preserves_c2_cooldown(mfa: tuple[Settings, Database, str, str]) -> None:
-    settings, db, password, token = mfa
+def test_master_rename_preserves_c2_cooldown(password_app: tuple[Settings, Database, str]) -> None:
+    settings, db, password = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as first:
-        actor = Authenticator()
-        enroll(first, token, actor)
-        login_mfa(first, password, actor)
+        login_password(first, password)
         with (
             closing(TestClient(first.app, base_url=ORIGIN)) as second,
             closing(TestClient(first.app, base_url=ORIGIN)) as pending,
         ):
-            ident, _ = provision(first, second, password)
+            ident = provision(first, second, password)
             for _ in range(5):
                 assert (
                     call(

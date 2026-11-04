@@ -8,8 +8,8 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import text
 
+from tests.password_helpers import call, password_app  # noqa: F401
 from tests.test_iam import csrf
-from tests.test_iam_mfa import call, mfa  # noqa: F401
 from tests.test_iam_trainer import TrainerScene, counts, source, trainer  # noqa: F401
 from tests.test_workforce import scene  # noqa: F401
 from tests.test_workforce_integrity import branch_actor
@@ -23,10 +23,10 @@ pytestmark = pytest.mark.postgres
 
 def test_current_home_authority_and_no_login_id_reuse(
     trainer: TrainerScene,
-    mfa: tuple[Settings, Database, str, str],
+    password_app: tuple[Settings, Database, str],
 ) -> None:
     t = trainer
-    with closing(branch_actor(t.base, mfa[2])) as other:
+    with closing(branch_actor(t.base, password_app[2])) as other:
         path = "/admin/trainers/" + t.trainer + "/login-account"
         response = call(
             other, path, csrf(other), {"operation_id": str(uuid4()), "login_id": "master.test"}

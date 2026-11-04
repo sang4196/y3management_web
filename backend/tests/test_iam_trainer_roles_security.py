@@ -2,18 +2,24 @@
 """Current Home authorization and preserved administrator recovery sources."""
 
 from contextlib import closing
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
+from tests.password_helpers import (  # noqa: F401
+    call,
+    complete,
+    link_token,
+    login_password,
+    password_app,
+    provision,
+    reset_request,
+)
 from tests.test_iam import ORIGIN, csrf
-from tests.test_iam_mfa import Authenticator, call, login_mfa, mfa  # noqa: F401
-from tests.test_iam_mfa_management import link_token, recovery_options, recovery_request
-from tests.test_iam_mfa_management_races import provision
-from tests.test_iam_password_reset import complete, reset_request
 from tests.test_iam_trainer import TrainerScene, trainer  # noqa: F401
 from tests.test_iam_trainer_roles import body, change, state
 from tests.test_workforce import Scene, scene  # noqa: F401
@@ -38,10 +44,10 @@ def link(t: TrainerScene, ident: str, identifier: str) -> dict[str, Any]:
 
 
 def test_current_branch_scope_unbound_revoke_confirmation_and_binding(
-    trainer: TrainerScene, mfa: tuple[Settings, Database, str, str]
+    trainer: TrainerScene, password_app: tuple[Settings, Database, str]
 ) -> None:
     t = trainer
-    with closing(branch_actor(t.base, mfa[2])) as branch:
+    with closing(branch_actor(t.base, password_app[2])) as branch:
         master = t.base.client.get("/api/v1/auth/me").json()["account_id"]
         request = link(t, master, "MASTER.TEST")
         endpoint = "/admin/trainers/" + t.trainer + "/role"
@@ -134,110 +140,83 @@ def test_current_branch_scope_unbound_revoke_confirmation_and_binding(
         assert call(branch, endpoint, csrf(branch), request).status_code == 404
 
 
-@pytest.mark.parametrize("purpose", ["reset", "recovery"])
-def test_long_source_preserved_old_context_rejected_fresh_ceremony_succeeds(
-    trainer: TrainerScene, mfa: tuple[Settings, Database, str, str], purpose: str
+def test_long_reset_source_preserved_across_role_withdrawal(
+    trainer: TrainerScene, password_app: tuple[Settings, Database, str]
 ) -> None:
     t = trainer
     with closing(TestClient(t.base.client.app, base_url=ORIGIN)) as target:
-        ident, key = provision(t.base.client, target, mfa[2])
+        ident = provision(t.base.client, target, password_app[2])
         assert change(t, link(t, ident, "second.master")).status_code == 200
         assert target.get("/api/v1/auth/me").status_code == 401
         target.cookies.clear()
-        login_mfa(target, mfa[2], key, "second.master")
-        if purpose == "reset":
-            issued = reset_request(t.base.client, ident)
-            token = link_token(issued.json()["reset_link"])
-            table = "iam_reset_credentials"
-        else:
-            issued = recovery_request(t.base.client, ident)
-            token = link_token(issued.json()["recovery_link"])
-            table = "iam_recovery_credentials"
-            options = recovery_options(target, token).json()
-            replacement = Authenticator()
-            payload = {"credential": replacement.registration(options["publicKey"])}
+        login_password(target, password_app[2], "second.master")
+        issued = reset_request(t.base.client, ident)
+        token = link_token(issued.json()["reset_link"])
         with t.base.db.session() as s:
             before = s.execute(
-                text("SELECT row_to_json(x)::text FROM " + table + " x WHERE account_id=:a"),
+                text(
+                    "SELECT row_to_json(x)::text FROM iam_reset_credentials x WHERE account_id=:a"
+                ),
                 {"a": ident},
             ).scalar_one()
         assert change(t, body(t, False)).status_code == 200
         with t.base.db.session() as s:
             assert (
                 s.execute(
-                    text("SELECT row_to_json(x)::text FROM " + table + " x WHERE account_id=:a"),
+                    text(
+                        "SELECT row_to_json(x)::text FROM iam_reset_credentials x "
+                        "WHERE account_id=:a"
+                    ),
                     {"a": ident},
                 ).scalar_one()
                 == before
             )
-        if purpose == "reset":
-            assert complete(target, token, mfa[2]).status_code == 204
-            login_mfa(target, mfa[2], key, "second.master")
-        else:
-            assert (
-                call(
-                    target, "/auth/passkeys/recovery/verify", options["csrf_token"], payload
-                ).status_code
-                == 401
-            )
-            fresh = recovery_options(target, token)
-            assert fresh.status_code == 200
-            data = fresh.json()
-            assert (
-                call(
-                    target,
-                    "/auth/passkeys/recovery/verify",
-                    data["csrf_token"],
-                    {"credential": replacement.registration(data["publicKey"])},
-                ).status_code
-                == 204
-            )
-            login_mfa(target, mfa[2], replacement, "second.master")
+        assert complete(target, token, password_app[2]).status_code == 204
+        login_password(target, password_app[2], "second.master")
         profile = target.get("/api/v1/auth/me").json()
         assert [x["role"] for x in profile["roles"]] == ["ADMIN"]
         assert profile["trainer_binding"]["granted"] is False
         assert state(t)["granted"] is False
 
 
-def test_all_target_sessions_pending_uv_and_other_account_preserved(
-    trainer: TrainerScene, mfa: tuple[Settings, Database, str, str]
+def test_all_target_sessions_and_prepared_password_rejected_other_account_preserved(
+    trainer: TrainerScene, password_app: tuple[Settings, Database, str]
 ) -> None:
-    from tests.test_iam_mfa import begin
+    from y3management.contracts import Rejected
+    from y3management.use_cases import Service
 
     t = trainer
     with (
         closing(TestClient(t.base.client.app, base_url=ORIGIN)) as target,
         closing(TestClient(t.base.client.app, base_url=ORIGIN)) as second,
-        closing(TestClient(t.base.client.app, base_url=ORIGIN)) as pending,
     ):
-        ident, key = provision(t.base.client, target, mfa[2])
+        ident = provision(t.base.client, target, password_app[2])
         assert change(t, link(t, ident, "second.master")).status_code == 200
-        assert target.get("/api/v1/auth/me").status_code == 401
         target.cookies.clear()
-        login_mfa(target, mfa[2], key, "second.master")
-        login_mfa(second, mfa[2], key, "second.master")
-        options = begin(pending, mfa[2], "second.master")
+        login_password(target, password_app[2], "second.master")
+        login_password(second, password_app[2], "second.master")
+        service: Service = cast(FastAPI, t.base.client.app).state.iam_service
+        with service.uow.open() as w:
+            reservation = w.security.reserve("second.master")
+        with service.uow.open() as w:
+            proof = w.iam.verify_login("second.master", password_app[2], reservation)
+        assert proof is not None
         with t.base.db.session() as s:
             before_budget = s.execute(
                 text("SELECT key,cooldown FROM iam_budgets ORDER BY key")
             ).all()
-            before_keys = s.execute(
-                text("SELECT key_id,revoked_at FROM iam_passkeys ORDER BY key_id")
-            ).all()
-            active_sessions = s.execute(
-                text("SELECT count(*) FROM iam_sessions WHERE account_id=:a AND NOT revoked"),
-                {"a": ident},
-            ).scalar_one()
-        assert active_sessions == 2
+            assert (
+                s.execute(
+                    text("SELECT count(*) FROM iam_sessions WHERE account_id=:a AND NOT revoked"),
+                    {"a": ident},
+                ).scalar_one()
+                == 2
+            )
         assert change(t, body(t, False)).status_code == 200
         with t.base.db.session() as s:
             assert (
                 s.execute(text("SELECT key,cooldown FROM iam_budgets ORDER BY key")).all()
                 == before_budget
-            )
-            assert (
-                s.execute(text("SELECT key_id,revoked_at FROM iam_passkeys ORDER BY key_id")).all()
-                == before_keys
             )
             assert (
                 s.execute(
@@ -246,46 +225,40 @@ def test_all_target_sessions_pending_uv_and_other_account_preserved(
                 ).scalar_one()
                 == 0
             )
-            assert (
-                s.execute(
-                    text(
-                        "SELECT count(*) FROM iam_mfa_contexts WHERE account_id=:a "
-                        "AND (NOT consumed OR password_hash IS NOT NULL)"
-                    ),
-                    {"a": ident},
-                ).scalar_one()
-                == 0
-            )
+        with service.uow.open() as w:
+            preparation = w.security.preparation(None)
+            slot = w.security.allocate("session_slot")
+        try:
+            with pytest.raises(Rejected) as denied, service.uow.open() as w:
+                w.iam.lock_login(proof.account_id)
+                w.iam.login(proof, slot, preparation.token, preparation.csrf, reservation)
+            assert denied.value.status == 401
+        finally:
+            with service.uow.open() as w:
+                w.security.release(slot, collect=False)
         assert target.get("/api/v1/auth/me").status_code == 401
         assert second.get("/api/v1/auth/me").status_code == 401
-        assert (
-            call(
-                pending,
-                "/auth/login/passkey/verify",
-                options["csrf_token"],
-                {"credential": key.assertion(options["publicKey"])},
-            ).status_code
-            == 401
-        )
         assert t.base.client.get("/api/v1/auth/me").status_code == 200
 
 
 def test_prepared_reset_proof_rejected_but_original_source_still_usable(
-    trainer: TrainerScene, mfa: tuple[Settings, Database, str, str], monkeypatch: pytest.MonkeyPatch
+    trainer: TrainerScene,
+    password_app: tuple[Settings, Database, str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from y3management.iam.mfa import MFA
+    from y3management.iam.password_reset import PasswordReset
     from y3management.iam.public import ResetProof
 
     t = trainer
     with closing(TestClient(t.base.client.app, base_url=ORIGIN)) as target:
-        ident, _ = provision(t.base.client, target, mfa[2])
+        ident = provision(t.base.client, target, password_app[2])
         assert change(t, link(t, ident, "second.master")).status_code == 200
         issued = reset_request(t.base.client, ident)
         token = link_token(issued.json()["reset_link"])
-        original = MFA.prepare_reset
+        original = PasswordReset.prepare_reset
         changed = False
 
-        def prepare(self: MFA, token: str, password: str) -> ResetProof:
+        def prepare(self: PasswordReset, token: str, password: str) -> ResetProof:
             nonlocal changed
             proof = original(self, token, password)
             assert change(t, body(t, False)).status_code == 200
@@ -293,7 +266,7 @@ def test_prepared_reset_proof_rejected_but_original_source_still_usable(
             return proof
 
         with monkeypatch.context() as patch:
-            patch.setattr(MFA, "prepare_reset", prepare)
-            assert complete(target, token, mfa[2]).status_code == 401
+            patch.setattr(PasswordReset, "prepare_reset", prepare)
+            assert complete(target, token, password_app[2]).status_code == 401
         assert changed
-        assert complete(target, token, mfa[2]).status_code == 204
+        assert complete(target, token, password_app[2]).status_code == 204

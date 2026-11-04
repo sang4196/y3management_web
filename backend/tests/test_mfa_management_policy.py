@@ -14,13 +14,15 @@ def test_recovery_failure_locals_canary(tmp_path: Path) -> None:
     probe = tmp_path / "test_management_private.py"
     probe.write_text("""import os
 from datetime import datetime, UTC
-from y3management.http import RecoveryToken, PasskeyResponse
+from y3management.http import ResetComplete, EmergencyPassword
 from y3management.iam.public import Setup
-from tests.test_iam_mfa import protect
+from tests.password_helpers import protect
 
 def test_expected_failure():
-    token = RecoveryToken(recovery_token=os.environ['RECOVERY_CANARY'])
-    response = PasskeyResponse(credential={'rawId':os.environ['RECOVERY_CANARY']})
+    token = ResetComplete(reset_token=os.environ['RECOVERY_CANARY'],
+        new_password=os.environ['RECOVERY_CANARY'])
+    response = EmergencyPassword(emergency_token=os.environ['RECOVERY_CANARY'],
+        new_password=os.environ['RECOVERY_CANARY'])
     delivered = Setup(os.environ['RECOVERY_CANARY'],datetime.now(UTC))
     result = protect({'recovery_link':os.environ['RECOVERY_CANARY']})
     passed = False
@@ -56,8 +58,8 @@ def test_derived_link_helper_locals_canary(tmp_path: Path) -> None:
     probe.write_text("""import os
 import pytest
 from tests.test_iam import SyntheticSecret
-from tests.test_iam_mfa import Authenticator, enroll
-from tests.test_iam_mfa_management import link_token, recovery_options
+from tests.password_helpers import activate
+from tests.password_helpers import link_token, complete
 
 class Response:
     status_code = 200
@@ -76,9 +78,9 @@ def test_actual_helpers(flow):
     link = SyntheticSecret("https://example.invalid/#token=" + os.environ["DERIVED_CANARY"])
     token = link_token(link)
     if flow == "setup":
-        enroll(Client(), token, Authenticator(), SyntheticSecret(os.environ["DERIVED_CANARY"]))
+        activate(Client(), token, SyntheticSecret(os.environ["DERIVED_CANARY"]))
     else:
-        recovery_options(Client(), token)
+        complete(Client(), token, SyntheticSecret(os.environ["DERIVED_CANARY"]))
 """)
     result = subprocess.run(
         [

@@ -1,26 +1,27 @@
-# IAM-014 password-only 검증 계획 — 미구현·미실행
+# IAM-014 로컬 인수 완료 (2026-11-05)
 
-[직접 영향 전환 상세](iam-014-password-only-transition.md)는 방향 설계를 구체화한 문서이며 실제 SQL/코드·DB 전환 검증은 아직 수행하지 않았다.
+[실행 결과](iam-014-password-only-results.md)/[최소 근거](iam-014-password-only-review.json)를 따른다.
+최종 동결268개/Backend174개에서 독립 fast197과 승인 분할 PG626(261+15+94+256)을 확인했다.
+단일 전체626 실행이 아니며 원래 실패/미실행과 재선정 노드를 구분한다. 같은 R3의 실제 HTTPS/native7사례·
+10manifest283조건은 모두 literal true다. 소스/HEAD/branch/index·원본13/trust4 불변과 소유 자원 정리를 대조했다.
 
-2026-10-31 [현재 Product](../product/product-decisions.md#review-20261031-password-only),
-[인증수단 ADR](../decisions/0005-password-only-authentication.md), [설계](iam-014-password-only-design.md)를 따른다.
-현재 검토는 문서·소스 읽기이며 아래 검사를 실행하지 않았다. 이전 MFA PASS는 새 정책의 PASS가 아니다.
-
-| 계획 ID | 필요한 증거 | 현재 상태 |
+| 계획 ID | 확인한 로컬 근거 | 남는 경계 |
 | --- | --- | --- |
-| PW-V01 | 새 명시 password 설정/정책 marker·readiness, 구 mfa/s1 설정/미전환 schema 거부, 새 앱/CLI/pytest의 WebAuthn import·폐기 route/JS/옵션 없음 | 미구현·미실행 |
-| PW-V02 | 실제 ID/PW의 Master/Branch Admin/Trainer/겸임, role0/inactive/DISABLED/현재 Scope·다른 조직·보상 설정 제한 및401/403/404 | 미구현·미실행 |
-| PW-V03 | 최초 Master TTY 단회 설치, 관리자/추가Master/Trainer 발급·본인 설정·만료/명시재발급·동일인/발급 Scope | 미구현·미실행 |
-| PW-V04 | C3/C4/C5/M8·마지막 Master·audit/rollback/실제 ACK·safeGET/명시재발급, 원래 Actor clock과 단회소스의 최종시각 | 미구현·미실행 |
-| PW-V05 | AB5/R4 password 복구·허용된 legacy password/both lineage·key-only 승인 비확대·원본링크 만료 뒤 새source30분 | 미구현·미실행 |
-| PW-V06 | 새빈DB+0013기존 각 상태 upgrade, 원본13보존/FK·감사, staged hash 비승격·순수key retired/다른권한비복원·분류불능 fail-closed | 미구현·미실행 |
-| PW-V07 | 전환의 실제 DB 잠금/원자 rollback/commitACK/중복 version 증가 없음, 이전 양assurance cookie/원본token/준비 proof 전부거부·구 worker 정지 전환 한계 | 미구현·미실행 |
-| PW-V08 | C2/안정budget/ID예약·해시 admission·capacity/timeout·DB503·generic422·I2/W1 자기철회/원래기한/현재인가 단언의 등가성 | 미구현·미실행 |
-| PW-V09 | 실제 trusted HTTPS/native의 password-only form·링크 fragment 비노출·자동로그인/자동재발급 없음·기존 지연응답 대사 | 미구현·미실행 |
-| PW-V10 | 기존 test node/assertion별 유지/재작성/기능폐기 근거와 신규 node·실제 수집/개별 결과·소스/HEAD/trust/소유 자원 정리 | 설계 계획만 작성 |
+| PW-V01 | 명시 password/marker·readiness, 구 모드/정책 거부·폐기 경로·현재 WebAuthn 없는 import | production 허용 별도 |
+| PW-V02 | Master/Branch Admin/Trainer/겸임·현재 Role/Scope·상태·401/403/404 | Operator 미구현 업무/Member Future |
+| PW-V03 | TTY bootstrap·발급/수신자 직접 설정·단회/만료/명시재발급·현재 Home 인가 | 원본 계정 발급/운영 전달 인수 별도 |
+| PW-V04 | 원래 Actor clock/원자 감사·철회·ACK, 관리자 C3 전용 후상태·독립 audit lock | 운영 장애 복구 절차 별도 |
+| PW-V05 | AB5/R4 password·원본 승인 subset/legacy lineage·key-only 비확대·명시 새원본 | 실제 업무책임자/운영자 절차 별도 |
+| PW-V06 | 소유 빈 schema/0013 상태별0014·원본13·staged hash 비승격·분류불능 중단 | 원본 DB 상태 조사/실행 미수행 |
+| PW-V07 | DB 잠금/원자 rollback·commit 불명 대사·구cookie/token/proof 거부·빈 하향 guard | 혼합 worker/운영 backup·restore 별도 |
+| PW-V08 | C2/budget/ID예약·admission/GC·DB503/generic422·I2/W1/현재인가·원래기한 | PT/지급/Settlement 별도 |
+| PW-V09 | 실제 trusted HTTPS/Chromium151.0.7922.34·283조건·URL/쿠키·지연응답 | 실물/다른브라우저/전체모바일 별도 |
+| PW-V10 | 기존 유지/재작성/기능폐기 대응·실제823수집·정확626분할·정적/cleanup | 모든 동적 의존 형식증명 아님 |
 
-수집/삭제·정리된 과거 테스트 수를 성공 성적과 혼동하거나 숫자 맞추기·skip/xfail/guard 약화를 하지 않는다.
-운영 배포·실물/지원 목표 전체 브라우저·원본 DB 실행·전체 업무/정산 검증은 별도 게이트다. 아래는 기존 인수 이력이다.
+전체 `--setup-plan`823/fixture lookup0은 준비 검사이고 본문 실행0이다. collect-only와 setup-plan의
+필수 PG 미실행 guard exit1을 유지했다. 과거 UV/weak-factor 단언의 은퇴와 현재 PW positive control을
+분리하며, 키0 검사를 역사 키 보존으로 설명하지 않는다. 초기 실패·중단/기존 의존 경고는 결과 문서에 남긴다.
+새 정책을 이유로 다른 Product OPEN/전역 PROPOSED를 닫지 않는다. 아래는 이전 인수 이력이다.
 
 # IAM-013 독립 선정 검증·설계자 인수 완료 (2026-10-30)
 

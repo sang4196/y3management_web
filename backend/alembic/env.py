@@ -5,6 +5,7 @@ from alembic.util import CommandError
 from alembic import context
 from y3management.config import load_settings
 from y3management.database import Database
+from y3management.runtime import ProcessGuard
 
 
 def run_migrations() -> None:
@@ -19,14 +20,20 @@ def run_migrations() -> None:
         with context.begin_transaction():
             context.run_migrations()
         return
-    database = Database(settings)
+    guard = ProcessGuard(settings)
+    database = None
     try:
+        database = Database(settings)
         with database.engine.connect() as connection:
             context.configure(connection=connection, target_metadata=None)
             with context.begin_transaction():
                 context.run_migrations()
     finally:
-        database.close()
+        try:
+            if database is not None:
+                database.close()
+        finally:
+            guard.close()
 
 
 try:

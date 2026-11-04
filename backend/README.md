@@ -318,75 +318,71 @@ reload가 없고 loopback만 바인딩한다. 실제 서버/프로세스 관리�
 
 WSL 이전 후 실제 검증 결과는 [WSL migration](../docs/architecture/wsl-migration.md)을 따른다.
 
-## MFA-A 제한된 개발 실행
+## IAM-014 비밀번호 전용 개발 실행
 
-IAM을 켤 때 `Y3_IAM_MODE=s1_password`(과거 개발 예외) 또는 `Y3_IAM_MODE=mfa`를 명시한다.
-설정 누락이나 등록 키 없음에 따른 자동 fallback은 없고 production 거부도 유지한다.
-MFA 모드에서 새 설치 CLI에는 `--enrollment-file /절대경로/개인폴더/등록파일`이 추가된다.
-개인폴더는 현재 Linux 사용자 소유의 0700이고 모든 경로 요소가 symlink가 아니어야 한다.
-파일은 새 0600 파일로 생성된다. 비밀번호는 기존처럼 TTY에 직접 입력한다.
-파일의 HTTPS `/enroll#token=...` 링크로 첫 키를 등록한 뒤 `/login`에서 비밀번호와 Passkey로 로그인한다.
-정상 MFA 로그인 후 `/passkeys`에서 본인 키를 추가한다. Branch Admin은 기존 `/activate` 설정 링크에서
-비밀번호와 첫 키 등록을 함께 완료한다. 실제 운영/복구/키 삭제/추가 Master 발급은 이번 범위가 아니다.
+현재 v1의 Master·Branch Admin·Trainer 및 혼합 역할은 ID/비밀번호로 로그인한다.
+IAM을 켤 때 `Y3_IAM_MODE=password`를 명시한다. 과거 `s1_password`/`mfa` 모드는
+거부하며 설정 누락에 따른 fallback은 없다. production 거부는 유지한다.
+정책은 [IAM-014](../docs/architecture/iam-014-password-only-design.md), 전환·보존 계약은
+[상세 계약](../docs/architecture/iam-014-password-only-transition.md)을 따른다.
 
-설치 CLI exit 2와 `INSTALLATION_COMMIT_UNKNOWN_RETAIN_PRIVATE_FILE`은 COMMIT 결과가 불명확하다는 뜻이다.
-개인 등록 파일을 보존하고 실제 설치/전달 여부를 확인한다. bootstrap 재실행이나 직접 SQL 복구를 하지 않는다.
-첫 등록 성공 또는 허가 미사용/만료와 정리 가능 여부를 확인한 뒤 자기 파일만 정리한다.
-로그인 응답의 `mfa_cleanup_deferred`는 미전달 세션 철회 재시도/정리 확인이 필요한 실패이며 성공이 아니다.
+새 전용 빈 DB에는 기존 명시 migration 절차로 `0014_password_only`까지 적용한다.
+기존 DB 전환은 별도 승인·유지보수 작업이다. 구 앱·CLI·GC를 중지하고 원본 backup과
+대상을 확인한 뒤 같은 ProcessGuard를 획득한다. 자동 원본 DB 전환이나 프로세스 종료는 없다.
+앱/CLI와 각 UoW는 revision·설치 정책 marker 일치를 검사하며 구 source/session은 소비하지 않는다.
+전환 실패는 전부 rollback한다. COMMIT 불명은 전환 ID·marker·typed 이력을 읽어 대사하며
+버전 증가 UPDATE를 반복하지 않는다. 기존 13 revision과 durable 감사·키·사건 기록을 보존한다.
+데이터가 있는 0014의 downgrade는 DDL 전에 거부한다. 모든 업무/auth/audit 표가 비고
+전환 집계도 전부 0인 전역 빈 상태만 0013 왕복을 허용한다. 행을 지워 조건을 만들지 않는다.
 
-개발 대상 검사는 `uv run --locked --env-file .env.example pytest -m postgres --require-postgres
- tests/test_iam_mfa.py tests/test_iam_mfa_security.py tests/test_iam_mfa_install.py tests/test_iam_mfa_races.py`
-이고 실제 HTTPS 검사는 `tests/test_iam_browser.py::test_actual_https_mfa_browser`다.
-기존 pytest의 소유 run/schema/process 정리 절차를 그대로 사용한다.
-자세한 계약은 [IAM-005 MFA-A](../docs/architecture/iam-005-mfa-a-design.md)에 있다.
+최초 Master는 `bootstrap-initial-master`의 보호된 TTY에서 비밀번호를 입력해 준비한다.
+`--enrollment-file`은 제거됐다. `/login`에서 비밀번호로 로그인하며 추가 Master/Branch Admin은
+발급받은 `/activate#token=...`에서 직접 비밀번호를 설정한다. 설정 완료는 자동 로그인이 아니다.
+`/enroll`, `/passkeys`, `/recover`와 WebAuthn options/verify API는 제공하지 않는다.
+설치 exit 2의 `INSTALLATION_COMMIT_UNKNOWN_VERIFY_EXISTING_INSTALLATION`은 설치 상태 대사가
+필요하다는 뜻이다. bootstrap을 맹목 재실행하거나 SQL로 자격을 복구하지 않는다.
 
-### IAM-006 MFA 관리·정상 Master 복구 개발 계약
+실행 자료는 기존 pytest의 고유 `.local/qa/` 폴더·소유 schema·process 정리 절차를 사용한다.
+WSL 빠른 검사는 `bash check.sh fast`, 별도 전용 Compose DB 검사는 `bash check.sh db`다.
+전환 대상 검사는 `tests/test_password_transition*.py`, 인증/복구 대상은 `tests/test_iam*.py`다.
+역사적 migration 검사는 당시 revision에서 준비하며 새 0014 전역 빈 조건과 구별한다.
+원래 실행 경로를 검증하는 일부 테스트는 고정 Git revision의 backend를 소유 임시 폴더에
+추출하고 그 `uv.lock`으로 별도 환경을 만든다. 과거 WebAuthn은 그 역사적 테스트 환경에만
+존재하며 현재 runtime 의존성이 아니다. 보관된 소스의 DB 소유권 검사 코드가 현재 코드와
+동일한지 먼저 비교하고, 해당 모듈의 위치 정보만 실제 저장소 Compose 경로로 연결한다.
+소유권 검사를 건너뛰거나 Compose/DB를 변경하지 않는다. 이 임시 경로 조정은 과거 배포 재현과
+구별한다. 실행하지 않은 전체 회귀/HTTPS 검증을 통과로 보지 않는다.
 
-`iam_mode=mfa`에서 본인 `/api/v1/auth/passkeys` 목록·삭제, 같은 조직 정상 Master의
-`/api/v1/admin/master-accounts` 신규 발급·조회·설정 재발급, 다른 관리자의
-`/api/v1/admin/accounts/{id}/passkey-recovery` 복구 시작·조회·재발급을 제공한다.
-삭제는 다른 유효 키가 남을 때만 허용하며 현재 포함 모든 로그인을 종료한다.
-`/passkeys`는 이 효과를 삭제 전에 설명하는 로컬 검수 화면이다.
-복구 링크는 `/recover#token=...`에서 즉시 fragment를 제거하고 새 UV 키만 등록한다.
-비밀번호는 보존되며 완료 후 기존 비밀번호와 새 키로 다시 로그인한다.
-링크 원본을 로그·이슈·공유 결과에 복사하지 않는다. ACK 불명확 시 최소 상태 확인 뒤
-명시적으로 재발급하며 옛 키/세션을 복원하지 않는다.
-
-새 forward revision은 `0006_iam_mfa_management`다. 이전0001–0005를 수정하지 않으며
-철회·복구·감사 사실이 남은 downgrade는 거부한다. 만료된 setup/recovery source의
-GC는 잠긴 하위 context가 남으면 건너뛰고 다음 실행에서 정리한다. 임의 운영 보존기간을
-정한 것이 아니다. 기존 QA 고유 실행·자기 자원 정리 절차를 그대로 사용한다.
-
-실제 개발 검사와 독립 전체 인수는 [IAM-006 결과](../docs/architecture/iam-006-mfa-management-results.md),
-최소 API/인가·원자성·실패 경계는 [IAM-006 설계](../docs/architecture/iam-006-mfa-management-design.md)를
-확인한다. 정상 Master 기반 복구는 모든 Master 분실의 AB5나 production 운영 허가가 아니다.
-
+과거 MFA-A/MFA 관리 계약과 성적은 [IAM-005](../docs/architecture/iam-005-mfa-a-design.md),
+[IAM-006 결과](../docs/architecture/iam-006-mfa-management-results.md)에 이력으로 남는다.
+현재 실행 방법은 이 절과 IAM-014를 따른다.
 
 ### 관리자 비밀번호 재설정 (IAM-007, 결합 후보 인수 대기)
 
-현재 정상 MFA Master는 같은 조직의 다른 ACTIVE Master/Branch Admin에 대해
+현재 정상 Master는 같은 조직의 다른 ACTIVE Master/Branch Admin에 대해
 `GET /api/v1/admin/accounts/{id}/password-reset`의 version/generation을 확인하고,
 같은 경로에 `expected_account_version`, `expected_generation`, `identity_confirmed:true`로
 POST한다. 시작 즉시 옛 비밀번호와 모든 로그인이 무효화된다. 반환 링크는 본인 확인 후
 개인 전달하며 일반 로그·이슈에 복사하지 않는다. `/reset#token=...`에서 대상이 직접 새 암호를
-설정한 다음 기존 Passkey와 새 암호로 로그인한다. 자동 로그인은 없다.
+설정한 다음 새 암호로 로그인한다. 자동 로그인은 없다.
 
 만료/전달 실패는 pending 상태를 조회한 뒤 `/reissue`에 현재 version/generation으로 명시
-재발급한다. 본인 관리자 reset과 진행 중인 key recovery 중첩은 지원하지 않는다. C3 본인
-암호 변경은 유지한다. 양쪽 요인을 잃었다면 M2와 reset을 순서대로 완료하며 중간 대상
-로그인은 필요 없다. 운영 비상 복구 AB5는 별도다. [구현 계약](../docs/architecture/iam-007-password-reset-design.md).
+재발급한다. 본인 관리자 reset은 지원하지 않으며 본인 암호 변경은 C3를 사용한다.
+모든 Master가 접근 불가한 경우의 운영 비상 복구는 별도 보호된 절차다.
+[IAM-007 원래 계약](../docs/architecture/iam-007-password-reset-design.md)의 권한·C2·감사 경계는
+유지하며 요인 관련 동작은 IAM-014를 따른다.
 
 ### 다른 Master 계정 관리 (IAM-008, 독립 인수 전)
 
-`iam_mode=mfa`에서 현재 정상 Master는 같은 조직의 다른 Master를 관리한다.
+현재 비밀번호 인증을 마친 Master는 같은 조직의 다른 Master를 관리한다.
 기존 `GET /api/v1/admin/master-accounts/{id}`로 현재 version을 확인한 뒤
 `PATCH .../status`에 `expected_version`, `status:DISABLED`, `POST .../restore`에
 `expected_version`, `PATCH .../login-id`에 `expected_version`, `login_id`를 전달한다.
 차단·ID 변경은 ACTIVE, 복구는 DISABLED에만 허용된다. 자기 대상과 역할 승격/강등은
 이번 범위 밖이다. 기존 Branch Admin 관리 API의 대상 범위는 유지한다.
 
-실제 변경은 대상의 모든 기존 로그인과 대기 setup/login/add/reset/recovery 증명을
-철회한다. 암호·Passkey·grant·C2와 pending 사실은 보존한다. 복구 ACTIVE는 로그인 준비
+실제 변경은 대상의 모든 기존 로그인과 대기 setup/login/reset/비상 복구 증명을
+철회한다. 암호·grant·C2와 pending 사실은 보존한다. 복구 ACTIVE는 로그인 준비
 완료를 뜻하지 않는다. pending 요인은 기존 목적별 재발급·완료가 필요하다. 동일 ID
 정규화 no-op은 현재 version 검증 뒤 반환하며 세션/source/감사를 변경하지 않는다.
 COMMIT 결과 불명확 시 최소 상태를 다시 조회하고 최신 version으로 명시 요청한다.
@@ -394,18 +390,17 @@ COMMIT 결과 불명확 시 최소 상태를 다시 조회하고 최신 version�
 
 [계약](../docs/architecture/iam-008-master-management-design.md)과
 [개발 검증 결과](../docs/architecture/iam-008-master-management-results.md)를 참고한다.
-새 migration/의존성은 없다. native 검증은 기존 58/20/15/11 manifest를 유지하며
-`tests/browser/master-management-checks.json`의 12개 항목을 별도로 검사한다.
+관련 native 검사는 `tests/browser/master-management-checks.json`의 현재 manifest를 따른다.
 
 ## IAM-009 제한된 비상 복구 개발 절차
 
 [기술 계약](../docs/architecture/iam-009-emergency-recovery-design.md)에 따른 AB5다.
-현재 ACTIVE Master의 승인된 요인만 복구하며 운영 개시/실제 운영자 분리 인수를 뜻하지 않는다.
-일반 Master가 접근 가능하면 기존 M2/reset을 사용한다. 모든 Master 접근 불가·책임자 원본 승인,
+현재 ACTIVE Master의 비밀번호를 복구하며 운영 개시/실제 운영자 분리 인수를 뜻하지 않는다.
+일반 Master가 접근 가능하면 기존 password reset을 사용한다. 모든 Master 접근 불가·책임자 원본 승인,
 승인자 권한/취소/기간/대상 본인/수신 경로/별도 실행자 확인은 보호된 수동 절차의 책임이다.
 서로 다른 참조 문자열이나 파일 hash는 사람·승인 진위를 증명하지 않는다.
 
-기존 전용 DB/HTTPS/MFA 설정 외에 배포 설정의 `Y3_EMERGENCY_AUTHORITY_FILE`이 필요하다.
+기존 전용 DB/HTTPS/비밀번호 인증 설정 외에 배포 설정의 `Y3_EMERGENCY_AUTHORITY_FILE`이 필요하다.
 CLI/request로 이 권한 경로를 덮어쓰지 않는다. 기본은 root 소유 읽기 전용 파일(0400/0444),
 root 소유·group/other 비쓰기 부모 경로와 symlink 금지 검사다. 실제 권한 provision은 별도 운영 작업이다.
 비특권 자동 검사는 `environment=test`에서만 `Y3_EMERGENCY_TEST_AUTHORITY=true`를 사용하고
@@ -444,12 +439,12 @@ uv run --locked --env-file <보호환경파일> python -m y3management.cli emerg
 중복/추가 key, symlink, FIFO를 거부한다. 다음 필드를 모두 명시한다.
 
 - `operation_id`, `organization_id`, `account_id`, `environment`, `database`, `database_schema`.
-- `factors`: `password`, `passkey`, `both`; `revocation_scope`: `target_only`.
-- `expected`: inspect의 row/security/keyset/reset/recovery version과 두 pending,
-  password_ready/key_ready 전체 snapshot. 최신값 자동 대체는 없다.
+- `revocation_scope`: `target_only`. `factors` 필드는 제거되어 보내면 거부된다.
+- `expected`: inspect의 row/security/reset version과 password_reset_pending,
+  password_ready snapshot. 최신값 자동 대체는 없다.
 - `approval_ref`, `owner_ref`: 원본 승인과 책임자의 보호된 기록 참조. 원본이나 개인정보는 넣지 않는다.
 - `checked_at`, `approval_valid_until`: timezone이 있는 확인 시각과 명시 실행 승인 만료.
-  30분 수신자 source/5분 context 수명과 별개다.
+  30분 수신자 source 수명과 별개다.
 - `manual_checks`: `owner_authority_original_current_recipient_all_masters_unavailable`.
 - `approval_conditions`: `issuance_only_no_additional_conditions`. 더 좁은 원본 조건은 무시하지 않고
   수동 범위 조정 전 실행하지 않는다. 두 문자열은 수동 확인 기록이며 운영 권한 자체가 아니다.
@@ -461,30 +456,30 @@ stdout write/flush·stderr 전달·DB/guard close 실패로 이를 실행 전 �
 status 확인 전 전달/맹목 재실행을 하지 않는다.
 실행 중 프로세스가 사라진 경우도 status 확인이 먼저다. 알려진 실패 exit1은 자기 출력만 제거한다.
 출력 유실·전달 실패도 기존 자격/세션을 되살리지 않으며 새 확인과 명시 재발급이 필요하다.
-수신자는 승인 요인만 준비하고 완료 후 정상 비밀번호+UV로 따로 로그인한다.
+수신자는 새 비밀번호를 설정하고 완료 후 비밀번호로 따로 로그인한다.
 
 0008은 영속 사건/승인 소비 이력과 일시 source를 분리한다. 사건/새 감사가 있으면 downgrade를
 거부한다. 기존0001–0007·C2·타 계정 인증 행은 보존한다. 개발 검증은 `tests/test_iam_emergency*.py`,
 새 HTTPS manifest는 `tests/browser/emergency-checks.json`이며 기존 manifest를 대체하지 않는다.
 
-both 발급·링크 만료 후 다른 정상 Master가 복귀한 경우의 정상 관리 경로 인계는 별도 R4 후속이다.
-현재 normal M2/reset의 opposite-pending 거부를 완화하지 않으며, 과거 all-unavailable 확인을
-현재 운영 실행 승인으로 재사용하지 않는다. 이 후속은 IAM-009 완료 범위에 포함하지 않는다.
+## 기존 비상 복구의 정상 Master 인계
 
-## 기존 비상 복구의 정상 Master 인계 (IAM010)
-
-같은 조직의 다른 현재 정상 MFA Master는 만료된 최신 미완료 운영 사건을
+같은 조직의 다른 현재 정상 Master는 만료된 최신 미완료 운영 사건을
 `/api/v1/admin/master-accounts/{account_id}/emergency-recovery`에서 조회하고,
-하위 `/handoff`에 새 operation ID·명시 parent·전체 snapshot·본인 확인과 정상 CSRF를
-제출한다. 이미 인계된 사건의 유실 링크도 같은 origin/요인 안에서 명시 재발급한다.
-원 token 조회나 자동 재실행은 없다. 응답 유실/commit 불명은 하위 `/{operation_id}`
-상태 조회로 확인한다. 수신자는 기존 `/emergency-recover`에서 직접 요인을 준비한다.
-운영 CLI의 권한·수동 승인·all-unavailable 조건과 일반 reset/recovery guard는 유지한다.
-[계약](../docs/architecture/iam-010-emergency-handoff-design.md)을 따른다.
+하위 `/handoff`에 새 operation ID·명시 parent·전체 snapshot·본인 확인과 정상 CSRF를 제출한다.
+인계 후 유실된 링크는 같은 원본 사건 안에서 명시 재발급하며, 원 token 조회나 자동 재실행은 없다.
+응답 유실/COMMIT 불명은 하위 `/{operation_id}` 상태 조회로 확인한다.
+수신자는 `/emergency-recover`에서 직접 비밀번호를 설정한다. 현재 Master 권한·자기 대상 금지·
+대상 최신 version·원래 기한·계보를 매번 다시 확인한다.
+
+과거 사건은 원래 factors/승인/부모/완료 사실을 보존한다. 전환 시 적격으로 기록된
+최신 미완료 password/both 사건만 새 비밀번호 사건으로 이어질 수 있다. passkey-only·완료·
+stale 사건을 재기준화하지 않는다. 전환 후 계정 보안 사실이 바뀌면 새 현재 정책 복구가 필요하다.
+운영 CLI의 권한·원본 수동 승인 조건은 유지한다. [IAM-014 전환 계약](../docs/architecture/iam-014-password-only-transition.md)을 따른다.
 
 ## WORKFORCE-001 최초 등록
 
-현재 관리자 MFA 로그인 후 `/trainers`에서 이름·전화·Home·Rate·Fixed Amount·Base Salary·
+현재 관리자 비밀번호 로그인 후 `/trainers`에서 이름·전화·Home·Rate·Fixed Amount·Base Salary·
 명시 시작 월을 함께 입력한다. 계정은 발급하지 않는다. 금액은 정확한 정수 문자열이며
 빈 값은 0이 아니다. 기존 8192-byte 요청 예산과 CSRF/HTTPS를 유지한다.
 새 등록은 활성 Home만, 기존 조회/동일 operation replay는 비활성 Home도 현재 Scope 아래
@@ -501,14 +496,14 @@ downgrade를 거부한다. 자세한 계약은
 
 ## IAM-011 Trainer 로그인 (개발 검증 단계)
 
-MFA Master 또는 현재 Home Branch Admin은 `/trainers`에서 활성 Trainer의 계정을 명시적으로
+Master 또는 현재 Home Branch Admin은 `/trainers`에서 활성 Trainer의 계정을 명시적으로
 발급한다. 기존 계정 연결/역할 추가는 지원하지 않는다. 비활성 Home도 현재 Scope 아래 발급 가능하다.
 초기 링크는 첫 응답에만 나타나며 상태 확인/동일 명령 재시도에는 비밀을 반환하지 않는다.
 결과 불명 시 상태 확인 후 PENDING_SETUP에서만 명시 재발급한다. 재발급은 이전 링크를 폐기한다.
 
 수신자는 `/trainer-activate#token=...`에서 본인 비밀번호를 설정하고 `/login`으로 로그인한다.
 Trainer-only는 비밀번호 인증 후 `/account`에서 자기 정보·암호 변경·로그아웃을 사용한다.
-관리자는 기존 Passkey UV 경로를 유지한다. Trainer 비활성 중 설정/로그인은 거부하며
+관리자·혼합 역할도 같은 비밀번호 로그인 경로를 사용한다. Trainer 비활성 중 설정/로그인은 거부하며
 원래 링크 만료를 연장하지 않는다. 초기 링크·암호·Cookie를 QA 로그나 일반 문서에 복사하지 않는다.
 
 새 migration `0011_iam_trainer_login`은 binding/operation/source/typed audit를 추가한다.
@@ -521,7 +516,7 @@ Trainer-only는 비밀번호 인증 후 `/account`에서 자기 정보·암호 �
 [제한 계약](../docs/architecture/iam-012-trainer-roles-design.md)과
 [개발 결과](../docs/architecture/iam-012-trainer-roles-results.md)를 따른다. 기존 계정의 정확한
 Login ID를 확인하고 동일인 확인 후 Trainer 역할을 연결한다. 회수/재부여는 같은 불변 쌍에만 적용한다.
-실제 역할 변경은 대상 모든 로그인을 종료하며 관리자·암호·Passkey·계정 상태는 보존한다.
+실제 역할 변경은 대상 모든 로그인을 종료하며 관리자·암호·계정 상태는 보존한다.
 PENDING_SETUP 재부여 후 새 초기 링크는 별도 명시 발급이다. 응답 유실 시 작업 UUID를 보관해
 재로그인 후 역할 작업 결과 조회에 입력한다. 결과 조회는 현재 권한을 다시 확인하며 자동 재전송하지 않는다.
 

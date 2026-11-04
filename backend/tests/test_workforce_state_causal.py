@@ -1,8 +1,6 @@
 # ruff: noqa: F811
 """Real committed W1 proof, hint, shared-lock and DDL boundaries."""
 
-import subprocess
-import sys
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -19,13 +17,12 @@ from sqlalchemy import text
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
 
-from tests.conftest import qa_register_process, qa_stop_process
-from tests.test_iam import ORIGIN, SyntheticSecret, child_env, csrf
-from tests.test_iam_mfa import call, mfa  # noqa: F401
+from tests.legacy_helpers import legacy_database  # noqa: F401
+from tests.password_helpers import call, password_app  # noqa: F401
+from tests.test_iam import ORIGIN, SyntheticSecret, csrf
 from tests.test_iam_trainer import TrainerScene, source, trainer  # noqa: F401
 from tests.test_iam_trainer_roles_causal import role_connections
 from tests.test_iam_trainer_roles_security import link
-from tests.test_iam_trainer_roles_storage import migrate
 from tests.test_workforce import scene  # noqa: F401
 from tests.test_workforce_integrity import branch_actor, observe_waiter, wait_for_owned_block
 from tests.test_workforce_state import change, request
@@ -186,12 +183,12 @@ def test_prepared_setup_current_state_without_source_epoch(
 
 def test_new_i2_binding_between_hint_and_main_rejected(
     trainer: TrainerScene,
-    mfa: tuple[Settings, Database, str, str],
+    password_app: tuple[Settings, Database, str],
     monkeypatch: pytest.MonkeyPatch,
     record_testsuite_property: Callable[[str, object], None],
 ) -> None:
     t = trainer
-    with closing(branch_actor(t.base, mfa[2])) as target:
+    with closing(branch_actor(t.base, password_app[2])) as target:
         ident = target.get("/api/v1/auth/me").json()["account_id"]
         master = t.base.client.get("/api/v1/auth/me").json()["account_id"]
         assert ident != master
@@ -373,14 +370,12 @@ def test_deactivate_and_self_request_observed_both_orders(
 
 def test_downgrade_waits_for_actual_state_writer_and_preserves_history(
     legacy_trainer: TrainerScene,
-    mfa: tuple[Settings, Database, str, str],
     monkeypatch: pytest.MonkeyPatch,
     record_testsuite_property: Callable[[str, object], None],
 ) -> None:
     t = legacy_trainer
-    # Positive control: the pure observed baseline is removable before a real state operation.
-    assert migrate(mfa[0], "downgrade", "0012_iam_trainer_roles") == 0
-    assert migrate(mfa[0], "upgrade", "head") == 0
+    # Original 0013 roundtrip is tested before cutover in storage tests.
+    # This direct revision call deliberately tests DB locks independently of ProcessGuard.
     payload = request(t, False)
     reached, release = Event(), Event()
     holders: list[int] = []
@@ -394,23 +389,44 @@ def test_downgrade_waits_for_actual_state_writer_and_preserves_history(
 
     monkeypatch.setattr(Audit, "append_trainer_state", pause)
     appname = "state-downgrade-" + uuid4().hex
-    env = child_env(mfa[0])
-    env["PGAPPNAME"] = appname
-    with ThreadPoolExecutor(max_workers=1) as pool:
+
+    def downgrade() -> str:
+        import importlib.util
+        from pathlib import Path
+
+        from alembic.migration import MigrationContext
+        from alembic.operations import Operations
+
+        spec = importlib.util.spec_from_file_location(
+            "owned_loss_guard", Path("alembic/versions/0014_password_only.py")
+        )
+        assert spec and spec.loader
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with t.base.db.engine.connect() as connection:
+            transaction = connection.begin()
+            try:
+                connection.execute(
+                    text("SELECT set_config('application_name',:n,true)"), {"n": appname}
+                )
+                with Operations.context(MigrationContext.configure(connection)):
+                    with pytest.raises(
+                        ValueError, match="PASSWORD_DOWNGRADE_REQUIRES_GLOBAL_EMPTY"
+                    ) as error:
+                        module.downgrade()
+                    return str(error.value)
+            finally:
+                transaction.rollback()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
         changing = pool.submit(change, t, payload)
-        process = None
+        migration = None
         try:
             assert reached.wait(5)
-            process = subprocess.Popen(
-                [sys.executable, "-m", "alembic", "downgrade", "0012_iam_trainer_roles"],
-                env=env,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
-            qa_register_process(process)
+            migration = pool.submit(downgrade)
             waiter = None
             deadline = time.monotonic() + 5
-            while time.monotonic() < deadline and process.poll() is None:
+            while time.monotonic() < deadline and not migration.done():
                 with t.base.db.session() as reader:
                     row = reader.execute(
                         text(
@@ -429,8 +445,7 @@ def test_downgrade_waits_for_actual_state_writer_and_preserves_history(
             assert waiter is not None and waiter != holders[0]
             release.set()
             assert changing.result(timeout=10).status_code == 200
-            process.communicate(timeout=10)
-            assert process.returncode is not None and process.returncode != 0
+            assert migration.result(timeout=10) == "PASSWORD_DOWNGRADE_REQUIRES_GLOBAL_EMPTY"
             before_guard = fingerprints(t.base.db, IDENTITY_TABLES + STATE_TABLES)
             # CLI errors are redacted. Observe the actual revision's DB guard, rolling back DDL.
             assert_loss_guard(
@@ -442,7 +457,7 @@ def test_downgrade_waits_for_actual_state_writer_and_preserves_history(
             with t.base.db.session() as reader:
                 assert (
                     reader.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                    == "0013_workforce_trainer_state"
+                    == "0014_password_only"
                 )
                 assert (
                     reader.execute(text("SELECT active FROM workforce_trainers")).scalar_one()
@@ -469,9 +484,9 @@ def test_downgrade_waits_for_actual_state_writer_and_preserves_history(
             record_testsuite_property("w1_ddl_holder_pid", holders[0])
             record_testsuite_property("w1_ddl_waiter_pid", waiter)
             record_testsuite_property("w1_ddl_actual_first_wait", "installation")
-            record_testsuite_property("w1_ddl_child_exit_code", process.returncode)
-            record_testsuite_property("w1_ddl_positive_control_and_guard_preservation", True)
+            record_testsuite_property("w1_ddl_guard", "PASSWORD_DOWNGRADE_REQUIRES_GLOBAL_EMPTY")
+            record_testsuite_property("w1_ddl_guard_preservation", True)
         finally:
             release.set()
-            if process is not None:
-                qa_stop_process(process)
+            if migration is not None:
+                migration.result(timeout=15)

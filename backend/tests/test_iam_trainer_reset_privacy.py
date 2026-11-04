@@ -7,8 +7,8 @@ from typing import Any
 import pytest
 from sqlalchemy import text
 
+from tests.password_helpers import password_app  # noqa: F401
 from tests.test_iam import ORIGIN, csrf
-from tests.test_iam_mfa import mfa  # noqa: F401
 from tests.test_workforce import Scene, scene  # noqa: F401
 
 pytestmark = pytest.mark.postgres
@@ -50,7 +50,6 @@ def test_auth_invalid_inputs_never_echo_or_mutate(scene: Scene) -> None:
             "/auth/trainer-credentials/complete",
             {"setup_token": {"secret": marker}, "new_password": marker},
         ),
-        ("/auth/passkeys/enrollment/options", {"setup_token": {"secret": marker}}),
     ]
     before = unchanged_database(scene)
     observations = []

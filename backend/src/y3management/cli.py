@@ -25,11 +25,11 @@ from y3management.uow import UnitOfWork
 from y3management.use_cases import Service
 
 
-class PrivateEnrollmentFile:
+class PrivateRecoveryFile:
     """Linux descriptor-relative creation: no symlink components or secret stdout."""
 
-    def __init__(self, path: str, origin: str, *, emergency: bool = False) -> None:
-        self.route = "/emergency-recover" if emergency else "/enroll"
+    def __init__(self, path: str, origin: str) -> None:
+        self.route = "/emergency-recover"
         target = Path(path)
         if not target.is_absolute() or ".." in target.parts:
             raise ValueError("PRIVATE_ABSOLUTE_PATH_REQUIRED")
@@ -135,7 +135,7 @@ def emergency_command(args: argparse.Namespace, settings: Settings) -> int:
     outcome = 0
     guard: ProcessGuard | None = None
     database: Database | None = None
-    delivery: PrivateEnrollmentFile | None = None
+    delivery: PrivateRecoveryFile | None = None
     result: dict[str, object] | None = None
 
     def observed(event: CommitPhase) -> None:
@@ -194,9 +194,7 @@ def emergency_command(args: argparse.Namespace, settings: Settings) -> int:
         elif args.operation == "status":
             result = asdict(service.emergency_status(principal, args.operation_id))
         elif request is not None:
-            delivery = PrivateEnrollmentFile(
-                args.output_file, settings.canonical_origin, emergency=True
-            )
+            delivery = PrivateRecoveryFile(args.output_file, settings.canonical_origin)
             service.emergency_issue(principal, request, delivery.deliver, commit_observer=observed)
             phase = "committed"
             result = {"operation_id": str(request.operation_id), "status": "issued"}
@@ -258,7 +256,6 @@ def main() -> int:
     initial.add_argument("--organization", required=True)
     initial.add_argument("--login-id", required=True)
     initial.add_argument("--confirm-database", required=True)
-    initial.add_argument("--enrollment-file")
     emergency = commands.add_parser("emergency-recovery")
     emergency.add_argument("operation", choices=("inspect", "execute", "status"))
     emergency.add_argument("--organization-id", required=True, type=UUID)
@@ -314,29 +311,15 @@ def main() -> int:
                 ).one()
                 if tuple(row) != (u.database, u.username, settings.database_schema):
                     raise ValueError("UNVERIFIED_BOOTSTRAP_TARGET")
-            delivery = None
-            if settings.iam_mode == "mfa":
-                if not args.enrollment_file:
-                    raise ValueError("ENROLLMENT_FILE_REQUIRED")
-                delivery = PrivateEnrollmentFile(args.enrollment_file, settings.canonical_origin)
-            elif args.enrollment_file:
-                raise ValueError("ENROLLMENT_REQUIRES_MFA_MODE")
-            retain = False
             try:
                 account = Service(UnitOfWork(database, settings)).bootstrap(
                     args.organization,
                     args.login_id,
                     password,
-                    delivery.deliver if delivery else None,
                 )
-                retain = True
             except CommitUncertain:
-                retain = True
-                print("INSTALLATION_COMMIT_UNKNOWN_RETAIN_PRIVATE_FILE", file=sys.stderr)
+                print("INSTALLATION_COMMIT_UNKNOWN_VERIFY_EXISTING_INSTALLATION", file=sys.stderr)
                 return 2
-            finally:
-                if delivery:
-                    delivery.close(remove=not retain)
             print(
                 json.dumps(
                     {"account_id": str(account.id), "organization_id": str(account.organization_id)}

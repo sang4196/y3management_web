@@ -61,3 +61,37 @@ def test_errors_are_sanitized(
     assert "request_failed" in application_logs
     assert all(secret not in message for message in application_logs)
     assert "private-db" not in response.text
+
+
+def test_migration_database_construction_failure_releases_guard(
+    settings: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import runpy
+
+    from alembic.util import CommandError
+
+    import y3management.config as configuration
+    import y3management.database as database
+    import y3management.runtime as runtime
+    from alembic import context
+
+    closed = []
+
+    class Guard:
+        def __init__(self, settings: Settings) -> None:
+            pass
+
+        def close(self) -> None:
+            closed.append(True)
+
+    def fail(settings: Settings) -> None:
+        raise RuntimeError("synthetic constructor failure")
+
+    monkeypatch.setattr(configuration, "load_settings", lambda: settings)
+    monkeypatch.setattr(context, "is_offline_mode", lambda: False)
+    monkeypatch.setattr(runtime, "ProcessGuard", Guard)
+    monkeypatch.setattr(database, "Database", fail)
+    with pytest.raises(CommandError, match="Migration environment failed"):
+        runpy.run_path("alembic/env.py")
+    assert closed == [True]

@@ -1,21 +1,20 @@
 # ruff: noqa: F811
 """Boundary constraints, late DB-time checks, races and migration history."""
 
-import subprocess
-import sys
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
-from pathlib import Path
 from threading import Barrier
 from typing import Any
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, OperationalError
 
-from tests.test_iam import ORIGIN, child_env, csrf
-from tests.test_iam_mfa import Authenticator, call, enroll, login_mfa, mfa  # noqa: F401
+from tests.legacy_helpers import legacy_database, legacy_master  # noqa: F401
+from tests.password_helpers import activate, call, login_password, password_app  # noqa: F401
+from tests.test_iam import ORIGIN, csrf
 from tests.test_workforce import Scene, activity, counts, scene  # noqa: F401
 from y3management.audit.infrastructure import Audit
 from y3management.audit.public import InitialCompensationSet
@@ -34,17 +33,17 @@ def branch_actor(scene: Scene, password: str) -> TestClient:
     )
     assert r.status_code == 201
     client = TestClient(scene.client.app, base_url=ORIGIN)
-    key = Authenticator()
-    enroll(client, r.json()["setup_link"].split("#token=")[1], key, password)
-    login_mfa(client, password, key, "workforce.branch")
+
+    activate(client, r.json()["setup_link"].split("#token=")[1], password)
+    login_password(client, password, "workforce.branch")
     return client
 
 
 @pytest.mark.parametrize("same", [True, False])
 def test_distinct_actors_same_operation(
-    scene: Scene, mfa: tuple[Settings, Database, str, str], same: bool
+    scene: Scene, password_app: tuple[Settings, Database, str], same: bool
 ) -> None:
-    with closing(branch_actor(scene, mfa[2])) as other:
+    with closing(branch_actor(scene, password_app[2])) as other:
         body = scene.body()
         alternate = body if same else {**body, "name": "다른 명령"}
         barrier = Barrier(2)
@@ -66,9 +65,9 @@ def test_distinct_actors_same_operation(
 
 
 def test_branch_scope_and_revocation(
-    scene: Scene, mfa: tuple[Settings, Database, str, str]
+    scene: Scene, password_app: tuple[Settings, Database, str]
 ) -> None:
-    with closing(branch_actor(scene, mfa[2])) as other:
+    with closing(branch_actor(scene, password_app[2])) as other:
         body = scene.body()
         assert scene.send(body).status_code == 201
         assert call(other, "/admin/trainers", csrf(other), body).status_code == 200
@@ -177,59 +176,54 @@ def test_commit_ack_loss_replay(scene: Scene, monkeypatch: pytest.MonkeyPatch) -
 
 
 def test_migration_roundtrip_and_information_guard(
-    scene: Scene, mfa: tuple[Settings, Database, str, str], tmp_path: Path
+    legacy_master: tuple[Settings, Database],
 ) -> None:
-    def migrate(revision: str) -> None:
-        downgrade = subprocess.run(
-            [sys.executable, "-m", "alembic", "downgrade", revision],
-            env=child_env(mfa[0]),
-            capture_output=True,
-            timeout=30,
+    # Module-empty means empty workforce, with a real FK-valid installation retained.
+    from tests.legacy_helpers import migration_status
+
+    settings, db = legacy_master
+    with db.session() as session:
+        org = session.execute(text("SELECT organization_id FROM iam_installation")).scalar_one()
+        branch = uuid4()
+        session.execute(
+            text(
+                "INSERT INTO organization_branches(id,organization_id,code,name) "
+                "VALUES(:b,:o,'OLD','Legacy migration branch')"
+            ),
+            {"b": branch, "o": org},
         )
-        if downgrade.returncode != 0:
-            from tests.workforce_state_seed import assert_loss_guard
-
-            assert_loss_guard(
-                scene.db,
-                [
-                    "0013_workforce_trainer_state.py",
-                    "0012_iam_trainer_roles.py",
-                    "0011_iam_trainer_login.py",
-                    "0010_workforce_initial_registration.py",
-                ],
-                "workforce history or branch facts must be preserved",
-            )
-
-    def current() -> str:
-        with scene.db.session() as s:
-            return str(s.execute(text("SELECT version_num FROM alembic_version")).scalar_one())
-
-    migrate("0009_iam_emergency_handoff")
-    assert current() == "0009_iam_emergency_handoff"
-    result = subprocess.run(
-        [sys.executable, "-m", "alembic", "upgrade", "head"],
-        env=child_env(mfa[0]),
-        capture_output=True,
-        timeout=30,
-    )
-    assert result.returncode == 0 and current() == "0013_workforce_trainer_state"
-    with scene.db.session() as s:
-        s.execute(text("UPDATE organization_branches SET active=false,row_version=2"))
-        s.commit()
-    migrate("0009_iam_emergency_handoff")
-    assert current() == "0013_workforce_trainer_state"
-    with scene.db.session() as s:
-        assert s.execute(text("SELECT active FROM organization_branches")).scalar_one() is False
-        s.execute(text("UPDATE organization_branches SET active=true,row_version=1"))
-        s.commit()
-    from tests.test_iam_trainer_roles_storage import migrate as migration
-    from tests.workforce_state_seed import register_legacy
-
-    assert migration(mfa[0], "downgrade", "0012_iam_trainer_roles") == 0
-    assert register_legacy(scene, mfa[0], tmp_path)["active"] is True
-    assert migration(mfa[0], "upgrade", "head") == 0
-    migrate("0009_iam_emergency_handoff")
-    assert current() == "0013_workforce_trainer_state" and counts(scene.db) == (1, 1, 1, 2)
+        session.commit()
+    assert migration_status(settings, "downgrade", "0009_iam_emergency_handoff") == 0
+    assert migration_status(settings, "upgrade", "0013_workforce_trainer_state") == 0
+    with db.session() as session:
+        session.execute(text("UPDATE organization_branches SET active=false,row_version=2"))
+        session.commit()
+    assert migration_status(settings, "downgrade", "0009_iam_emergency_handoff") != 0
+    with db.session() as session:
+        assert (
+            session.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+            == "0013_workforce_trainer_state"
+        )
+        assert (
+            session.execute(text("SELECT active FROM organization_branches")).scalar_one() is False
+        )
+        session.execute(text("UPDATE organization_branches SET active=true,row_version=1"))
+        session.commit()
+    assert migration_status(settings, "downgrade", "0012_iam_trainer_roles") == 0
+    # Migration-input-only seed: HTTP registration is covered by the separate current suite.
+    with db.session() as session:
+        session.execute(
+            text("""INSERT INTO workforce_trainers
+          (id,organization_id,home_branch_id,name,phone,active,row_version,rate_percent,
+           fixed_amount_won,base_salary_won,base_salary_start_month)
+          VALUES(:i,:o,:b,'Migration Trainer','Synthetic',true,1,0,0,0,'2026-01-01')"""),
+            {"i": uuid4(), "o": org, "b": branch},
+        )
+        session.commit()
+    assert migration_status(settings, "upgrade", "0013_workforce_trainer_state") == 0
+    assert migration_status(settings, "downgrade", "0009_iam_emergency_handoff") != 0
+    with db.session() as session:
+        assert session.execute(text("SELECT count(*) FROM workforce_trainers")).scalar_one() == 1
 
 
 @pytest.mark.parametrize("registration_first", [True, False])

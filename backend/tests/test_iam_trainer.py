@@ -14,8 +14,8 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
+from tests.password_helpers import call
 from tests.test_iam import ORIGIN, SyntheticSecret, csrf
-from tests.test_iam_mfa import Authenticator, call, enroll, login_mfa, mfa  # noqa: F401
 from tests.test_workforce import Scene, scene  # noqa: F401
 from y3management.audit.infrastructure import Audit
 from y3management.contracts import Rejected
@@ -128,7 +128,7 @@ def test_actual_w0_setup_login_self_change_logout(trainer: TrainerScene) -> None
     ]
     assert me["capabilities"] == []
     assert t.recipient.get("/api/v1/branches").status_code == 401
-    assert t.recipient.get("/api/v1/auth/passkeys").status_code == 401
+    assert t.recipient.get("/api/v1/auth/passkeys").status_code == 404
     new = SyntheticSecret(secrets.token_urlsafe(24))
     with closing(TestClient(t.base.client.app, base_url=ORIGIN)) as second:
         assert t.signin(second).status_code == 204
@@ -232,7 +232,7 @@ def test_inactive_cookie_is_rejected_on_every_self_path(trainer: TrainerScene) -
 def test_purpose_and_management_bypass_rejected(trainer: TrainerScene) -> None:
     t = trainer
     token = source(t.issue())
-    for path in ["/auth/credentials/complete", "/auth/passkeys/enrollment/options"]:
+    for path in ["/auth/credentials/complete"]:
         r = call(
             t.recipient, path, csrf(t.recipient), {"setup_token": token, "new_password": t.password}
         )

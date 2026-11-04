@@ -13,17 +13,22 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
+from tests.password_helpers import (  # noqa: F401
+    call,
+    complete,
+    fingerprint,
+    link_token,
+    password_app,
+    reset_request,
+)
 from tests.test_iam import ORIGIN, csrf
-from tests.test_iam_mfa import call, mfa  # noqa: F401
-from tests.test_iam_mfa_management import link_token
-from tests.test_iam_password_reset import complete, fingerprint, reset_request
 from tests.test_iam_trainer import TrainerScene, trainer  # noqa: F401
 from tests.test_iam_trainer_reset import ready
 from tests.test_workforce import scene  # noqa: F401
 from tests.test_workforce_integrity import branch_actor
 from y3management.audit.infrastructure import Audit
 from y3management.contracts import Rejected
-from y3management.iam.mfa import MFA
+from y3management.iam.password_reset import PasswordReset
 
 pytestmark = pytest.mark.postgres
 
@@ -116,9 +121,9 @@ def test_two_prepared_completions_consume_once(
     ident = ready(t)
     token = link_token(reset_request(t.base.client, ident).json()["reset_link"])
     barrier = Barrier(2)
-    original = MFA.prepare_reset
+    original = PasswordReset.prepare_reset
 
-    def prepare(adapter: MFA, raw: str, password: str) -> Any:
+    def prepare(adapter: PasswordReset, raw: str, password: str) -> Any:
         proof = original(adapter, raw, password)
         barrier.wait(timeout=10)
         return proof
@@ -138,7 +143,7 @@ def test_two_prepared_completions_consume_once(
             )
 
         with monkeypatch.context() as patch:
-            patch.setattr(MFA, "prepare_reset", prepare)
+            patch.setattr(PasswordReset, "prepare_reset", prepare)
             with ThreadPoolExecutor(max_workers=2) as pool:
                 statuses = list(pool.map(finish, [(t.recipient, nonces[0]), (other, nonces[1])]))
     assert sorted(statuses) == [204, 401]
@@ -173,9 +178,9 @@ def test_hash_expiry_gc_and_inactive_home(
     issued = reset_request(t.base.client, ident)
     assert issued.status_code == 201
     token = link_token(issued.json()["reset_link"])
-    original = MFA.prepare_reset
+    original = PasswordReset.prepare_reset
 
-    def expired(adapter: MFA, raw: str, password: str) -> Any:
+    def expired(adapter: PasswordReset, raw: str, password: str) -> Any:
         proof = original(adapter, raw, password)
         with t.base.db.session() as s:
             s.execute(
@@ -189,7 +194,7 @@ def test_hash_expiry_gc_and_inactive_home(
         return proof
 
     with monkeypatch.context() as patch:
-        patch.setattr(MFA, "prepare_reset", expired)
+        patch.setattr(PasswordReset, "prepare_reset", expired)
         assert complete(t.recipient, token, t.password).status_code == 401
     # Existing preparation performs GC; neither expiry nor GC restores the old password.
     csrf(t.recipient)
@@ -206,11 +211,11 @@ def test_hash_expiry_gc_and_inactive_home(
 
 
 def test_branch_admin_cannot_reset_issued_trainer(
-    trainer: TrainerScene, mfa: tuple[Any, Any, str, str]
+    trainer: TrainerScene, password_app: tuple[Any, Any, str]
 ) -> None:
     t = trainer
     ident = ready(t)
-    with closing(branch_actor(t.base, mfa[2])) as branch:
+    with closing(branch_actor(t.base, password_app[2])) as branch:
         state = t.base.client.get(f"/api/v1/admin/accounts/{ident}/password-reset").json()
         assert branch.get(f"/api/v1/admin/accounts/{ident}/password-reset").status_code == 403
         assert (
@@ -292,10 +297,11 @@ def test_confirm_actor_default_and_self_touch_restriction(trainer: TrainerScene)
 
 
 def test_bound_admin_keeps_uv_with_inactive_or_withdrawn_trainer(
-    trainer: TrainerScene, mfa: tuple[Any, Any, str, str]
+    trainer: TrainerScene, password_app: tuple[Any, Any, str]
 ) -> None:
-    from tests.test_iam_mfa import login_mfa
-    from tests.test_iam_mfa_management_races import provision
+    # Historical node label only: verify password/Admin scope independently of
+    # Trainer state and role. No UV or legacy key authentication is performed.
+    from tests.password_helpers import login_password, provision
     from tests.test_iam_trainer_roles import body as role_body
     from tests.test_iam_trainer_roles import change as role_change
     from tests.test_iam_trainer_roles_security import link
@@ -304,12 +310,15 @@ def test_bound_admin_keeps_uv_with_inactive_or_withdrawn_trainer(
 
     t = trainer
     with closing(TestClient(t.base.client.app, base_url=ORIGIN)) as target:
-        ident, key = provision(t.base.client, target, mfa[2])
+        ident = provision(t.base.client, target, password_app[2])
         assert role_change(t, link(t, ident, "second.master")).status_code == 200
         with t.base.db.session() as s:
-            original_keys = s.execute(
-                text("SELECT * FROM iam_passkeys WHERE account_id=:a"), {"a": ident}
-            ).all()
+            assert (
+                s.execute(
+                    text("SELECT count(*) FROM iam_passkeys WHERE account_id=:a"), {"a": ident}
+                ).scalar_one()
+                == 0
+            )
         assert state_change(t, state_request(t, False)).status_code == 200
         for granted in (True, False):
             if not granted:
@@ -317,30 +326,33 @@ def test_bound_admin_keeps_uv_with_inactive_or_withdrawn_trainer(
             issued = reset_request(t.base.client, ident)
             assert issued.status_code == 201
             assert (
-                complete(target, link_token(issued.json()["reset_link"]), mfa[2]).status_code == 204
+                complete(
+                    target, link_token(issued.json()["reset_link"]), password_app[2]
+                ).status_code
+                == 204
             )
-            login_mfa(target, mfa[2], key, "second.master")
+            login_password(target, password_app[2], "second.master")
             assert target.get("/api/v1/auth/me").json()["roles"] == [
                 {"role": "ADMIN", "scope": "ORGANIZATION", "branch_id": None}
             ]
         with t.base.db.session() as s:
-            # Counter/last-use can move during UV; key identities and revocation cannot.
-            current_keys = s.execute(
-                text("SELECT * FROM iam_passkeys WHERE account_id=:a"), {"a": ident}
-            ).all()
-            assert [row.key_id for row in current_keys] == [row.key_id for row in original_keys]
-            assert all(row.revoked_at is None for row in current_keys)
+            assert (
+                s.execute(
+                    text("SELECT count(*) FROM iam_passkeys WHERE account_id=:a"), {"a": ident}
+                ).scalar_one()
+                == 0
+            )
 
 
 def test_no_admin_no_binding_is_unsupported_and_db_failure_is_not_401(
-    trainer: TrainerScene, mfa: tuple[Any, Any, str, str], monkeypatch: pytest.MonkeyPatch
+    trainer: TrainerScene, password_app: tuple[Any, Any, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from tests.test_iam_mfa_management_races import provision
+    from tests.password_helpers import provision
     from y3management.iam.infrastructure import IAM
 
     t = trainer
     with closing(TestClient(t.base.client.app, base_url=ORIGIN)) as target:
-        ident, _ = provision(t.base.client, target, mfa[2])
+        ident = provision(t.base.client, target, password_app[2])
         token = link_token(reset_request(t.base.client, ident).json()["reset_link"])
         with t.base.db.session() as s:
             organization = s.execute(
@@ -351,7 +363,7 @@ def test_no_admin_no_binding_is_unsupported_and_db_failure_is_not_401(
         assert (
             t.base.client.get(f"/api/v1/admin/accounts/{ident}/password-reset").status_code == 404
         )
-        assert complete(target, token, mfa[2]).status_code == 401
+        assert complete(target, token, password_app[2]).status_code == 401
         with t.base.db.session() as s:
             s.execute(
                 text("INSERT INTO iam_admin_grants VALUES(:a,:o,'ORGANIZATION',NULL)"),
@@ -375,8 +387,8 @@ def test_no_admin_no_binding_is_unsupported_and_db_failure_is_not_401(
                     target,
                     "/auth/password-reset/complete",
                     nonce,
-                    {"reset_token": token, "new_password": mfa[2]},
+                    {"reset_token": token, "new_password": password_app[2]},
                 ).status_code
                 == 503
             )
-        assert complete(target, token, mfa[2]).status_code == 204
+        assert complete(target, token, password_app[2]).status_code == 204

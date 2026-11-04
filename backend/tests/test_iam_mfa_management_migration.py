@@ -10,13 +10,21 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import text
 
+from tests.legacy_helpers import (  # noqa: F401
+    assert_revision_loss_guard,
+    legacy_allocation,
+    legacy_database,
+    legacy_master,
+)
+from tests.password_helpers import protect
 from tests.test_iam import child_env
-from tests.test_iam_mfa import mfa, protect  # noqa: F401
 from y3management.config import Settings
 from y3management.database import Database
-from y3management.uow import UnitOfWork
 
-pytestmark = pytest.mark.postgres
+pytestmark = [
+    pytest.mark.postgres,
+    pytest.mark.parametrize("legacy_master", ["0006_iam_mfa_management"], indirect=True),
+]
 
 
 def fingerprint(db: Database) -> str:
@@ -48,12 +56,11 @@ def migrate(settings: Settings, direction: str, revision: str) -> int:
     return result.returncode
 
 
-@pytest.mark.parametrize("mfa", [False], indirect=True)
-def test_management_empty_roundtrip(mfa: tuple[Settings, Database, str, str]) -> None:
-    settings, db, _, _ = mfa
+def test_management_empty_roundtrip(legacy_master: tuple[Settings, Database]) -> None:
+    settings, db = legacy_master
     before = fingerprint(db)
     assert migrate(settings, "downgrade", "0005_iam_mfa") == 0
-    assert migrate(settings, "upgrade", "head") == 0
+    assert migrate(settings, "upgrade", "0006_iam_mfa_management") == 0
     assert fingerprint(db) == before
 
 
@@ -74,12 +81,11 @@ def test_management_empty_roundtrip(mfa: tuple[Settings, Database, str, str]) ->
     ],
 )
 def test_each_management_downgrade_guard(
-    mfa: tuple[Settings, Database, str, str], seed: str
+    legacy_master: tuple[Settings, Database], seed: str
 ) -> None:
-    settings, db, _, _ = mfa
+    settings, db = legacy_master
     with db.session() as s:
         account = s.execute(text("SELECT id,organization_id FROM iam_accounts")).one()
-        s.execute(text("DELETE FROM iam_security_states WHERE kind='mfa'"))
         if seed == "revoked":
             s.execute(
                 text(
@@ -99,7 +105,10 @@ def test_each_management_downgrade_guard(
             )
         if seed == "metadata":
             s.execute(
-                text("UPDATE audit_events SET before_key_set_version=0 WHERE action='bootstrap'")
+                text(
+                    "INSERT INTO audit_events(id,action,success,request_id,before_key_set_version) "
+                    "VALUES(gen_random_uuid(),'login',false,gen_random_uuid(),0)"
+                )
             )
         if seed.endswith("_audit"):
             action = {
@@ -117,8 +126,7 @@ def test_each_management_downgrade_guard(
             )
         s.commit()
     if seed in ("source", "context", "parent"):
-        with UnitOfWork(db, settings).open() as w:
-            slot = w.security.allocate("recovery")
+        slot = legacy_allocation(db, "recovery")
         if seed != "parent":
             with db.session() as s:
                 s.execute(
@@ -133,8 +141,7 @@ def test_each_management_downgrade_guard(
                 )
                 s.commit()
             if seed == "context":
-                with UnitOfWork(db, settings).open() as w:
-                    context = w.security.allocate("mfa")
+                context = legacy_allocation(db, "mfa")
                 with db.session() as s:
                     s.execute(
                         text(
@@ -149,13 +156,14 @@ def test_each_management_downgrade_guard(
                     s.commit()
     before = fingerprint(db)
     assert migrate(settings, "downgrade", "0005_iam_mfa") != 0
+    assert_revision_loss_guard(db, "0006_iam_mfa_management.py", "prevents downgrade")
     assert fingerprint(db) == before
 
 
 def test_upgrade_backfills_keys_without_changing_facts(
-    mfa: tuple[Settings, Database, str, str],
+    legacy_master: tuple[Settings, Database],
 ) -> None:
-    settings, db, _, _ = mfa
+    settings, db = legacy_master
     assert migrate(settings, "downgrade", "0005_iam_mfa") == 0
     with db.session() as s:
         ident = s.execute(text("SELECT id FROM iam_accounts")).scalar_one()
@@ -174,7 +182,7 @@ def test_upgrade_backfills_keys_without_changing_facts(
             )
         ).scalar_one()
         s.commit()
-    assert migrate(settings, "upgrade", "head") == 0
+    assert migrate(settings, "upgrade", "0006_iam_mfa_management") == 0
     with db.session() as s:
         after = s.execute(
             text(

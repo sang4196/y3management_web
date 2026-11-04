@@ -9,9 +9,6 @@ const cfg=JSON.parse(fs.readFileSync(path.join(R,'input.json')));
 browser=await chromium.launch({executablePath:path.join(R,'browser-binaries/chrome'),
 headless:true,chromiumSandbox:true,args:['--no-proxy-server','--disable-background-networking']});
 const admin=await browser.newContext({ignoreHTTPSErrors:false}),p=await admin.newPage();
-const cdp=await admin.newCDPSession(p);await cdp.send('WebAuthn.enable');
-await cdp.send('WebAuthn.addVirtualAuthenticator',{options:{protocol:'ctap2',transport:'internal',
-hasResidentKey:true,hasUserVerification:true,isUserVerified:true,automaticPresenceSimulation:true}});
 async function click(page,selector,path){const result=page.waitForResponse(r=>r.url().endsWith(path)&&r.request().method()==='POST');
 await page.locator(selector).click();return await result;}
 async function get(page,route){return page.evaluate(async route=>{const r=await fetch('/api/v1'+route);
@@ -21,12 +18,11 @@ const c=await(await fetch('/api/v1/auth/csrf',{headers:{'X-Y3-Client':'browser'}
 const r=await fetch('/api/v1'+route,{method:'POST',headers:{'Content-Type':'application/json',
 'X-CSRF-Token':c.csrf_token},body:JSON.stringify(body)});
 return {status:r.status,body:r.status===204?null:await r.json()};},{route,body});}
-stage='admin';await p.goto(cfg.origin+'/enroll#token='+cfg.enrollmentToken);
+stage='admin';await p.goto(cfg.origin+'/login');
 checks.trusted_https=await p.evaluate(()=>isSecureContext);
-checks.master_enroll=(await click(p,'#mfa button','/auth/passkeys/enrollment/verify')).status()===204;
 await p.goto(cfg.origin+'/login');await p.locator('#identifier').fill('master.test');
 await p.locator('#password').fill(cfg.masterPassword);
-checks.master_uv=(await click(p,'#mfa button','/auth/login/passkey/verify')).status()===204;
+checks.master_password_login=(await click(p,'#password-form button','/auth/login')).status()===204;
 const branch=await post(p,'/admin/branches',{code:'I1',name:'가상지점'});
 if(branch.status!==201)throw Error();
 stage='registration';await p.goto(cfg.origin+'/trainers');
@@ -56,8 +52,8 @@ checks.self_cookie_cleared=!(await admin.cookies()).some(c=>c.name==='__Host-y3-
 checks.old_session_denied=(await get(p,'/auth/me')).status===401;
 async function login(){await p.goto(cfg.origin+'/login');await p.locator('#identifier').fill('master.test');
 await p.locator('#password').fill(cfg.masterPassword);
-const response=await click(p,'#mfa button','/auth/login/passkey/verify');await p.getByText('로그인되었습니다.',{exact:true}).waitFor();return response.status();}
-checks.relogin_uv=await login()===204;
+const response=await click(p,'#password-form button','/auth/login');await p.getByText('로그인되었습니다.',{exact:true}).waitFor();return response.status();}
+checks.relogin_password=await login()===204;
 const me=await get(p,'/auth/me');checks.dual_roles=me.status===200&&me.body.roles.map(x=>x.role).join(',')==='ADMIN,TRAINER';
 stage='w1-admin';await p.goto(cfg.origin+'/trainers');
 const stateSelector='[data-state-trainer="'+trainer.id+'"]';
@@ -96,7 +92,7 @@ await box.getByText('결과가 불명확합니다. 자동 재시도하지 말고
 checks.operation_displayed=await box.getByLabel('역할 작업 번호').inputValue()===lostId;
 checks.drop_old_session_denied=(await get(p,'/auth/me')).status===401;
 await p.unroute('**/api/v1/admin/trainers/'+trainer.id+'/role');
-checks.regrant_uv=await login()===204;
+checks.regrant_password=await login()===204;
 await p.goto(cfg.origin+'/trainers');await box.getByLabel('역할 작업 번호').fill(lostId);
 const receipt=p.waitForResponse(r=>r.url().endsWith('/trainer-role-operations/'+lostId));
 await box.getByText('역할 작업 결과 확인',{exact:true}).click();
@@ -209,7 +205,7 @@ checks.old_source_rejected=(await click(r,'#trainer-setup button','/trainer-cred
 await r.goto('about:blank');await r.goto(newLink);await r.locator('#new-password').fill(cfg.branchPassword);
 checks.new_source_setup=(await click(r,'#trainer-setup button','/trainer-credentials/complete')).status()===204;
 await r.goto(cfg.origin+'/login');await r.locator('#identifier').fill('pending.native');await r.locator('#password').fill(cfg.branchPassword);
-checks.pending_trainer_login=(await click(r,'#mfa button','/auth/login')).status()===204;
+checks.pending_trainer_login=(await click(r,'#password-form button','/auth/login')).status()===204;
 stage='trainer-reset';
 await r.waitForURL('**/account');
 const resetBox=p.locator('[data-trainer-reset="'+pendingId+'"]');
@@ -252,28 +248,38 @@ let resetLeak=false;const resetRaw=resetLink.split('#token=')[1];
 r.on('request',request=>{if(request.url().includes(resetRaw))resetLeak=true;});
 await r.goto(resetLink);checks.reset_fragment_removed=await r.evaluate(()=>location.hash==='');
 await r.locator('#password').fill(cfg.masterPassword);
-checks.reset_recipient_form=(await click(r,'#mfa button','/auth/password-reset/complete')).status()===204;
+checks.reset_recipient_form=(await click(r,'#password-form button','/auth/password-reset/complete')).status()===204;
 checks.reset_no_auto_login=(await get(r,'/auth/me')).status===401;
 checks.reset_no_url_secret=!resetLeak;
 await r.goto(cfg.origin+'/login');await r.locator('#identifier').fill('pending.native');
 await r.locator('#password').fill(cfg.masterPassword);
-checks.reset_password_only_login=(await click(r,'#mfa button','/auth/login')).status()===204;
+checks.reset_password_only_login=(await click(r,'#password-form button','/auth/login')).status()===204;
 await r.waitForURL('**/account');
-checks.reset_no_passkey_privilege=(await get(r,'/auth/passkeys')).status===401;
+checks.reset_no_admin_privilege=(await get(r,'/branches')).status===401;
+stage='role-zero';
+await roles.getByText('새 역할 작업',{exact:true}).click();
+checks.role_zero_withdraw=(await click(p,'[data-role-trainer="'+pendingId+'"] button:text-is("Trainer 역할 회수")','/role')).status()===200;
+checks.role_zero_old_session_denied=(await get(r,'/auth/me')).status===401;
+await r.goto(cfg.origin+'/login');await r.locator('#identifier').fill('pending.native');
+await r.locator('#password').fill(cfg.masterPassword);
+checks.role_zero_login_denied=(await click(r,'#password-form button','/auth/login')).status()===401;
+await roles.getByText('새 역할 작업',{exact:true}).click();
+checks.role_zero_regrant=(await click(p,'[data-role-trainer="'+pendingId+'"] button:text-is("Trainer 역할 부여")','/role')).status()===200;
+await r.locator('#password').fill(cfg.masterPassword);
+checks.role_zero_same_password_login=(await click(r,'#password-form button','/auth/login')).status()===204;
+await r.waitForURL('**/account');
+checks.role_zero_current_trainer_scope=(await get(r,'/auth/me')).body.roles.map(x=>x.role).join(',')==='TRAINER'&&(await get(r,'/branches')).status===401;
 stage='branch-reset-boundary';
 const branchIssued=await post(p,'/admin/accounts',{
  login_id:'reset.branch.native',branch_id:branch.body.id});
 if(branchIssued.status!==201)throw Error();
 const baContext=await browser.newContext({ignoreHTTPSErrors:false});
-const ba=await baContext.newPage(),baCdp=await baContext.newCDPSession(ba);
-await baCdp.send('WebAuthn.enable');
-await baCdp.send('WebAuthn.addVirtualAuthenticator',{options:{protocol:'ctap2',transport:'internal',
- hasResidentKey:true,hasUserVerification:true,isUserVerified:true,automaticPresenceSimulation:true}});
+const ba=await baContext.newPage();
 await ba.goto(branchIssued.body.setup_link);await ba.locator('#password').fill(cfg.branchPassword);
-if((await click(ba,'#mfa button','/auth/passkeys/enrollment/verify')).status()!==204)throw Error();
+if((await click(ba,'#submit','/auth/credentials/complete')).status()!==204)throw Error();
 await ba.goto(cfg.origin+'/login');await ba.locator('#identifier').fill('reset.branch.native');
 await ba.locator('#password').fill(cfg.branchPassword);
-if((await click(ba,'#mfa button','/auth/login/passkey/verify')).status()!==204)throw Error();
+if((await click(ba,'#password-form button','/auth/login')).status()!==204)throw Error();
 let baResetReads=0;
 ba.on('request',request=>{if(request.method()==='GET'&&request.url().includes('/password-reset'))baResetReads++;});
 await ba.goto(cfg.origin+'/trainers');

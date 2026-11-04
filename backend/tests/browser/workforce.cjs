@@ -8,16 +8,13 @@ const cfg=JSON.parse(fs.readFileSync(path.join(R,'input.json')));
 browser=await chromium.launch({executablePath:path.join(R,'browser-binaries/chrome'),
 headless:true,chromiumSandbox:true,args:['--no-proxy-server','--disable-background-networking']});
 async function device(){const context=await browser.newContext({ignoreHTTPSErrors:false});
-const page=await context.newPage(),cdp=await context.newCDPSession(page);
-await cdp.send('WebAuthn.enable');await cdp.send('WebAuthn.addVirtualAuthenticator',
-{options:{protocol:'ctap2',transport:'internal',hasResidentKey:true,hasUserVerification:true,
-isUserVerified:true,automaticPresenceSimulation:true}});return {context,page};}
+const page=await context.newPage();return {context,page};}
 const master=await device(),p=master.page;
 async function submit(page,endpoint){const response=page.waitForResponse(r=>r.url().endsWith(endpoint));
-await page.locator('#mfa button').click();return (await response).status();}
+await page.locator('#password-form button').click();return (await response).status();}
 async function login(page,id,password){await page.goto(cfg.origin+'/login');
 await page.locator('#identifier').fill(id);await page.locator('#password').fill(password);
-return await submit(page,'/auth/login/passkey/verify');}
+return await submit(page,'/auth/login');}
 async function get(page,route){return page.evaluate(async route=>{const r=await fetch('/api/v1'+route);
 return {status:r.status,body:await r.json()};},route);}
 async function post(page,route,body){return page.evaluate(async({route,body})=>{
@@ -25,9 +22,8 @@ const c=await(await fetch('/api/v1/auth/csrf',{headers:{'X-Y3-Client':'browser'}
 const r=await fetch('/api/v1'+route,{method:'POST',headers:{'Content-Type':'application/json',
 'X-CSRF-Token':c.csrf_token},body:JSON.stringify(body)});
 return {status:r.status,body:await r.json()};},{route,body});}
-stage='setup';await p.goto(cfg.origin+'/enroll#token='+cfg.enrollmentToken);
+stage='setup';await p.goto(cfg.origin+'/login');
 checks.trusted_https=await p.evaluate(()=>isSecureContext);
-checks.actual_master_setup=await submit(p,'/auth/passkeys/enrollment/verify')===204;
 checks.actual_master_login=await login(p,'master.test',cfg.masterPassword)===204;
 stage='branches';
 for(let i=0;i<101;i++){const b=await post(p,'/admin/branches',{code:'W'+i,name:'가상지점 '+i});
@@ -62,7 +58,8 @@ checks.validation_no_echo=bad.status===422&&JSON.stringify(bad.body)==='{"detail
 stage='branch-admin';const issued=await post(p,'/admin/accounts',{login_id:'workforce.branch',branch_id:home});
 const ba=await device(),b=ba.page;await b.goto(issued.body.setup_link);
 await b.locator('#password').fill(cfg.branchPassword);
-checks.branch_setup=await submit(b,'/auth/passkeys/enrollment/verify')===204;
+const branchSetup=b.waitForResponse(r=>r.url().endsWith('/auth/credentials/complete'));
+await b.locator('#submit').click();checks.branch_setup=(await branchSetup).status()===204;
 checks.branch_login=await login(b,'workforce.branch',cfg.branchPassword)===204;
 checks.branch_scope=(await get(b,'/admin/trainer-home-candidates')).body.items.length===1;
 checks.foreign_home_denied=(await post(b,'/admin/trainers',{...submitted,operation_id:await b.evaluate(()=>crypto.randomUUID()),home_branch_id:first[0].id})).status===404;

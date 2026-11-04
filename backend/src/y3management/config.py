@@ -31,7 +31,7 @@ class Settings(BaseSettings):
 
     database_schema: str = "public"
     iam_enabled: bool = False
-    iam_mode: Literal["s1_password", "mfa"] | None = None
+    iam_mode: Literal["password"] | None = None
     canonical_origin: str = ""
     iam_key: SecretStr = Field(default=SecretStr(""), repr=False)
     # Resource limits, not account policies. Must be explicitly sized for the local run.

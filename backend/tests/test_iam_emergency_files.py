@@ -76,7 +76,7 @@ def test_authority_requires_kernel_identity_and_fixed_descriptor(
     settings = Settings(
         environment="test",
         database_url="postgresql+psycopg://y3management_test:synthetic@localhost:55433/y3management_test",
-        iam_mode="mfa",
+        iam_mode="password",
         emergency_authority_file=str(descriptor),
         emergency_test_authority=True,
     )

@@ -7,9 +7,8 @@ from typing import Any
 import pytest
 from sqlalchemy import text
 
+from tests.password_helpers import call, fingerprint, password_app, reset_request  # noqa: F401
 from tests.test_iam import csrf
-from tests.test_iam_mfa import call, mfa  # noqa: F401
-from tests.test_iam_password_reset import fingerprint, reset_request
 from tests.test_iam_trainer import TrainerScene, trainer  # noqa: F401
 from tests.test_iam_trainer_reset import ready
 from tests.test_workforce import scene  # noqa: F401

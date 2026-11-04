@@ -13,8 +13,9 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
+from tests.legacy_helpers import legacy_database, password_downgrade_guard  # noqa: F401
+from tests.password_helpers import call, password_app  # noqa: F401
 from tests.test_iam import ORIGIN, SyntheticSecret, csrf
-from tests.test_iam_mfa import call, mfa  # noqa: F401
 from tests.test_iam_trainer import TrainerScene, counts, source, trainer  # noqa: F401
 from tests.test_workforce import scene  # noqa: F401
 from tests.test_workforce_integrity import branch_actor
@@ -33,7 +34,7 @@ pytestmark = pytest.mark.postgres
 @pytest.mark.parametrize("same", [True, False])
 def test_stale_preflight_then_other_actor_commit(
     trainer: TrainerScene,
-    mfa: tuple[Settings, Database, str, str],
+    password_app: tuple[Settings, Database, str],
     monkeypatch: pytest.MonkeyPatch,
     same: bool,
 ) -> None:
@@ -53,7 +54,7 @@ def test_stale_preflight_then_other_actor_commit(
             assert release.wait(10)
         return original(self, kind, collect=collect)
 
-    with closing(branch_actor(t.base, mfa[2])) as other:
+    with closing(branch_actor(t.base, password_app[2])) as other:
         na, nb = csrf(t.base.client), csrf(other)
         payload = {"operation_id": str(uuid4()), "login_id": t.login}
         path = "/admin/trainers/" + t.trainer + "/login-account"
@@ -198,9 +199,9 @@ def test_binding_both_uniqueness_directions_and_foreign_keys(trainer: TrainerSce
         assert counts(t) == (1, 1, 1, 1)
 
 
-def test_same_account_inactive_trainer_keeps_admin_uv(
+def test_same_account_inactive_trainer_keeps_admin_password_access(
     trainer: TrainerScene,
-    mfa: tuple[Settings, Database, str, str],
+    password_app: tuple[Settings, Database, str],
 ) -> None:
     t = trainer
     with t.base.db.session() as s:
@@ -217,25 +218,25 @@ def test_same_account_inactive_trainer_keeps_admin_uv(
     assert me.status_code == 200 and me.json()["roles"][0]["role"] == "ADMIN"
     assert all(role["role"] != "TRAINER" for role in me.json()["roles"])
     assert t.base.client.get("/api/v1/branches").status_code == 200
-    # Genuine password-only session from the retained S1 fixture cannot bypass MFA audience.
-    legacy = Service(UnitOfWork(t.base.db, mfa[0].model_copy(update={"iam_mode": "s1_password"})))
+    # A fresh password session retains the current admin role only.
+    legacy = Service(UnitOfWork(t.base.db, password_app[0]))
     nonce, preauth = legacy.csrf(None, None)
-    weak = SyntheticSecret(legacy.login("master.test", mfa[2], preauth, nonce, None))
+    token = SyntheticSecret(legacy.login("master.test", password_app[2], preauth, nonce, None))
     for path in ["/auth/me", "/branches"]:
         assert (
             t.recipient.get(
-                "/api/v1" + path, headers={"Cookie": "__Host-y3-auth=" + weak}
+                "/api/v1" + path, headers={"Cookie": "__Host-y3-auth=" + token}
             ).status_code
-            == 401
+            == 200
         )
     r = call(
         t.recipient,
         "/auth/login",
         csrf(t.recipient),
-        {"login_id": "master.test", "password": mfa[2]},
+        {"login_id": "master.test", "password": password_app[2]},
     )
-    assert r.status_code == 200 and "publicKey" in r.json()
-    assert "__Host-y3-auth" not in r.response.headers.get("set-cookie", "")
+    assert r.status_code == 204
+    assert "__Host-y3-auth" in r.response.headers.get("set-cookie", "")
     assert t.base.client.get("/api/v1/auth/me").status_code == 200
 
 
@@ -347,16 +348,10 @@ def test_original_actor_deadline_after_audit_without_touch(
 
 def test_downgrade_waits_for_actual_issue_then_preserves_history(
     legacy_trainer: TrainerScene,
-    mfa: tuple[Settings, Database, str, str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     trainer = legacy_trainer
-    import subprocess
-    import sys
     import time
-
-    from tests.conftest import qa_register_process, qa_stop_process
-    from tests.test_iam import child_env
 
     t = trainer
     reached, release = Event(), Event()
@@ -372,23 +367,15 @@ def test_downgrade_waits_for_actual_issue_then_preserves_history(
 
     monkeypatch.setattr(Audit, "append_trainer_identity", pause)
     appname = "trainer-downgrade-" + uuid4().hex
-    env = child_env(mfa[0])
-    env["PGAPPNAME"] = appname
-    with ThreadPoolExecutor(max_workers=1) as pool:
+    with ThreadPoolExecutor(max_workers=2) as pool:
         issuing = pool.submit(t.issue)
-        process = None
+        migration = None
         try:
             assert reached.wait(5)
-            process = subprocess.Popen(
-                [sys.executable, "-m", "alembic", "downgrade", "0010_workforce_initial"],
-                env=env,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
-            qa_register_process(process)
+            migration = pool.submit(password_downgrade_guard, t.base.db, appname)
             waiting = False
             deadline = time.monotonic() + 5
-            while time.monotonic() < deadline and process.poll() is None:
+            while time.monotonic() < deadline and not migration.done():
                 with t.base.db.session() as reader:
                     waiting = bool(
                         reader.execute(
@@ -408,8 +395,7 @@ def test_downgrade_waits_for_actual_issue_then_preserves_history(
             release.set()
             issued = issuing.result(timeout=10)
             assert issued.status_code == 201
-            process.communicate(timeout=10)
-            assert process.returncode != 0
+            assert migration.result(timeout=10) == "PASSWORD_DOWNGRADE_REQUIRES_GLOBAL_EMPTY"
             from tests.workforce_state_seed import assert_loss_guard
 
             assert_loss_guard(
@@ -421,10 +407,10 @@ def test_downgrade_waits_for_actual_issue_then_preserves_history(
             with t.base.db.session() as reader:
                 assert (
                     reader.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                    == "0013_workforce_trainer_state"
+                    == "0014_password_only"
                 )
             assert t.complete(source(issued)).status_code == 204
         finally:
             release.set()
-            if process is not None:
-                qa_stop_process(process)
+            if migration is not None:
+                migration.result(timeout=10)

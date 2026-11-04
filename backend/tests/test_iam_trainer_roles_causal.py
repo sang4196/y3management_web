@@ -13,10 +13,16 @@ from fastapi.testclient import TestClient
 from sqlalchemy import event as sa_event
 from sqlalchemy import text
 
+from tests.password_helpers import (  # noqa: F401
+    call,
+    complete,
+    link_token,
+    login_password,
+    password_app,
+    provision,
+    reset_request,
+)
 from tests.test_iam import ORIGIN, csrf
-from tests.test_iam_mfa import Authenticator, call, login_mfa, mfa  # noqa: F401
-from tests.test_iam_mfa_management import link_token, recovery_options, recovery_request
-from tests.test_iam_mfa_management_races import provision
 from tests.test_iam_trainer import TrainerScene, source, trainer  # noqa: F401
 from tests.test_iam_trainer_roles import body, change, state
 from tests.test_iam_trainer_roles_security import link
@@ -27,8 +33,8 @@ from y3management.audit.public import TrainerRoleEvent
 from y3management.config import Settings
 from y3management.database import Database
 from y3management.iam.infrastructure import IAM
-from y3management.iam.mfa import MFA
-from y3management.iam.public import RegistrationProof, TrainerSetupProof
+from y3management.iam.password_reset import PasswordReset
+from y3management.iam.public import ResetProof, TrainerSetupProof
 from y3management.iam.roles import TrainerRoles
 
 pytestmark = pytest.mark.postgres
@@ -72,85 +78,62 @@ def committed_cycle(t: TrainerScene) -> None:
         ]
 
 
-def test_verified_uv_proof_cannot_cross_committed_role_cycle(
+def test_prepared_password_proof_cannot_cross_committed_role_cycle(
     trainer: TrainerScene,
-    mfa: tuple[Settings, Database, str, str],
+    password_app: tuple[Settings, Database, str],
     monkeypatch: pytest.MonkeyPatch,
     record_testsuite_property: Callable[[str, object], None],
 ) -> None:
     t = trainer
     with closing(TestClient(t.base.client.app, base_url=ORIGIN)) as target:
-        ident, _ = provision(t.base.client, target, mfa[2])
+        ident = provision(t.base.client, target, password_app[2])
         assert change(t, link(t, ident, "second.master")).status_code == 200
-        issued = recovery_request(t.base.client, ident)
-        assert issued.status_code == 201
-        token = link_token(issued.json()["recovery_link"])
-        options_response = recovery_options(target, token)
-        assert options_response.status_code == 200
-        options = options_response.json()
-        replacement = Authenticator()
-        payload = {"credential": replacement.registration(options["publicKey"])}
+        issued = reset_request(t.base.client, ident)
+        token = link_token(issued.json()["reset_link"])
         with t.base.db.session() as reader:
             original_source = reader.execute(
-                text("SELECT md5(row_to_json(x)::text) FROM iam_recovery_credentials x")
+                text(
+                    "SELECT md5(row_to_json(x)::text) "
+                    "FROM iam_reset_credentials x WHERE account_id=:a"
+                ),
+                {"a": ident},
             ).scalar_one()
-        original = MFA.verify_registration
+        original = PasswordReset.prepare_reset
         proof_pids: list[int] = []
         with monkeypatch.context() as patch:
             role_pids = role_connections(patch)
 
-            def verify(
-                self: MFA, token: str | None, nonce: str | None, payload: str
-            ) -> RegistrationProof:
-                proof = original(self, token, nonce, payload)
-                assert proof.purpose == "recovery"
+            def prepare(self: PasswordReset, token: str, password: str) -> ResetProof:
+                proof = original(self, token, password)
                 proof_pids.append(int(self.s.execute(text("SELECT pg_backend_pid()")).scalar_one()))
                 committed_cycle(t)
                 return proof
 
-            patch.setattr(MFA, "verify_registration", verify)
-            response = call(
-                target, "/auth/passkeys/recovery/verify", options["csrf_token"], payload
-            )
-            assert response.status_code == 401
+            patch.setattr(PasswordReset, "prepare_reset", prepare)
+            assert complete(target, token, password_app[2]).status_code == 401
         assert len(proof_pids) == 1 and len(role_pids) == 2
         assert all(pid != proof_pids[0] for pid in role_pids)
         with t.base.db.session() as reader:
             assert (
                 reader.execute(
-                    text("SELECT md5(row_to_json(x)::text) FROM iam_recovery_credentials x")
-                ).scalar_one()
-                == original_source
-            )
-            assert (
-                reader.execute(
                     text(
-                        "SELECT count(*) FROM iam_passkeys "
-                        "WHERE account_id=:a AND revoked_at IS NULL"
+                        "SELECT md5(row_to_json(x)::text) "
+                        "FROM iam_reset_credentials x WHERE account_id=:a"
                     ),
                     {"a": ident},
                 ).scalar_one()
-                == 0
+                == original_source
             )
-        fresh_response = recovery_options(target, token)
-        assert fresh_response.status_code == 200
-        fresh = fresh_response.json()
-        assert (
-            call(
-                target,
-                "/auth/passkeys/recovery/verify",
-                fresh["csrf_token"],
-                {"credential": replacement.registration(fresh["publicKey"])},
-            ).status_code
-            == 204
-        )
-        login_mfa(target, mfa[2], replacement, "second.master")
+        assert complete(target, token, password_app[2]).status_code == 204
+        login_password(target, password_app[2], "second.master")
         assert [r["role"] for r in target.get("/api/v1/auth/me").json()["roles"]] == [
             "ADMIN",
             "TRAINER",
         ]
-        record_testsuite_property("causal_uv_proof_pid", proof_pids[0])
-        record_testsuite_property("causal_uv_committed_role_pids", ",".join(map(str, role_pids)))
+        record_testsuite_property("causal_password_proof_pid", proof_pids[0])
+        record_testsuite_property(
+            "causal_password_committed_role_pids", ",".join(map(str, role_pids))
+        )
 
 
 def test_prepared_initial_hash_cannot_cross_committed_role_cycle(
@@ -223,7 +206,7 @@ def test_prepared_initial_hash_cannot_cross_committed_role_cycle(
 @pytest.mark.parametrize("role_first", [False, True], ids=["reissue-first", "role-first"])
 def test_initial_reissue_and_role_share_observed_lock_chain(
     trainer: TrainerScene,
-    mfa: tuple[Settings, Database, str, str],
+    password_app: tuple[Settings, Database, str],
     monkeypatch: pytest.MonkeyPatch,
     record_testsuite_property: Callable[[str, object], None],
     role_first: bool,
@@ -261,7 +244,7 @@ def test_initial_reissue_and_role_share_observed_lock_chain(
         if role_first and str(account) == ident and not holders:
             pause(self)
 
-    with closing(branch_actor(t.base, mfa[2])) as other:
+    with closing(branch_actor(t.base, password_app[2])) as other:
         actor_a = t.base.client.get("/api/v1/auth/me").json()["account_id"]
         actor_b = other.get("/api/v1/auth/me").json()["account_id"]
         assert actor_a != actor_b and ident not in (actor_a, actor_b)

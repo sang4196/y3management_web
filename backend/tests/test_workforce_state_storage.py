@@ -9,10 +9,11 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
+from tests.password_helpers import password_app  # noqa: F401
 from tests.test_iam import child_env
-from tests.test_iam_mfa import mfa  # noqa: F401
 from tests.test_iam_trainer import TrainerScene, trainer  # noqa: F401
 from tests.test_iam_trainer_roles_storage import migrate
+from tests.test_password_transition import legacy_database  # noqa: F401
 from tests.test_workforce import Scene, scene  # noqa: F401
 from tests.test_workforce_state import change, request
 from tests.workforce_state_seed import register_legacy
@@ -23,11 +24,17 @@ pytestmark = pytest.mark.postgres
 
 
 def test_parent_forward_origin_and_loss_guard(
-    scene: Scene, mfa: tuple[Settings, Database, str, str], tmp_path: Path
+    legacy_database: tuple[Settings, Database], tmp_path: Path
 ) -> None:
-    settings, db, _, _ = mfa
+    import secrets
+
+    from tests.test_iam import SyntheticSecret
+
+    settings, db = legacy_database
+    password = SyntheticSecret("Original lifecycle " + secrets.token_urlsafe(24))
     assert migrate(settings, "downgrade", "0012_iam_trainer_roles") == 0
-    fact = register_legacy(scene, settings, tmp_path)
+    result = register_legacy(settings, tmp_path, password)
+    fact = result["trainer"]
     with db.session() as s:
         before = {
             table: s.execute(
@@ -42,7 +49,7 @@ def test_parent_forward_origin_and_loss_guard(
                 "audit_workforce_initial_events",
             )
         }
-    assert migrate(settings, "upgrade", "head") == 0
+    assert migrate(settings, "upgrade", "0013_workforce_trainer_state") == 0
     with db.session() as s:
         for table, rows in before.items():
             assert (
@@ -59,16 +66,23 @@ def test_parent_forward_origin_and_loss_guard(
         assert s.execute(text("SELECT count(*) FROM audit_trainer_state_events")).scalar_one() == 0
     # Positive control: only observed baseline can be removed losslessly.
     assert migrate(settings, "downgrade", "0012_iam_trainer_roles") == 0
-    assert migrate(settings, "upgrade", "head") == 0
+    assert migrate(settings, "upgrade", "0013_workforce_trainer_state") == 0
     from contextlib import closing
 
     from fastapi.testclient import TestClient
 
+    from tests.password_helpers import login_password
     from tests.test_iam import ORIGIN
+    from y3management.application import create_app
 
-    with closing(TestClient(scene.client.app, base_url=ORIGIN)) as recipient:
-        t = TrainerScene(scene, fact["id"], recipient, "unused", "unused")
-        assert change(t, request(t, False)).status_code == 200
+    assert migrate(settings, "upgrade", "head") == 0
+    with TestClient(create_app(settings, database=db), base_url=ORIGIN) as client:
+        login_password(client, password)
+        with closing(TestClient(client.app, base_url=ORIGIN)) as recipient:
+            t = TrainerScene(
+                Scene(client, db, result["branch"]), fact["id"], recipient, "unused", "unused"
+            )
+            assert change(t, request(t, False)).status_code == 200
     r = subprocess.run(
         [sys.executable, "-m", "alembic", "downgrade", "0012_iam_trainer_roles"],
         env=child_env(settings),
@@ -103,7 +117,7 @@ def test_typed_state_constraints(trainer: TrainerScene, assignment: str) -> None
 
 
 def test_noop_cannot_have_transition_and_registration_guard(
-    trainer: TrainerScene, mfa: tuple[Settings, Database, str, str]
+    trainer: TrainerScene, password_app: tuple[Settings, Database, str]
 ) -> None:
     t = trainer
     payload = request(t, True)
@@ -112,7 +126,8 @@ def test_noop_cannot_have_transition_and_registration_guard(
         s.execute(
             text(
                 "INSERT INTO workforce_trainer_state_transitions "
-                "(organization_id,operation_id,trainer_id,before_active,after_active,before_version,"
+                "(organization_id,operation_id,trainer_id,before_active,after_active,"
+                "before_version,"
                 "after_version,recorded_at) SELECT organization_id,operation_id,"
                 "trainer_id,true,false,"
                 "before_version,before_version+1,recorded_at "
@@ -122,7 +137,7 @@ def test_noop_cannot_have_transition_and_registration_guard(
         s.commit()
     r = subprocess.run(
         [sys.executable, "-m", "alembic", "downgrade", "0012_iam_trainer_roles"],
-        env=child_env(mfa[0]),
+        env=child_env(password_app[0]),
         capture_output=True,
         timeout=30,
     )

@@ -15,27 +15,32 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
+from tests.legacy_helpers import (  # noqa: F401
+    assert_revision_loss_guard,
+    legacy_allocation,
+    legacy_database,
+    legacy_master,
+)
+from tests.password_helpers import login_password
 from tests.test_iam import ORIGIN, SyntheticSecret, child_env
-from tests.test_iam_mfa import Authenticator, begin, enroll, login_mfa, mfa  # noqa: F401
 from y3management import cli
 from y3management.application import create_app
 from y3management.config import Settings
 from y3management.database import Database
-from y3management.uow import UnitOfWork
 
 pytestmark = pytest.mark.postgres
 
 
-@pytest.mark.parametrize("mfa", [False], indirect=True)
+@pytest.mark.parametrize("password_app", [False], indirect=True)
 @pytest.mark.parametrize("failure", ["audit", "commit_ack"])
 def test_cli_failed_or_unknown_commit(
-    mfa: tuple[Settings, Database, str, str],
+    password_app: tuple[Settings, Database, str],
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
     failure: str,
 ) -> None:
-    settings, db, password, _ = mfa
+    settings, db, password = password_app
     private = tmp_path / "delivery"
     private.mkdir(mode=0o700)
     output = private / "capability"
@@ -54,14 +59,19 @@ def test_cli_failed_or_unknown_commit(
                 )
             )
             s.commit()
-    original = Session.commit
-    commits = 0
+    from y3management.audit.infrastructure import Audit
+    from y3management.audit.public import Event
+
+    original, append = Session.commit, Audit.append
+
+    def marked(adapter: Audit, event: Event) -> None:
+        append(adapter, event)
+        if event.action == "bootstrap":
+            adapter.s.info["bootstrap_ack"] = True
 
     def commit(session: Session) -> None:
-        nonlocal commits
-        commits += 1
         original(session)
-        if commits == 2:
+        if session.info.pop("bootstrap_ack", False):
             raise OperationalError("COMMIT", None, RuntimeError("ack lost"))
 
     with monkeypatch.context() as patch:
@@ -80,11 +90,10 @@ def test_cli_failed_or_unknown_commit(
                 "master.test",
                 "--confirm-database",
                 "y3management_test",
-                "--enrollment-file",
-                str(output),
             ],
         )
         if failure == "commit_ack":
+            patch.setattr(Audit, "append", marked)
             patch.setattr(Session, "commit", commit)
         code = cli.main()
     captured = capsys.readouterr()
@@ -96,12 +105,10 @@ def test_cli_failed_or_unknown_commit(
     if failure == "audit":
         assert code == 1 and count == 0 and not output.exists()
     else:
-        assert code == 2 and count == 1 and output.is_file()
-        assert "INSTALLATION_COMMIT_UNKNOWN_RETAIN_PRIVATE_FILE" in output_text
-        token = SyntheticSecret(output.read_text().strip().split("#token=")[1])
-        assert token not in output_text
+        assert code == 2 and count == 1 and not output.exists()
+        assert "INSTALLATION_COMMIT_UNKNOWN_VERIFY_EXISTING_INSTALLATION" in output_text
         with TestClient(create_app(settings, database=db), base_url=ORIGIN) as client:
-            enroll(client, token, Authenticator())
+            login_password(client, password)
 
 
 def fingerprint(db: Database) -> str:
@@ -126,15 +133,14 @@ def fingerprint(db: Database) -> str:
     return hashlib.sha256(json.dumps(rows, sort_keys=True).encode()).hexdigest()
 
 
-@pytest.mark.parametrize("mfa", [False], indirect=True)
+@pytest.mark.parametrize("legacy_master", ["0005_iam_mfa"], indirect=True)
 @pytest.mark.parametrize("seed", ["empty", "orphan"])
 def test_empty_roundtrip_and_orphan_guard(
-    mfa: tuple[Settings, Database, str, str], seed: str
+    legacy_master: tuple[Settings, Database], seed: str
 ) -> None:
-    settings, db, _, _ = mfa
+    settings, db = legacy_master
     if seed == "orphan":
-        with UnitOfWork(db, settings).open() as w:
-            w.security.allocate("mfa")
+        legacy_allocation(db, "mfa")
     before = fingerprint(db)
     result = subprocess.run(
         [sys.executable, "-m", "alembic", "downgrade", "0004_iam_login_id"],
@@ -145,7 +151,7 @@ def test_empty_roundtrip_and_orphan_guard(
     assert (result.returncode == 0) == (seed == "empty")
     if seed == "empty":
         result = subprocess.run(
-            [sys.executable, "-m", "alembic", "upgrade", "head"],
+            [sys.executable, "-m", "alembic", "upgrade", "0005_iam_mfa"],
             env=child_env(settings),
             capture_output=True,
             timeout=30,
@@ -154,36 +160,75 @@ def test_empty_roundtrip_and_orphan_guard(
     assert fingerprint(db) == before
 
 
+@pytest.mark.parametrize("legacy_master", ["0005_iam_mfa"], indirect=True)
 @pytest.mark.parametrize("seed", ["context", "key", "audit", "assurance", "attempt"])
 def test_mfa_downgrade_preserves_each_fact(
-    mfa: tuple[Settings, Database, str, str], seed: str
+    legacy_master: tuple[Settings, Database], seed: str
 ) -> None:
-    settings, db, password, token = mfa
-    if seed != "context":
-        with TestClient(create_app(settings, database=db), base_url=ORIGIN) as client:
-            key = Authenticator()
-            enroll(client, token, key)
-            if seed == "assurance":
-                login_mfa(client, password, key)
-            elif seed == "attempt":
-                begin(client, password)
-        # Isolate each preservation guard in this owned disposable schema only.
-        with db.session() as s:
-            s.execute(text("DELETE FROM iam_security_states WHERE kind='mfa'"))
-            if seed != "audit":
-                s.execute(text("DELETE FROM audit_events WHERE action='passkey_register'"))
-            if seed == "audit":
-                # Isolate the original 0005 action guard, not 0006 metadata preservation.
-                s.execute(
-                    text(
-                        "UPDATE audit_events SET key_id=NULL,before_key_set_version=NULL,"
-                        "after_key_set_version=NULL,before_recovery_generation=NULL,"
-                        "after_recovery_generation=NULL WHERE action='passkey_register'"
-                    )
-                )
-            if seed != "key":
-                s.execute(text("DELETE FROM iam_passkeys"))
-            s.commit()
+    settings, db = legacy_master
+    with db.session() as session:
+        account = session.execute(text("SELECT id FROM iam_accounts")).scalar_one()
+    if seed == "context":
+        slot = legacy_allocation(db, "mfa")
+        with db.session() as session:
+            session.execute(
+                text(
+                    "INSERT INTO iam_mfa_contexts(id,digest,csrf,account_id,purpose,"
+                    "security_version,row_version,expires_at) SELECT :i,:d,'synthetic',:a,"
+                    "'install',1,1,"
+                    "expires_at FROM iam_security_states WHERE id=:i"
+                ),
+                {"i": slot, "d": bytes(32), "a": account},
+            )
+            session.commit()
+    elif seed == "key":
+        with db.session() as session:
+            session.execute(
+                text(
+                    "INSERT INTO iam_passkeys(credential_id,account_id,public_key,"
+                    "sign_count,device_type,backed_up) VALUES(:k,:a,:k,0,'single_device',false)"
+                ),
+                {"k": b"synthetic-key", "a": account},
+            )
+            session.commit()
+    elif seed == "audit":
+        with db.session() as session:
+            session.execute(
+                text(
+                    "INSERT INTO audit_events(id,action,success,request_id) "
+                    "VALUES(:i,'passkey_register',true,:i)"
+                ),
+                {"i": uuid4()},
+            )
+            session.commit()
+    elif seed == "assurance":
+        slot = legacy_allocation(db, "session_slot")
+        with db.session() as session:
+            session.execute(
+                text(
+                    "INSERT INTO iam_sessions(id,account_id,digest,csrf,security_version,"
+                    "created_at,last_activity,expires_at,assurance) SELECT :i,:a,:d,'synthetic',1,"
+                    "created_at,created_at,expires_at,'password_uv' FROM iam_security_states "
+                    "WHERE id=:i"
+                ),
+                {"i": slot, "a": account, "d": bytes(32)},
+            )
+            session.commit()
+    else:
+        budget, slot = legacy_allocation(db, "budget"), legacy_allocation(db, "attempt")
+        with db.session() as session:
+            session.execute(
+                text("INSERT INTO iam_budgets(key,state_id) VALUES(:k,:i)"),
+                {"k": bytes(32), "i": budget},
+            )
+            session.execute(
+                text(
+                    "INSERT INTO iam_attempts(id,key,outcome,lease_until,stage) "
+                    "VALUES(:i,:k,'pending',clock_timestamp()+interval '5 minutes','waiting')"
+                ),
+                {"i": slot, "k": bytes(32)},
+            )
+            session.commit()
     before = fingerprint(db)
     result = subprocess.run(
         [sys.executable, "-m", "alembic", "downgrade", "0004_iam_login_id"],
@@ -192,22 +237,27 @@ def test_mfa_downgrade_preserves_each_fact(
         timeout=30,
     )
     assert result.returncode != 0
+    assert_revision_loss_guard(db, "0005_iam_mfa.py", "MFA state or history")
     assert fingerprint(db) == before
 
 
-@pytest.mark.parametrize("mfa", [False], indirect=True)
+@pytest.mark.parametrize("legacy_master", ["0005_iam_mfa"], indirect=True)
 def test_downgrade_waits_for_inflight_mfa_allocation(
-    mfa: tuple[Settings, Database, str, str],
+    legacy_master: tuple[Settings, Database],
 ) -> None:
     import time
 
     from tests.conftest import qa_register_process, qa_stop_process
-    from y3management.iam.security import Security
 
-    settings, db, _, _ = mfa
+    settings, db = legacy_master
     with db.session() as allocation:
-        security = Security(allocation, settings.iam_key.get_secret_value(), 2048, 128)
-        security.allocate("mfa")
+        allocation.execute(
+            text(
+                "INSERT INTO iam_security_states(id,kind,expires_at) "
+                "VALUES(:i,'mfa',clock_timestamp()+interval '30 minutes')"
+            ),
+            {"i": uuid4()},
+        )
         allocator_pid = allocation.execute(text("SELECT pg_backend_pid()")).scalar_one()
         migration_app = "mfa-downgrade-" + uuid4().hex
         env = child_env(settings)
@@ -244,6 +294,7 @@ def test_downgrade_waits_for_inflight_mfa_allocation(
             expected = fingerprint(db)
             process.communicate(timeout=10)
             assert process.returncode != 0
+            assert_revision_loss_guard(db, "0005_iam_mfa.py", "MFA state or history")
             assert fingerprint(db) == expected
         finally:
             qa_stop_process(process)

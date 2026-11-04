@@ -57,19 +57,3 @@ def test_helper_failure():
     del result
     assert code == 1 and "EXPECTED_HELPER_FAILURE" in output
     assert canary not in output
-
-
-@pytest.mark.parametrize("action", ["account_disable", "account_restore", "login_id_change"])
-def test_master_management_requires_mfa_before_any_transaction(action: str) -> None:
-    from types import SimpleNamespace
-    from typing import Any, cast
-    from uuid import uuid4
-
-    from y3management.contracts import Rejected
-    from y3management.use_cases import Service
-
-    # No open() method: a legacy request must reject before touching persistence.
-    service = Service(cast(Any, SimpleNamespace(settings=SimpleNamespace(iam_mode="s1_password"))))
-    with pytest.raises(Rejected) as rejected:
-        service.manage_master(None, None, uuid4(), 1, cast(Any, action), "renamed.master")
-    assert rejected.value.status == 403

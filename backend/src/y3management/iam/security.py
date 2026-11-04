@@ -10,6 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from y3management.contracts import Rejected
+from y3management.iam.policy import check_policy, current_policy
 from y3management.iam.public import Preparation, Reservation
 
 
@@ -19,6 +20,7 @@ class Security:
         self.key = key.encode()
         self.capacity = capacity
         self.session_capacity = session_capacity
+        self.policy = current_policy(session)
 
     def now(self) -> datetime:
         value: datetime = self.s.execute(text("SELECT clock_timestamp()")).scalar_one()
@@ -36,6 +38,7 @@ class Security:
             ("iam_recovery_credentials", "recovery_id"),
             ("iam_reset_credentials", None),
             ("iam_emergency_credentials", "emergency_id"),
+            ("iam_password_emergency_credentials", None),
         ):
             children = (
                 f" AND NOT EXISTS (SELECT 1 FROM iam_mfa_contexts c WHERE c.{reference}=t.id)"
@@ -92,6 +95,7 @@ class Security:
           AND NOT EXISTS (SELECT 1 FROM iam_preparations p WHERE p.id=s.id)
           AND NOT EXISTS (SELECT 1 FROM iam_credentials c WHERE c.id=s.id)
           AND NOT EXISTS (SELECT 1 FROM iam_trainer_setup_credentials t WHERE t.id=s.id)
+          AND NOT EXISTS (SELECT 1 FROM iam_password_emergency_credentials p WHERE p.id=s.id)
           AND NOT EXISTS (SELECT 1 FROM iam_emergency_credentials e WHERE e.id=s.id)
           AND NOT EXISTS (SELECT 1 FROM iam_reset_credentials r WHERE r.id=s.id)
           AND NOT EXISTS (SELECT 1 FROM iam_recovery_credentials r WHERE r.id=s.id)
@@ -120,7 +124,10 @@ class Security:
             raise Rejected(503, "unavailable")
         ident = uuid4()
         self.s.execute(
-            text("INSERT INTO iam_security_states(id,kind,expires_at) VALUES(:id,:kind,:expires)"),
+            text(
+                "INSERT INTO iam_security_states(id,kind,expires_at,policy_version) "
+                "VALUES(:id,:kind,:expires,2)"
+            ),
             {"id": ident, "kind": kind, "expires": expires},
         )
         return ident
@@ -146,7 +153,10 @@ class Security:
                 "AND NOT EXISTS (SELECT 1 FROM iam_trainer_setup_credentials t WHERE t.id=s.id) "
                 "AND NOT EXISTS (SELECT 1 FROM iam_recovery_credentials r WHERE r.id=s.id) "
                 "AND NOT EXISTS (SELECT 1 FROM iam_reset_credentials r WHERE r.id=s.id) "
-                "AND NOT EXISTS (SELECT 1 FROM iam_emergency_credentials e WHERE e.id=s.id) "
+                "AND NOT EXISTS (SELECT 1 FROM iam_password_emergency_credentials p WHERE "
+                "p.id=s.id) "
+                "AND NOT EXISTS (SELECT 1 FROM iam_emergency_credentials e WHERE "
+                "e.id=s.id) "
                 "AND NOT EXISTS (SELECT 1 FROM iam_sessions a WHERE a.id=s.id) "
                 "AND NOT EXISTS (SELECT 1 FROM iam_preparations p WHERE p.id=s.id) "
                 "AND NOT EXISTS (SELECT 1 FROM iam_mfa_contexts m WHERE m.id=s.id)"
@@ -159,7 +169,7 @@ class Security:
         if raw:
             row = self.s.execute(
                 text(
-                    "SELECT csrf FROM iam_preparations WHERE digest=:d "
+                    "SELECT csrf FROM iam_preparations WHERE policy_version=2 AND digest=:d "
                     "AND NOT consumed AND expires_at>:n"
                 ),
                 {"d": hashlib.sha256(raw.encode()).digest(), "n": now},
@@ -171,7 +181,10 @@ class Security:
         expiry = now + timedelta(minutes=5)
         ident = self._allocate("preparation", expiry)
         self.s.execute(
-            text("INSERT INTO iam_preparations VALUES(:id,:d,:csrf,:e,false)"),
+            text(
+                "INSERT INTO iam_preparations(id,digest,csrf,expires_at,consumed,policy_version) "
+                "VALUES(:id,:d,:csrf,:e,false,2)"
+            ),
             {"id": ident, "d": hashlib.sha256(token.encode()).digest(), "csrf": csrf, "e": expiry},
         )
         return Preparation(token, csrf)
@@ -248,8 +261,8 @@ class Security:
         self.s.execute(
             text(
                 "INSERT INTO "
-                "iam_attempts(id,key,outcome,lease_until,finished_at) "
-                "VALUES(:id,:k,'pending',:lease,NULL)"
+                "iam_attempts(id,key,outcome,lease_until,finished_at,policy_version) "
+                "VALUES(:id,:k,'pending',:lease,NULL,2)"
             ),
             {"id": ident, "k": key, "lease": now + timedelta(seconds=30)},
         )
@@ -257,12 +270,16 @@ class Security:
             text("UPDATE iam_security_states SET expires_at=GREATEST(expires_at,:e) WHERE id=:id"),
             {"id": state_id, "e": expires},
         )
-        return Reservation(key, ident, subject.id, subject.security_version)
+        return Reservation(key, ident, subject.id, subject.security_version, policy=self.policy)
 
     def finish(self, reservation: Reservation, success: bool) -> None:
+        check_policy(self.s, reservation.policy)
         now = self._guard()
         row = self.s.execute(
-            text("SELECT outcome,lease_until FROM iam_attempts WHERE id=:i AND key=:k FOR UPDATE"),
+            text(
+                "SELECT outcome,lease_until FROM iam_attempts WHERE policy_version=2 AND id=:i "
+                "AND key=:k FOR UPDATE"
+            ),
             {"i": reservation.id, "k": reservation.key},
         ).first()
         if row is None or row.outcome != "pending" or row.lease_until <= now:
@@ -287,42 +304,14 @@ class Security:
             )
 
     def cancel(self, reservation: Reservation) -> None:
+        check_policy(self.s, reservation.policy)
         # Capacity rejection before credential verification is not a failed password.
         self._guard()
         self.s.execute(
             text(
                 "DELETE FROM iam_security_states WHERE id=:i AND id IN "
-                "(SELECT id FROM iam_attempts WHERE outcome='pending' AND key=:k)"
+                "(SELECT id FROM iam_attempts WHERE policy_version=2 AND outcome='pending' AND "
+                "key=:k)"
             ),
             {"i": reservation.id, "k": reservation.key},
-        )
-
-    def mfa_stage(self, reservation: Reservation, stage: str) -> None:
-        now = self._guard()
-        prior = "password" if stage == "waiting" else "waiting"
-        seconds = 300 if stage == "waiting" else 30
-        changed = self.s.execute(
-            text(
-                "UPDATE iam_attempts SET stage=:stage,lease_until=:expiry "
-                "WHERE id=:id AND key=:key AND stage=:prior AND outcome='pending' "
-                "AND lease_until>:now RETURNING id"
-            ),
-            {
-                "stage": stage,
-                "expiry": now + timedelta(seconds=seconds),
-                "id": reservation.id,
-                "key": reservation.key,
-                "prior": prior,
-                "now": now,
-            },
-        ).first()
-        if changed is None:
-            raise Rejected(401, "invalid_credentials")
-        # Keep abandonment failures observable for the full 15 minute window.
-        self.s.execute(
-            text(
-                "UPDATE iam_security_states SET expires_at=GREATEST(expires_at,:e) "
-                "WHERE id=:id OR id=(SELECT state_id FROM iam_budgets WHERE key=:key)"
-            ),
-            {"e": now + timedelta(minutes=21), "id": reservation.id, "key": reservation.key},
         )

@@ -1,7 +1,6 @@
 [
   "trusted_https",
-  "master_enroll",
-  "master_uv",
+  "master_password_login",
   "w0_actual_form",
   "issue_actual_form",
   "one_time_link",

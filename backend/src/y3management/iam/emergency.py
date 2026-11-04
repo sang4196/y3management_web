@@ -1,35 +1,35 @@
-"""IAM-owned emergency state transitions; no fabricated business caller/session."""
+"""Protected password recovery; explicit approval, immutable case, single-use source."""
 
+import hashlib
+import json
 import secrets
-from dataclasses import asdict, replace
-from typing import Any
-from uuid import UUID, uuid4
+from dataclasses import asdict
+from datetime import datetime
+from typing import Any, cast
+from uuid import UUID
 
 from sqlalchemy import text
 
 from y3management.contracts import Rejected
-from y3management.iam.infrastructure import digest
-from y3management.iam.mfa import MFA
+from y3management.iam.infrastructure import IAM, digest
 from y3management.iam.public import (
-    Ceremony,
     EmergencyChange,
+    EmergencyPasswordProof,
     EmergencyRequest,
     EmergencySnapshot,
     EmergencyView,
     OperatingRecoveryAuthority,
-    RegistrationProof,
     Setup,
 )
 
 
 class Emergency:
-    def __init__(self, mfa: MFA) -> None:
-        self.mfa = mfa
-        self.iam = mfa.iam
-        self.s = mfa.s
+    def __init__(self, iam: IAM) -> None:
+        self.iam = iam
+        self.s = iam.s
 
     def authorize(self, authority: OperatingRecoveryAuthority, action: str) -> None:
-        self.mfa.enabled()
+        self.iam.policy()
         if action not in authority.operations:
             raise Rejected(403, "operating_authority_required")
 
@@ -53,17 +53,9 @@ class Emergency:
         return EmergencySnapshot(
             row["row_version"],
             row["security_version"],
-            row["key_set_version"],
             row["reset_generation"],
-            row["recovery_generation"],
             row["password_reset_pending"],
-            row["recovery_pending"],
             row["password_hash"] is not None,
-            self.s.execute(
-                text("SELECT 1 FROM iam_passkeys WHERE account_id=:a AND revoked_at IS NULL"),
-                {"a": row["id"]},
-            ).first()
-            is not None,
         )
 
     def inspect(self, authority: OperatingRecoveryAuthority, ident: UUID) -> EmergencySnapshot:
@@ -74,77 +66,75 @@ class Emergency:
         self.authorize(authority, "execute")
         self.target(ident, authority.organization_id)
 
+    def latest(self, ident: UUID) -> UUID | None:
+        return self.s.execute(
+            text(
+                "SELECT id FROM iam_password_emergency_cases "
+                "WHERE account_id=:a ORDER BY row_version DESC LIMIT 1"
+            ),
+            {"a": ident},
+        ).scalar_one_or_none()
+
     def status(self, authority: OperatingRecoveryAuthority, operation: UUID) -> EmergencyView:
         self.authorize(authority, "status")
         case = (
             self.s.execute(
-                text("SELECT * FROM iam_emergency_cases WHERE id=:id AND organization_id=:org"),
-                {"id": operation, "org": authority.organization_id},
+                text(
+                    "SELECT * FROM iam_password_emergency_cases WHERE id=:i AND organization_id=:o"
+                ),
+                {"i": operation, "o": authority.organization_id},
             )
             .mappings()
             .first()
         )
         if case is None:
             raise Rejected(404, "not_found")
-        state = "issued"
+        return EmergencyView(
+            operation, "password", case["expires_at"], self.case_status(dict(case))
+        )
+
+    def case_status(self, case: dict[str, Any]) -> str:
         if case["completed_at"] is not None:
-            state = "completed"
-        elif self.s.execute(
-            text("SELECT 1 FROM iam_emergency_cases WHERE supersedes=:id"), {"id": operation}
-        ).first():
-            state = "superseded"
-        elif case["expires_at"] <= self.iam.now():
-            state = "expired"
-        else:
-            source = self.s.execute(
-                text("SELECT id FROM iam_emergency_credentials WHERE case_id=:id"),
-                {"id": operation},
-            ).scalar_one_or_none()
-            try:
-                if source is None:
-                    raise Rejected(401, "invalid_recovery")
-                self.mfa.emergency_source(source)
-            except Rejected:
-                state = "stale"
-        return EmergencyView(operation, case["factors"], case["expires_at"], state)
+            return "completed"
+        if self.latest(case["account_id"]) != case["id"]:
+            return "superseded"
+        if case["expires_at"] <= self.iam.now():
+            return "expired"
+        source = self.s.execute(
+            text("SELECT id FROM iam_password_emergency_credentials WHERE case_id=:i"),
+            {"i": case["id"]},
+        ).scalar_one_or_none()
+        try:
+            if source is None:
+                return "stale"
+            self.source_id(source)
+        except Rejected:
+            return "stale"
+        return "issued"
 
     def lock_target(self, ident: UUID, org: UUID) -> dict[str, Any]:
         self.iam.installation_lock()
         row = self.target(ident, org, lock=True)
-        for table, key in (("iam_sessions", "id"), ("iam_passkeys", "key_id")):
-            self.s.execute(
-                text(f"SELECT {key} FROM {table} WHERE account_id=:a ORDER BY {key} FOR UPDATE"),
-                {"a": ident},
-            ).all()
+        self.s.execute(
+            text("SELECT id FROM iam_sessions WHERE account_id=:a ORDER BY id FOR UPDATE"),
+            {"a": ident},
+        ).all()
         return row
 
     def revoke(self, ident: UUID) -> None:
-        for table in (
-            "iam_credentials",
-            "iam_recovery_credentials",
-            "iam_reset_credentials",
-            "iam_emergency_credentials",
-        ):
-            self.s.execute(
-                text(f"SELECT id FROM {table} WHERE account_id=:a ORDER BY id FOR UPDATE"),
-                {"a": ident},
-            ).all()
-            self.s.execute(
-                text(f"UPDATE {table} SET consumed=true WHERE account_id=:a"), {"a": ident}
-            )
-        self.s.execute(
-            text("SELECT id FROM iam_mfa_contexts WHERE account_id=:a ORDER BY id FOR UPDATE"),
-            {"a": ident},
-        ).all()
-        self.s.execute(
+        self.iam.revoke_management_sources(ident)
+
+    def allocation(self, slot: UUID) -> datetime:
+        expiry = self.s.execute(
             text(
-                "UPDATE iam_mfa_contexts SET consumed=true,password_hash=NULL WHERE account_id=:a"
+                "SELECT expires_at FROM iam_security_states "
+                "WHERE id=:i AND kind='emergency' AND policy_version=2"
             ),
-            {"a": ident},
-        )
-        self.s.execute(
-            text("UPDATE iam_sessions SET revoked=true WHERE account_id=:a"), {"a": ident}
-        )
+            {"i": slot},
+        ).scalar_one_or_none()
+        if expiry is None or expiry <= self.iam.now():
+            raise Rejected(409, "expired_allocation")
+        return cast(datetime, expiry)
 
     def issue(
         self, authority: OperatingRecoveryAuthority, request: EmergencyRequest, slot: UUID
@@ -163,311 +153,363 @@ class Emergency:
             raise Rejected(409, "approval_invalid")
         if self.snapshot(before) != request.expected:
             raise Rejected(409, "stale_snapshot")
-        if request.factors == "password" and (
-            before["recovery_pending"] or not request.expected.key_ready
-        ):
-            raise Rejected(409, "insufficient_scope")
-        if request.factors == "passkey" and (
-            before["password_reset_pending"] or not request.expected.password_ready
-        ):
-            raise Rejected(409, "insufficient_scope")
-        previous = self.s.execute(
-            text(
-                "SELECT id FROM iam_emergency_cases WHERE account_id=:a "
-                "ORDER BY row_version DESC LIMIT 1"
-            ),
-            {"a": request.account_id},
-        ).scalar_one_or_none()
-        if request.supersedes != previous:
+        if request.supersedes != self.latest(request.account_id):
             raise Rejected(409, "explicit_reissue_required")
         if self.s.execute(
             text(
-                "SELECT 1 FROM iam_emergency_cases WHERE id=:id OR "
-                "(organization_id=:org AND approval_ref=:ref)"
+                "SELECT 1 FROM iam_password_emergency_cases WHERE id=:i "
+                "OR (organization_id=:o AND approval_ref=:r)"
             ),
-            {
-                "id": request.operation_id,
-                "org": request.organization_id,
-                "ref": request.approval_ref,
-            },
+            {"i": request.operation_id, "o": request.organization_id, "r": request.approval_ref},
         ).first():
             raise Rejected(409, "execution_already_used")
-        expiry = self.s.execute(
-            text("SELECT expires_at FROM iam_security_states WHERE id=:id AND kind='emergency'"),
-            {"id": slot},
-        ).scalar_one()
-        if expiry <= now:
-            raise Rejected(409, "expired_allocation")
+        expiry = self.allocation(slot)
         self.revoke(request.account_id)
-        changes = ["row_version=row_version+1", "security_version=security_version+1"]
-        if request.factors in ("password", "both"):
-            changes += [
-                "password_hash=NULL",
-                "password_reset_pending=true",
-                "reset_generation=reset_generation+1",
-            ]
-        if request.factors in ("passkey", "both"):
-            changes += [
-                "recovery_pending=true",
-                "recovery_generation=recovery_generation+1",
-                "key_set_version=key_set_version+1",
-            ]
-            self.s.execute(
-                text(
-                    "UPDATE iam_passkeys SET revoked_at=:n WHERE account_id=:a "
-                    "AND revoked_at IS NULL"
-                ),
-                {"a": request.account_id, "n": now},
-            )
         self.s.execute(
-            text("UPDATE iam_accounts SET " + ",".join(changes) + " WHERE id=:a"),
+            text(
+                "UPDATE iam_accounts SET password_hash=NULL,password_reset_pending=true,"
+                "reset_generation=reset_generation+1,row_version=row_version+1,"
+                "security_version=security_version+1 WHERE id=:a"
+            ),
             {"a": request.account_id},
         )
-        after = self.mfa.account(request.account_id)
-        params = {
-            "id": request.operation_id,
-            "org": request.organization_id,
-            "a": request.account_id,
-            "f": request.factors,
-            "ref": request.approval_ref,
-            "owner": request.owner_ref,
-            "executor": authority.executor_ref,
-            "uid": authority.executor_uid,
-            "checked": request.checked_at,
-            "approval": request.approval_valid_until,
-            "issued": now,
-            "expiry": expiry,
-            "supersedes": request.supersedes,
-            **{
-                k: after[k]
-                for k in (
-                    "row_version",
-                    "security_version",
-                    "key_set_version",
-                    "reset_generation",
-                    "recovery_generation",
-                )
-            },
-        }
-        params.update({"expected_" + k: v for k, v in asdict(request.expected).items()})
+        after = self.target(request.account_id, request.organization_id)
+        case = self.case_values(request.operation_id, after, now, expiry, asdict(request))
+        case.update(
+            kind="operating",
+            approval_mode="manual",
+            approval_ref=request.approval_ref,
+            owner_ref=request.owner_ref,
+            executor_ref=authority.executor_ref,
+            executor_uid=authority.executor_uid,
+            checked_at=request.checked_at,
+            approval_valid_until=request.approval_valid_until,
+        )
+        setup = self.store(case, slot)
+        return setup, self.event(before, after, case, "issue", None)
+
+    def case_values(
+        self,
+        ident: UUID,
+        account: dict[str, Any],
+        now: datetime,
+        expiry: datetime,
+        fingerprint: dict[str, Any],
+    ) -> dict[str, Any]:
+        return dict(
+            id=ident,
+            organization_id=account["organization_id"],
+            account_id=account["id"],
+            policy_version=2,
+            purpose="password",
+            source_purpose="emergency_password",
+            fingerprint=hashlib.sha256(
+                json.dumps(fingerprint, sort_keys=True, default=str, separators=(",", ":")).encode()
+            ).digest(),
+            issued_at=now,
+            expires_at=expiry,
+            row_version=account["row_version"],
+            security_version=account["security_version"],
+            reset_generation=account["reset_generation"],
+        )
+
+    def store(self, case: dict[str, Any], slot: UUID) -> Setup:
         self.s.execute(
-            text("""INSERT INTO iam_emergency_cases
-          (id,organization_id,account_id,factors,approval_ref,owner_ref,executor_ref,executor_uid,
-           checked_at,approval_valid_until,issued_at,expires_at,supersedes,row_version,
-           security_version,key_set_version,reset_generation,recovery_generation,
-           expected_row_version,expected_security_version,expected_key_set_version,
-           expected_reset_generation,expected_recovery_generation,expected_password_reset_pending,
-           expected_recovery_pending,expected_password_ready,expected_key_ready)
-          VALUES(:id,:org,:a,:f,:ref,:owner,:executor,:uid,:checked,:approval,:issued,:expiry,
-                 :supersedes,:row_version,:security_version,:key_set_version,:reset_generation,
-                 :recovery_generation,:expected_row_version,:expected_security_version,:expected_key_set_version,
-                 :expected_reset_generation,:expected_recovery_generation,:expected_password_reset_pending,
-                 :expected_recovery_pending,:expected_password_ready,:expected_key_ready)"""),
-            params,
+            text(
+                "INSERT INTO iam_password_emergency_cases ("
+                + ",".join(case)
+                + ") VALUES ("
+                + ",".join(":" + k for k in case)
+                + ")"
+            ),
+            case,
         )
         raw = secrets.token_urlsafe(32)
         self.s.execute(
-            text(
-                "INSERT INTO iam_emergency_credentials "
-                "(id,case_id,account_id,factors,digest,expires_at) VALUES(:id,:case,:a,:f,:d,:e)"
-            ),
-            {
-                "id": slot,
-                "case": request.operation_id,
-                "f": request.factors,
-                "a": request.account_id,
-                "d": digest(raw),
-                "e": expiry,
-            },
+            text("""INSERT INTO iam_password_emergency_credentials
+          (id,case_id,organization_id,account_id,policy_version,allocator_kind,purpose,digest,expires_at)
+          VALUES(:s,:id,:organization_id,:account_id,2,'emergency','emergency_password',:d,:expires_at)"""),
+            {**case, "s": slot, "d": digest(raw)},
         )
-        return Setup(raw, expiry), self.event(
-            before, after, request.operation_id, request.factors, authority.executor_ref, issue=True
-        )
+        return Setup(raw, case["expires_at"])
 
-    def source(self, token: str, *, lock: bool = False) -> dict[str, Any]:
-        row = self.s.execute(
-            text("SELECT id,account_id FROM iam_emergency_credentials WHERE digest=:d"),
-            {"d": digest(token)},
-        ).first()
+    def legacy_lineage(self, ident: UUID, expected_origin: UUID) -> UUID:
+        seen: set[UUID] = set()
+        child: dict[str, Any] | None = None
+        while True:
+            if ident in seen:
+                raise Rejected(409, "invalid_lineage")
+            seen.add(ident)
+            found = (
+                self.s.execute(text("SELECT * FROM iam_emergency_cases WHERE id=:i"), {"i": ident})
+                .mappings()
+                .first()
+            )
+            if found is None or found["completed_at"] is not None:
+                raise Rejected(409, "invalid_lineage")
+            case = dict(found)
+            if child is not None:
+                increments = {
+                    "row_version": 1,
+                    "security_version": 1,
+                    "reset_generation": int(child["factors"] in ("password", "both")),
+                    "key_set_version": int(child["factors"] in ("passkey", "both")),
+                    "recovery_generation": int(child["factors"] in ("passkey", "both")),
+                }
+                if (
+                    any(case[k] != child[k] for k in ("organization_id", "account_id", "factors"))
+                    or any(case[k] + delta != child[k] for k, delta in increments.items())
+                    or case["issued_at"] > child["issued_at"]
+                    or (
+                        case["issuer_kind"] == "operating"
+                        and case["expires_at"] > child["issued_at"]
+                    )
+                ):
+                    raise Rejected(409, "invalid_lineage")
+            if case["issuer_kind"] == "operating":
+                if case["id"] != expected_origin or case["approval_mode"] != "manual":
+                    raise Rejected(409, "invalid_lineage")
+                return cast(UUID, case["id"])
+            if (
+                case["issuer_kind"] != "master_handoff"
+                or case["approval_origin_case_id"] != expected_origin
+                or case["handoff_parent_id"] is None
+                or case["handoff_parent_id"] != case["supersedes"]
+            ):
+                raise Rejected(409, "invalid_lineage")
+            child, ident = case, case["handoff_parent_id"]
+
+    def lineage(self, ident: UUID) -> UUID:
+        """Verify semantic ancestry independently of the structural foreign keys."""
+        seen: set[UUID] = set()
+        child: dict[str, Any] | None = None
+        while True:
+            if ident in seen:
+                raise Rejected(409, "invalid_lineage")
+            seen.add(ident)
+            found = (
+                self.s.execute(
+                    text("SELECT * FROM iam_password_emergency_cases WHERE id=:i"), {"i": ident}
+                )
+                .mappings()
+                .first()
+            )
+            if found is None:
+                raise Rejected(409, "invalid_lineage")
+            case = dict(found)
+            if child is not None and (
+                case["organization_id"] != child["organization_id"]
+                or case["account_id"] != child["account_id"]
+                or case["completed_at"] is not None
+                or any(
+                    case[k] + 1 != child[k]
+                    for k in ("row_version", "security_version", "reset_generation")
+                )
+                or case["issued_at"] > child["issued_at"]
+                or (case["kind"] == "operating" and case["expires_at"] > child["issued_at"])
+            ):
+                raise Rejected(409, "invalid_lineage")
+            if case["kind"] == "operating":
+                return cast(UUID, case["id"])
+            if case["kind"] == "legacy_handoff":
+                policy = self.iam.policy()
+                transition = (
+                    self.s.execute(
+                        text("""SELECT * FROM iam_policy_account_transitions
+                  WHERE transition_id=:p AND organization_id=:o AND account_id=:a
+                  AND legacy_parent_id=:l AND legacy_origin_id=:r
+                  AND legacy_password_continuation_eligible"""),
+                        {
+                            "p": policy.transition_id,
+                            "o": case["organization_id"],
+                            "a": case["account_id"],
+                            "l": case["legacy_parent_id"],
+                            "r": case["legacy_origin_id"],
+                        },
+                    )
+                    .mappings()
+                    .first()
+                )
+                if (
+                    transition is None
+                    or case["policy_transition_id"] != policy.transition_id
+                    or any(
+                        case[k] != transition["after_" + k] + 1
+                        for k in ("row_version", "security_version", "reset_generation")
+                    )
+                ):
+                    raise Rejected(409, "invalid_lineage")
+                legacy = (
+                    self.s.execute(
+                        text("SELECT * FROM iam_emergency_cases WHERE id=:i"),
+                        {"i": case["legacy_parent_id"]},
+                    )
+                    .mappings()
+                    .first()
+                )
+                if (
+                    legacy is None
+                    or legacy["completed_at"] is not None
+                    or legacy["factors"] != transition["legacy_factors"]
+                    or any(
+                        legacy[k] != transition["before_" + k]
+                        for k in (
+                            "row_version",
+                            "security_version",
+                            "key_set_version",
+                            "reset_generation",
+                            "recovery_generation",
+                        )
+                    )
+                    or (
+                        legacy["issuer_kind"] == "operating"
+                        and legacy["expires_at"] > case["issued_at"]
+                    )
+                ):
+                    raise Rejected(409, "invalid_lineage")
+                return self.legacy_lineage(case["legacy_parent_id"], case["legacy_origin_id"])
+            if case["kind"] != "handoff" or case["parent_id"] is None:
+                raise Rejected(409, "invalid_lineage")
+            child, ident = case, case["parent_id"]
+
+    def source_id(self, ident: UUID, *, lock: bool = False) -> dict[str, Any]:
+        row = (
+            self.s.execute(
+                text(
+                    """SELECT e.*,c.row_version,c.security_version,c.reset_generation,
+          c.completed_at,c.kind,c.approval_mode FROM iam_password_emergency_credentials e
+          JOIN iam_password_emergency_cases c ON c.id=e.case_id
+          WHERE e.id=:i AND e.policy_version=2"""
+                    + (" FOR UPDATE OF e,c" if lock else "")
+                ),
+                {"i": ident},
+            )
+            .mappings()
+            .first()
+        )
         if row is None:
             raise Rejected(401, "invalid_recovery")
-        if lock:
-            account = self.mfa.account(row.account_id, lock=False)
-            self.lock_target(row.account_id, account["organization_id"])
-            self.s.execute(
-                text("SELECT id FROM iam_emergency_credentials WHERE id=:id FOR UPDATE"),
-                {"id": row.id},
-            ).one()
-        return self.mfa.emergency_source(row.id)
+        try:
+            self.lineage(row["case_id"])
+            account = self.target(row["account_id"], row["organization_id"])
+        except Rejected:
+            raise Rejected(401, "invalid_recovery") from None
+        if (
+            row["consumed"]
+            or row["completed_at"] is not None
+            or row["expires_at"] <= self.iam.now()
+            or self.latest(account["id"]) != row["case_id"]
+            or not account["password_reset_pending"]
+            or account["password_hash"] is not None
+            or any(
+                account[k] != row[k]
+                for k in ("row_version", "security_version", "reset_generation")
+            )
+        ):
+            raise Rejected(401, "invalid_recovery")
+        return dict(row)
+
+    def source(self, token: str) -> dict[str, Any]:
+        ident = self.s.execute(
+            text(
+                "SELECT id FROM iam_password_emergency_credentials "
+                "WHERE digest=:d AND policy_version=2"
+            ),
+            {"d": digest(token)},
+        ).scalar_one_or_none()
+        if ident is None:
+            raise Rejected(401, "invalid_recovery")
+        return self.source_id(ident)
 
     def recipient(self, token: str) -> EmergencyView:
-        row = self.source(token)
-        return EmergencyView(row["case_id"], row["factors"], row["expires_at"], "issued")
-
-    def begin(self, token: str, password: str | None, slot: UUID) -> Ceremony:
-        before = self.source(token)
-        if before["factors"] == "password" or (
-            (before["factors"] == "both") != (password is not None)
-        ):
-            raise Rejected(422, "invalid_request")
-        account = self.iam._account(before["account_id"])
-        role_epoch = self.iam.account_roles(account.id).trainer_role_epoch
-        encoded = (
-            self.iam.passwords.create(password, account.login_id) if password is not None else None
-        )
-        source = self.source(token, lock=True)
-        if (
-            source["case_id"] != before["case_id"]
-            or self.iam.account_roles(account.id).trainer_role_epoch != role_epoch
-        ):
-            raise Rejected(401, "invalid_recovery")
-        self.s.execute(
-            text(
-                "UPDATE iam_mfa_contexts SET consumed=true,password_hash=NULL "
-                "WHERE emergency_id=:id"
-            ),
-            {"id": source["id"]},
-        )
-        raw = self.mfa.create(
-            account.id,
-            slot,
-            "emergency",
-            emergency_id=source["id"],
-            emergency_factors=source["factors"],
-            password_hash=encoded,
-            deadline=source["expires_at"],
-        )
-        return self.mfa.options(raw)
-
-    def password(self, token: str, password: str) -> EmergencyChange:
         source = self.source(token)
-        if source["factors"] != "password":
-            raise Rejected(401, "invalid_recovery")
-        account = self.iam._account(source["account_id"])
-        role_epoch = self.iam.account_roles(account.id).trainer_role_epoch
-        encoded = self.iam.passwords.create(password, account.login_id)
-        source = self.source(token, lock=True)
-        before = self.mfa.account(account.id)
-        if before["trainer_role_epoch"] != role_epoch:
+        return EmergencyView(source["case_id"], "password", source["expires_at"], "issued")
+
+    def prepare_password(self, token: str, password: str) -> EmergencyPasswordProof:
+        policy = self.iam.policy()
+        source = self.source(token)
+        account = self.target(source["account_id"], source["organization_id"])
+        encoded = self.iam.passwords.create(password, account["login_id"])
+        return EmergencyPasswordProof(
+            source["id"],
+            source["case_id"],
+            source["organization_id"],
+            source["account_id"],
+            source["row_version"],
+            source["security_version"],
+            source["reset_generation"],
+            account["trainer_role_epoch"],
+            source["expires_at"],
+            policy,
+            encoded,
+        )
+
+    def complete_password(self, proof: EmergencyPasswordProof) -> EmergencyChange:
+        before = self.lock_target(proof.account_id, proof.organization_id)
+        self.iam.check_policy(proof.policy)
+        source = self.source_id(proof.source_id, lock=True)
+        if (
+            source["case_id"] != proof.case_id
+            or source["account_id"] != proof.account_id
+            or source["organization_id"] != proof.organization_id
+            or source["expires_at"] != proof.expires_at
+            or before["trainer_role_epoch"] != proof.trainer_role_epoch
+            or any(
+                before[k] != getattr(proof, k)
+                for k in ("row_version", "security_version", "reset_generation")
+            )
+        ):
             raise Rejected(401, "invalid_recovery")
         self.s.execute(
             text(
                 "UPDATE iam_accounts SET password_hash=:h,password_reset_pending=false,"
                 "row_version=row_version+1,security_version=security_version+1 WHERE id=:a"
             ),
-            {"h": encoded, "a": account.id},
+            {"h": proof.password_hash, "a": proof.account_id},
         )
-        return self.finish(source, before)
-
-    def complete(
-        self, token: str | None, nonce: str | None, proof: RegistrationProof
-    ) -> EmergencyChange:
-        hint = self.mfa.context(token, nonce or "")
-        if hint["purpose"] != "emergency" or proof.purpose != "emergency":
-            raise Rejected(401, "invalid_ceremony")
-        source = self.mfa.emergency_source(hint["emergency_id"])
-        before = self.lock_target(source["account_id"], source["organization_id"])
-        self.s.execute(
-            text("SELECT id FROM iam_emergency_credentials WHERE id=:id FOR UPDATE"),
-            {"id": source["id"]},
-        ).one()
-        source = self.mfa.emergency_source(source["id"])
-        row = self.mfa.context(token, nonce or "", lock=True)
-        if (
-            row["id"] != proof.context_id
-            or bytes(row["challenge"] or b"") != proof.challenge
-            or source["factors"] not in ("passkey", "both")
-            or ((source["factors"] == "both") != (row["password_hash"] is not None))
-        ):
-            raise Rejected(401, "invalid_ceremony")
-        if self.snapshot(before).key_ready:
-            raise Rejected(409, "conflict")
+        self.revoke(proof.account_id)
         self.s.execute(
             text(
-                "INSERT INTO iam_passkeys "
-                "(key_id,credential_id,account_id,public_key,sign_count,device_type,backed_up) "
-                "VALUES(:key_id,:id,:a,:key,:count,:device,:backup)"
+                "UPDATE iam_password_emergency_cases SET completed_at=clock_timestamp() WHERE id=:i"
             ),
-            {
-                "key_id": uuid4(),
-                "id": proof.credential_id,
-                "a": before["id"],
-                "key": proof.public_key,
-                "count": proof.sign_count,
-                "device": proof.device_type,
-                "backup": proof.backed_up,
-            },
+            {"i": proof.case_id},
         )
-        change = (
-            "password_hash=:h,password_reset_pending=false," if source["factors"] == "both" else ""
+        after = self.target(proof.account_id, proof.organization_id)
+        return self.event(
+            before, after, {**source, "id": proof.case_id}, "complete", proof.account_id
         )
-        self.s.execute(
-            text(
-                "UPDATE iam_accounts SET " + change + "recovery_pending=false,"
-                "key_set_version=key_set_version+1,row_version=row_version+1,"
-                "security_version=security_version+1 WHERE id=:a"
-            ),
-            {"h": row["password_hash"], "a": before["id"]},
-        )
-        return self.finish(source, before)
 
-    def finish(self, source: dict[str, Any], before: dict[str, Any]) -> EmergencyChange:
-        self.revoke(before["id"])
-        self.s.execute(
-            text("UPDATE iam_emergency_cases SET completed_at=clock_timestamp() WHERE id=:id"),
-            {"id": source["case_id"]},
-        )
-        change = self.event(
-            before,
-            self.mfa.account(before["id"]),
-            source["case_id"],
-            source["factors"],
-            source["executor_ref"],
-            issue=False,
-        )
-        if source["issuer_kind"] == "master_handoff":
-            change = replace(
-                change,
-                approval_mode="current_master",
-                approval_origin_case_id=source["approval_origin_case_id"],
-                previous_case_id=source["supersedes"],
-                handoff_kind="takeover"
-                if source["supersedes"] == source["approval_origin_case_id"]
-                else "reissue",
-            )
-        return change
+    def confirm_complete(self, proof: EmergencyPasswordProof) -> None:
+        self.iam.check_policy(proof.policy)
+        if proof.expires_at <= self.iam.now():
+            raise Rejected(401, "invalid_recovery")
 
     def event(
         self,
         before: dict[str, Any],
         after: dict[str, Any],
-        case: UUID,
-        factors: str,
-        executor: str | None,
-        *,
-        issue: bool,
+        case: dict[str, Any],
+        action: str,
+        actor: UUID | None,
     ) -> EmergencyChange:
         return EmergencyChange(
-            "emergency_issue" if issue else "emergency_complete",
+            case["id"],
             before["organization_id"],
-            None if issue else before["id"],
             before["id"],
-            actor_role="SYSTEM_RECOVERY_OPERATOR" if issue else "RECOVERY_RECIPIENT",
-            actor_scope="EMERGENCY_RECOVERY",
-            before_state=before["state"],
-            after_state=after["state"],
-            before_version=before["row_version"],
-            after_version=after["row_version"],
-            before_key_set_version=before["key_set_version"],
-            after_key_set_version=after["key_set_version"],
-            before_recovery_generation=before["recovery_generation"],
-            after_recovery_generation=after["recovery_generation"],
-            before_reset_generation=before["reset_generation"],
-            after_reset_generation=after["reset_generation"],
-            before_password_ready=before["password_hash"] is not None,
-            after_password_ready=after["password_hash"] is not None,
-            emergency_case_id=case,
-            emergency_factors=factors,
-            executor_ref=executor,
-            approval_mode="manual",
+            actor,
+            action,
+            {
+                "issue": "SYSTEM_RECOVERY_OPERATOR",
+                "handoff": "MASTER",
+                "complete": "RECOVERY_RECIPIENT",
+            }[action],
+            case["approval_mode"],
+            before["row_version"],
+            after["row_version"],
+            before["security_version"],
+            after["security_version"],
+            before["reset_generation"],
+            after["reset_generation"],
+            2,
+            self.iam.now(),
         )

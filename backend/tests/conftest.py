@@ -18,6 +18,17 @@ from sqlalchemy.engine import make_url
 from y3management.config import Settings
 from y3management.database import Database
 
+
+@pytest.fixture
+def password_app(
+    postgres_database: Database, tmp_path: Path, request: pytest.FixtureRequest
+) -> Iterator[tuple[Settings, Database, str]]:
+    # Lazy import keeps the copied standalone PostgreSQL gate self-contained.
+    from tests.password_helpers import password_environment
+
+    yield from password_environment(postgres_database, tmp_path, request)
+
+
 _db_tests: set[str] = set()
 _db_passed: set[str] = set()
 _db_incomplete: set[str] = set()

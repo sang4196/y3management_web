@@ -8,9 +8,6 @@ const cfg=JSON.parse(fs.readFileSync(path.join(R,'input.json')));
 browser=await chromium.launch({executablePath:path.join(R,'browser-binaries/chrome'),
 headless:true,chromiumSandbox:true,args:['--no-proxy-server','--disable-background-networking']});
 const admin=await browser.newContext({ignoreHTTPSErrors:false}),p=await admin.newPage();
-const cdp=await admin.newCDPSession(p);await cdp.send('WebAuthn.enable');
-await cdp.send('WebAuthn.addVirtualAuthenticator',{options:{protocol:'ctap2',transport:'internal',
-hasResidentKey:true,hasUserVerification:true,isUserVerified:true,automaticPresenceSimulation:true}});
 async function click(page,selector,path){const result=page.waitForResponse(r=>r.url().endsWith(path)&&r.request().method()==='POST');
 await page.locator(selector).click();return await result;}
 async function get(page,route){return page.evaluate(async route=>{const r=await fetch('/api/v1'+route);
@@ -20,12 +17,11 @@ const c=await(await fetch('/api/v1/auth/csrf',{headers:{'X-Y3-Client':'browser'}
 const r=await fetch('/api/v1'+route,{method:'POST',headers:{'Content-Type':'application/json',
 'X-CSRF-Token':c.csrf_token},body:JSON.stringify(body)});
 return {status:r.status,body:r.status===204?null:await r.json()};},{route,body});}
-stage='admin';await p.goto(cfg.origin+'/enroll#token='+cfg.enrollmentToken);
+stage='admin';await p.goto(cfg.origin+'/login');
 checks.trusted_https=await p.evaluate(()=>isSecureContext);
-checks.master_enroll=(await click(p,'#mfa button','/auth/passkeys/enrollment/verify')).status()===204;
 await p.goto(cfg.origin+'/login');await p.locator('#identifier').fill('master.test');
 await p.locator('#password').fill(cfg.masterPassword);
-checks.master_uv=(await click(p,'#mfa button','/auth/login/passkey/verify')).status()===204;
+checks.master_password_login=(await click(p,'#password-form button','/auth/login')).status()===204;
 const branch=await post(p,'/admin/branches',{code:'I1',name:'가상지점'});
 if(branch.status!==201)throw Error();
 stage='registration';await p.goto(cfg.origin+'/trainers');
@@ -52,7 +48,7 @@ await r.locator('#new-password').fill(cfg.branchPassword);
 checks.setup_actual_form=(await click(r,'#trainer-setup button','/trainer-credentials/complete')).status()===204;
 stage='login';async function login(password){await r.goto(cfg.origin+'/login');
 await r.locator('#identifier').fill('trainer.native');await r.locator('#password').fill(password);
-const response=await click(r,'#mfa button','/auth/login');
+const response=await click(r,'#password-form button','/auth/login');
 await r.waitForURL('**/account');return response.status();}
 checks.password_login=await login(cfg.branchPassword)===204;
 const me=await get(r,'/auth/me');checks.trainer_self=me.status===200&&me.body.roles.some(x=>x.role==='TRAINER'&&x.trainer_id===trainer.id)&&me.body.capabilities.length===0;

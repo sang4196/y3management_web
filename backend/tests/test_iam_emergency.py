@@ -1,13 +1,14 @@
 # ruff: noqa: F811
-"""Real provisioned account, hash and WebAuthn through emergency contracts."""
+"""Real provisioned account and password through emergency contracts."""
 
 import json
 import os
 import secrets
+from contextlib import closing
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
@@ -15,8 +16,14 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
+from tests.password_helpers import (  # noqa: F401
+    activate,
+    call,
+    login_password,
+    password_app,
+    protect,
+)
 from tests.test_iam import ORIGIN, SyntheticSecret, csrf
-from tests.test_iam_mfa import Authenticator, call, enroll, login_mfa, mfa, protect  # noqa: F401
 from y3management.application import create_app
 from y3management.config import Settings
 from y3management.contracts import Rejected
@@ -66,14 +73,12 @@ def request(
     service: Service,
     principal: OperatingRecoveryAuthority,
     ident: UUID,
-    factors: Literal["password", "passkey", "both"] = "both",
     supersedes: UUID | None = None,
 ) -> EmergencyRequest:
     return EmergencyRequest(
         uuid4(),
         principal.organization_id,
         ident,
-        factors,
         service.emergency_inspect(principal, ident),
         "approval-" + uuid4().hex,
         "qa-owner",
@@ -112,24 +117,23 @@ def facts(db: Database) -> dict[str, Any]:
         return dict(row)
 
 
-@pytest.mark.parametrize("factors", ["password", "passkey", "both"])
-def test_factors_real_uv_atomic_completion(
-    mfa: tuple[Settings, Database, str, str],
+def test_password_real_completion_and_atomic_audit(
+    password_app: tuple[Settings, Database, str],
     tmp_path: Path,
-    factors: Literal["password", "passkey", "both"],
 ) -> None:
-    settings, db, password, token = mfa
+    settings, db, password = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as client:
-        old = Authenticator()
-        enroll(client, token, old)
-        login_mfa(client, password, old)
+        login_password(client, password)
+        old_auth = client.cookies.get("__Host-y3-auth")
+        assert old_auth
         service, principal, ident = operator(settings, db, tmp_path / "operator")
-        req = request(service, principal, ident, factors)
+        req = request(service, principal, ident)
         raw = issue(service, principal, req)
         assert client.get("/api/v1/auth/me").status_code == 401
+        assert client.cookies.get("__Host-y3-auth") == old_auth
         issued = facts(db)
-        assert issued["password_reset_pending"] == (factors in ("password", "both"))
-        assert issued["recovery_pending"] == (factors in ("passkey", "both"))
+        assert issued["password_reset_pending"] and not issued["ready"]
+        assert not issued["recovery_pending"]
         new = SyntheticSecret("Emergency new password " + secrets.token_urlsafe(24))
         nonce = csrf(client)
         assert (
@@ -138,41 +142,19 @@ def test_factors_real_uv_atomic_completion(
             ).status_code
             == 200
         )
-        key = Authenticator()
-        if factors == "password":
-            response = call(
-                client,
-                "/auth/emergency-recovery/password/complete",
-                nonce,
-                {"emergency_token": raw, "new_password": new},
-            )
-        else:
-            body = {"emergency_token": raw, **({"new_password": new} if factors == "both" else {})}
-            response = call(client, "/auth/emergency-recovery/options", nonce, body)
-            assert response.status_code == 200
-            options = response.json()
-            assert facts(db) == issued
-            assert (
-                call(
-                    client,
-                    "/auth/emergency-recovery/verify",
-                    options["csrf_token"],
-                    {"credential": key.registration(options["publicKey"], uv=False)},
-                ).status_code
-                == 401
-            )
-            assert facts(db) == issued
-            response = call(
-                client,
-                "/auth/emergency-recovery/verify",
-                options["csrf_token"],
-                {"credential": key.registration(options["publicKey"])},
-            )
-        assert response.status_code == 204
-        after = facts(db)
-        assert (
-            not after["password_reset_pending"] and not after["recovery_pending"] and after["ready"]
+        response = call(
+            client,
+            "/auth/emergency-recovery/password/complete",
+            nonce,
+            {"emergency_token": raw, "new_password": new},
         )
+        assert response.status_code == 204
+        deleted = response.response.headers.get_list("set-cookie")
+        for name in ("__Host-y3-auth", "__Host-y3-preauth"):
+            assert name not in client.cookies
+            assert any(h.startswith(name + "=") and "Max-Age=0" in h for h in deleted)
+        after = facts(db)
+        assert not after["password_reset_pending"] and after["ready"]
         assert client.get("/api/v1/auth/me").status_code == 401
         assert service.emergency_status(principal, req.operation_id).status == "completed"
         assert (
@@ -181,47 +163,66 @@ def test_factors_real_uv_atomic_completion(
             ).status_code
             == 401
         )
-        # Preserve revoked cookie through the real password+UV flow.
-        login = call(
-            client,
-            "/auth/login",
-            csrf(client),
-            {"login_id": "master.test", "password": password if factors == "passkey" else new},
-        )
-        assert login.status_code == 200
-        data = login.json()
-        assert (
-            call(
-                client,
-                "/auth/login/passkey/verify",
-                data["csrf_token"],
-                {
-                    "credential": (old if factors == "password" else key).assertion(
-                        data["publicKey"]
-                    )
-                },
-            ).status_code
-            == 204
-        )
+        login_password(client, new)
         assert client.get("/api/v1/auth/me").status_code == 200
-        with db.session() as s:
+        nonce = csrf(client)
+        auth = client.cookies.get("__Host-y3-auth")
+        assert auth and auth != old_auth
+        with db.session() as session:
+            activity = session.execute(
+                text("SELECT id,last_activity FROM iam_sessions ORDER BY id")
+            ).all()
+        replay = call(
+            client,
+            "/auth/emergency-recovery/password/complete",
+            nonce,
+            {"emergency_token": raw, "new_password": new},
+        )
+        assert replay.status_code == 409 and "logout_required" in replay.response.text
+        assert not replay.response.headers.get_list("set-cookie")
+        assert client.cookies.get("__Host-y3-auth") == auth
+        with db.session() as session:
             assert (
-                s.execute(
+                session.execute(text("SELECT id,last_activity FROM iam_sessions ORDER BY id")).all()
+                == activity
+            )
+        with closing(TestClient(client.app, base_url=ORIGIN)) as anonymous:
+            replay = call(
+                anonymous,
+                "/auth/emergency-recovery/password/complete",
+                csrf(anonymous),
+                {"emergency_token": raw, "new_password": new},
+            )
+            assert replay.status_code == 401
+            assert "__Host-y3-auth" not in anonymous.cookies
+        assert client.cookies.get("__Host-y3-auth") == auth
+        assert client.get("/api/v1/auth/me").status_code == 200
+        with db.session() as session:
+            assert (
+                session.execute(
                     text(
-                        "SELECT count(*) FROM audit_events WHERE action IN "
-                        "('emergency_issue','emergency_complete')"
+                        "SELECT count(*) FROM audit_password_emergency_events "
+                        "WHERE action IN ('issue','complete')"
                     )
                 ).scalar_one()
                 == 2
             )
+            assert (
+                session.execute(
+                    text(
+                        "SELECT count(*) FROM audit_events WHERE "
+                        "action IN ('emergency_issue','emergency_complete')"
+                    )
+                ).scalar_one()
+                == 0
+            )
 
 
 def test_issue_stale_approval_reissue_and_rollback(
-    mfa: tuple[Settings, Database, str, str], tmp_path: Path
+    password_app: tuple[Settings, Database, str], tmp_path: Path
 ) -> None:
-    settings, db, _, token = mfa
+    settings, db, _ = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as client:
-        enroll(client, token, Authenticator())
         service, principal, ident = operator(settings, db, tmp_path / "operator")
         req = request(service, principal, ident)
         before = facts(db)
@@ -245,7 +246,13 @@ def test_issue_stale_approval_reissue_and_rollback(
             issue(service, principal, request(service, principal, ident))
         with pytest.raises(Rejected):
             issue(
-                service, principal, request(service, principal, ident, "password", req.operation_id)
+                service,
+                principal,
+                replace(
+                    req,
+                    supersedes=req.operation_id,
+                    expected=service.emergency_inspect(principal, ident),
+                ),
             )
         next_req = request(service, principal, ident, supersedes=req.operation_id)
         second = issue(service, principal, next_req)
@@ -261,16 +268,15 @@ def test_issue_stale_approval_reissue_and_rollback(
 
 @pytest.mark.parametrize(
     "column",
-    ["organization_id", "target_id", "approval_mode", "actor_role", "actor_scope", "actor_id"],
+    ["organization_id", "target_id", "approval_mode", "actor_role", "case_id", "actor_id"],
 )
 def test_audit_null_metadata_rejected(
-    mfa: tuple[Settings, Database, str, str], tmp_path: Path, column: str
+    password_app: tuple[Settings, Database, str], tmp_path: Path, column: str
 ) -> None:
-    settings, db, _, token = mfa
+    settings, db, _ = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as client:
-        enroll(client, token, Authenticator())
         service, principal, ident = operator(settings, db, tmp_path / "operator")
-        req = request(service, principal, ident, "password")
+        req = request(service, principal, ident)
         raw = issue(service, principal, req)
         response = call(
             client,
@@ -284,7 +290,10 @@ def test_audit_null_metadata_rejected(
         assert response.status_code == 204
         with pytest.raises(IntegrityError), db.session() as s:
             s.execute(
-                text(f"UPDATE audit_events SET {column}=NULL WHERE action='emergency_complete'")
+                text(
+                    f"UPDATE audit_password_emergency_events SET {column}=NULL "
+                    "WHERE action='complete'"
+                )
             )
             s.commit()
 
@@ -370,12 +379,11 @@ def cli_execute(
 
 
 def test_real_cli_process_guard_and_protected_delivery(
-    mfa: tuple[Settings, Database, str, str], tmp_path: Path
+    password_app: tuple[Settings, Database, str], tmp_path: Path
 ) -> None:
-    settings, db, _, token = mfa
+    settings, db, _ = password_app
     private = tmp_path / "operator"
-    with TestClient(create_app(settings, database=db), base_url=ORIGIN) as client:
-        enroll(client, token, Authenticator())
+    with TestClient(create_app(settings, database=db), base_url=ORIGIN):
         service, principal, ident = operator(settings, db, private)
         req = request(service, principal, ident)
         before = facts(db)
@@ -398,16 +406,14 @@ def test_real_cli_process_guard_and_protected_delivery(
 
 @pytest.mark.parametrize("broken_stderr", [False, True])
 def test_real_cli_closed_stdout_pipe_preserves_commit(
-    mfa: tuple[Settings, Database, str, str],
+    password_app: tuple[Settings, Database, str],
     tmp_path: Path,
     broken_stderr: bool,
 ) -> None:
-    settings, db, password, token = mfa
+    settings, db, password = password_app
     private = tmp_path / "operator"
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as client:
-        key = Authenticator()
-        enroll(client, token, key)
-        login_mfa(client, password, key)
+        login_password(client, password)
         service, principal, ident = operator(settings, db, private)
         req = request(service, principal, ident)
     output = cli_execute(
@@ -415,7 +421,7 @@ def test_real_cli_closed_stdout_pipe_preserves_commit(
     )
     assert output.is_file() and output.stat().st_mode & 0o777 == 0o600
     assert service.emergency_status(principal, req.operation_id).status == "issued"
-    assert facts(db)["password_reset_pending"] and facts(db)["recovery_pending"]
+    assert facts(db)["password_reset_pending"] and not facts(db)["recovery_pending"]
     with db.session() as s:
         assert s.execute(
             text("SELECT count(*)>0 AND bool_and(revoked) FROM iam_sessions")

@@ -14,10 +14,14 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
+from tests.password_helpers import (  # noqa: F401
+    call,
+    complete,
+    link_token,
+    password_app,
+    reset_request,
+)
 from tests.test_iam import SyntheticSecret, csrf
-from tests.test_iam_mfa import call, mfa  # noqa: F401
-from tests.test_iam_mfa_management import link_token
-from tests.test_iam_password_reset import complete, reset_request
 from tests.test_iam_trainer import TrainerScene, source, trainer  # noqa: F401
 from tests.test_iam_trainer_roles import body as role_body
 from tests.test_iam_trainer_roles import change as role_change
@@ -31,7 +35,7 @@ from y3management.audit.public import Event as AuditEvent
 from y3management.audit.public import TrainerStateEvent
 from y3management.config import Settings
 from y3management.database import Database
-from y3management.iam.mfa import MFA
+from y3management.iam.password_reset import PasswordReset
 from y3management.iam.public import Authentication, ResetProof
 from y3management.iam.roles import TrainerRoles
 
@@ -81,13 +85,13 @@ def pending_without_password(db: Database, ident: str) -> bool:
 
 def test_prepared_reset_survives_committed_other_home_ba_off(
     trainer: TrainerScene,
-    mfa: tuple[Settings, Database, str, str],
+    password_app: tuple[Settings, Database, str],
     monkeypatch: pytest.MonkeyPatch,
     record_testsuite_property: Callable[[str, object], None],
 ) -> None:
     t = trainer
     ident = ready(t)
-    with closing(branch_actor(t.base, mfa[2])) as ba:
+    with closing(branch_actor(t.base, password_app[2])) as ba:
         actor = ba.get("/api/v1/auth/me").json()["account_id"]
         assert actor != ident
         token = link_token(reset_request(t.base.client, ident).json()["reset_link"])
@@ -96,10 +100,10 @@ def test_prepared_reset_survives_committed_other_home_ba_off(
         reached, release = Event(), Event()
         proof_pids: list[int] = []
         state_pids: list[int] = []
-        prepare, append = MFA.prepare_reset, Audit.append_trainer_state
+        prepare, append = PasswordReset.prepare_reset, Audit.append_trainer_state
         new = SyntheticSecret(secrets.token_urlsafe(24))
 
-        def pause(self: MFA, raw: str, password: str) -> ResetProof:
+        def pause(self: PasswordReset, raw: str, password: str) -> ResetProof:
             proof = prepare(self, raw, password)
             proof_pids.append(int(self.s.execute(text("SELECT pg_backend_pid()")).scalar_one()))
             reached.set()
@@ -111,7 +115,7 @@ def test_prepared_reset_survives_committed_other_home_ba_off(
             state_pids.append(int(self.s.execute(text("SELECT pg_backend_pid()")).scalar_one()))
 
         with monkeypatch.context() as patch, ThreadPoolExecutor(max_workers=1) as pool:
-            patch.setattr(MFA, "prepare_reset", pause)
+            patch.setattr(PasswordReset, "prepare_reset", pause)
             patch.setattr(Audit, "append_trainer_state", audit)
             pending = pool.submit(complete, t.recipient, token, new)
             try:
@@ -167,10 +171,10 @@ def test_withdraw_only_rejects_old_proof_then_same_source_repairs_role_zero(
     binding = fingerprints(t.base.db, ("iam_trainer_bindings",))
     reached, release = Event(), Event()
     proof_pids: list[int] = []
-    prepare = MFA.prepare_reset
+    prepare = PasswordReset.prepare_reset
     new = SyntheticSecret(secrets.token_urlsafe(24))
 
-    def pause(self: MFA, raw: str, password: str) -> ResetProof:
+    def pause(self: PasswordReset, raw: str, password: str) -> ResetProof:
         proof = prepare(self, raw, password)
         proof_pids.append(int(self.s.execute(text("SELECT pg_backend_pid()")).scalar_one()))
         reached.set()
@@ -179,7 +183,7 @@ def test_withdraw_only_rejects_old_proof_then_same_source_repairs_role_zero(
 
     with monkeypatch.context() as patch, ThreadPoolExecutor(max_workers=1) as pool:
         role_pids = role_connections(patch)
-        patch.setattr(MFA, "prepare_reset", pause)
+        patch.setattr(PasswordReset, "prepare_reset", pause)
         pending = pool.submit(complete, t.recipient, token, new)
         try:
             assert reached.wait(5)
@@ -227,11 +231,11 @@ def test_trainer_reset_expires_during_observed_row_wait(
     ident = ready(t)
     token = link_token(reset_request(t.base.client, ident).json()["reset_link"])
     reached, release = Event(), Event()
-    prepare = MFA.prepare_reset
+    prepare = PasswordReset.prepare_reset
     proof_pids: list[int] = []
     new = SyntheticSecret(secrets.token_urlsafe(24))
 
-    def pause(self: MFA, raw: str, password: str) -> ResetProof:
+    def pause(self: PasswordReset, raw: str, password: str) -> ResetProof:
         proof = prepare(self, raw, password)
         proof_pids.append(int(self.s.execute(text("SELECT pg_backend_pid()")).scalar_one()))
         reached.set()
@@ -239,7 +243,7 @@ def test_trainer_reset_expires_during_observed_row_wait(
         return proof
 
     with monkeypatch.context() as patch, ThreadPoolExecutor(max_workers=1) as pool:
-        patch.setattr(MFA, "prepare_reset", pause)
+        patch.setattr(PasswordReset, "prepare_reset", pause)
         pending = pool.submit(complete, t.recipient, token, new)
         try:
             assert reached.wait(5)

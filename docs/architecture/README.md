@@ -1,17 +1,22 @@
-# 현재 IAM-014 — Passkey 완전 제거·password-only 재설계
+# 현재 IAM-014 로컬 인수 완료 — 비밀번호 전용 인증
 
-[직접 영향 전환 상세](iam-014-password-only-transition.md)는 방향 설계를 구체화한 문서이며 실제 SQL/코드·DB 전환 검증은 아직 수행하지 않았다.
+2026-11-05 **설계자 로컬 인수 PASS**. [승인 PW-1–PW-6](../product/product-decisions.md#review-20261031-password-only)와
+[ADR-0005](../decisions/0005-password-only-authentication.md)를 [설계](iam-014-password-only-design.md)/
+[전환 계약](iam-014-password-only-transition.md), [실행 결과](iam-014-password-only-results.md),
+[최소 인수 근거](iam-014-password-only-review.json)로 연결했다.
 
-2026-10-31 사용자 [PW-1–PW-6](../product/product-decisions.md#review-20261031-password-only)에 따라
-[ADR-0005](../decisions/0005-password-only-authentication.md)는 전 지원 역할의 아이디·비밀번호 인증수단을 채택했다.
-[전환 설계](iam-014-password-only-design.md)는 독립 방향·상세 설계 검토를 마쳤다. 실제 DDL/미분류 영향군의 구현 전 기술 확인은 남아 있다. 서버 AuthSession/쿠키·현재 역할/Scope·
-세션/암호/실패 제한·Master/마지막 Master·비상 암호 복구를 유지하고 Passkey 기능과 추가 MFA 의무를 제거한다.
+지원 Master·Branch Admin·Trainer·겸임의 로그인/발급·설정/정상 reset·비상 암호 복구/인계를 ID·비밀번호로
+구현하고 Passkey 현행 기능·WebAuthn 의존을 제거했다. PG AuthSession/Cookie·현재 Role/Scope·C2/CSRF·철회·
+마지막 Master·감사를 유지한다. 기존13 revision/원본 이력과 새0014의 데이터 손실 보호를 검증했다.
 
-**현재 실행 코드7855786에는 아직 이전 MFA가 있다.** 새 설정/화면/전환 migration은 미구현이며
-이전 IAM-013 fast131/선정PG179/native243을 새 정책의 실행 PASS로 사용하지 않는다.
-구현 전 P0의 기존 의존/FK·상태별 전환/소스·proof version/AB5 lineage/기존 assertion 대응표를 기술 검토한다.
-실제 코드·DB/실행 인수는 그 뒤 범위다. 운영/production 거부·다른 Product OPEN/전역 모듈 상태는 유지한다.
-이전 미답변 계정 상태 확장 두 질문은 별도 보류다. 아래는 각 증분 당시 정책/결과 이력이다.
+동결268개/Backend174개에서 독립 fast197 및 명시 동등성 분할 PG626(261+15+94+256)을 확인했다.
+단일 전체PG PASS는 아니다. 같은 R3의 실제 HTTPS/native7사례·10manifest283조건이 모두 true이고 PG 사례에 포함된다.
+최종 누락/중복/skip/xfail/미실행0, 실제 exit·소스/Git/trust 불변·소유 자원 정리를 대조했다.
+원래 실패/중단과 폐기 factor 단언은 결과 문서에 구분한다. 설계자의 후속 변경은 문서뿐이며 Backend bytes를 유지한다.
+
+전담 한글 상세 커밋·일반 feature push 후 다음 계정 수명 정책을 결정한다. **PENDING_SETUP 차단/복구와
+Login ID 대상 상태 확대**는 미승인·미구현이다. 원본 DB 전환/운영·실물/전체 지원 브라우저·모바일 및
+다른 Product OPEN/전역 모듈 PROPOSED는 유지한다. 아래는 각 증분 당시의 이력이다.
 
 # 현재 IAM-013 로컬 인수 완료 — 다음 계정 상태 정책 결정 대기
 

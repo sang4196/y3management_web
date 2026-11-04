@@ -1,5 +1,5 @@
 # ruff: noqa: F811
-"""Hold real proofs before their final locks, then commit Master management."""
+"""Real password proofs and management commits in both causal orders."""
 
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
@@ -9,93 +9,63 @@ from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
-from webauthn import verify_authentication_response
 
+from tests.password_helpers import (
+    call,
+    complete,
+    link_token,
+    login_password,
+    provision,
+    reset_request,
+)
 from tests.test_iam import ORIGIN, csrf
 from tests.test_iam_master_management import command, state
-from tests.test_iam_mfa import Authenticator, begin, call, enroll, login_mfa, mfa  # noqa: F401
-from tests.test_iam_mfa_management import (
-    add,
-    delete,
-    keys,
-    link_token,
-    recovery_options,
-    recovery_request,
-)
-from tests.test_iam_mfa_management_races import provision
-from tests.test_iam_password_reset import complete, reset_request
 from y3management.application import create_app
 from y3management.config import Settings
 from y3management.database import Database
-from y3management.iam import mfa as mfa_module
 from y3management.iam.infrastructure import IAM
-from y3management.iam.mfa import MFA
-from y3management.iam.public import Authentication, LoginProof, RegistrationProof, ResetProof
+from y3management.iam.password_reset import PasswordReset
+from y3management.iam.public import Authentication, LoginProof, Reservation, ResetProof
 
 pytestmark = pytest.mark.postgres
 
 
 @pytest.mark.parametrize("operation", ["status", "login-id"])
-@pytest.mark.parametrize(
-    "factor",
-    ["c3", "add", "login", "reset_complete", "recovery_complete", "reset", "recovery", "delete"],
-)
+@pytest.mark.parametrize("factor", ["c3", "login", "reset_complete", "reset"])
 def test_management_wins_before_factor_final_lock(
-    mfa: tuple[Settings, Database, str, str],
+    password_app: tuple[Settings, Database, str],
     monkeypatch: pytest.MonkeyPatch,
     operation: str,
     factor: str,
 ) -> None:
-    settings, db, password, token = mfa
+    settings, db, password = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as first:
-        actor = Authenticator()
-        enroll(first, token, actor)
-        login_mfa(first, password, actor)
+        login_password(first, password)
         with (
             closing(TestClient(first.app, base_url=ORIGIN)) as second,
             closing(TestClient(first.app, base_url=ORIGIN)) as pending,
         ):
-            ident, key = provision(first, second, password)
+            ident = provision(first, second, password)
             nonce = csrf(second)
-            if factor == "add":
-                options = call(second, "/auth/passkeys/options", nonce, {}).json()
-                payload = Authenticator().registration(options["publicKey"])
-            if factor == "login":
-                options = begin(pending, password, "second.master")
-                payload = key.assertion(options["publicKey"])
-            if factor == "reset_complete":
-                raw = link_token(reset_request(first, ident).json()["reset_link"])
-                nonce = csrf(second)
-            if factor == "recovery_complete":
-                raw = link_token(recovery_request(first, ident).json()["recovery_link"])
-                options = recovery_options(second, raw).json()
-                payload = Authenticator().registration(options["publicKey"])
-            if factor == "delete":
-                # Bind identity before adding a second authenticator; no UUID ordering assumption.
-                old = keys(second)["items"][0]["key_id"]
-                add(second, Authenticator())
-                keyset = keys(second)["key_set_version"]
-            if factor in ("reset", "recovery"):
-                suffix = "password-reset" if factor == "reset" else "passkey-recovery"
-                path = "/admin/accounts/" + ident + "/" + suffix
+            raw = (
+                link_token(reset_request(first, ident).json()["reset_link"])
+                if factor == "reset_complete"
+                else ""
+            )
+            if factor == "reset":
+                path = "/admin/accounts/" + ident + "/password-reset"
                 current = first.get("/api/v1" + path).json()
                 factor_body = {
                     "expected_account_version": current["account_version"],
                     "identity_confirmed": True,
-                    (
-                        "expected_generation" if factor == "reset" else "expected_key_set_version"
-                    ): current["generation" if factor == "reset" else "key_set_version"],
+                    "expected_generation": current["generation"],
                 }
                 actor_nonce = csrf(first)
             version = state(first, ident)["version"]
-            held, release = Event(), Event()
-            verified_success, management_committed = Event(), Event()
-            original_c3, original_register = IAM.prepare_password_change, MFA.verify_registration
-            original_login, original_reset, original_auth = (
-                verify_authentication_response,
-                MFA.prepare_reset,
-                IAM.authenticate,
-            )
+            held, release, verified, committed = Event(), Event(), Event(), Event()
+            original_c3, original_login = IAM.prepare_password_change, IAM.verify_login
+            original_reset, original_auth = PasswordReset.prepare_reset, IAM.authenticate
+            auth_calls = 0
 
             def hold() -> None:
                 held.set()
@@ -106,91 +76,76 @@ def test_management_wins_before_factor_final_lock(
                 hold()
                 return proof
 
-            def registration(adapter: MFA, *args: Any, **kwargs: Any) -> RegistrationProof:
-                proof = original_register(adapter, *args, **kwargs)
+            def verify(
+                adapter: IAM, identifier: str, password: str, reservation: Reservation
+            ) -> LoginProof | None:
+                proof = original_login(adapter, identifier, password, reservation)
+                assert proof is not None
+                verified.set()
                 hold()
+                assert committed.is_set()
                 return proof
 
-            def held_assertion(**kwargs: Any) -> Any:
-                verified = original_login(**kwargs)
-                verified_success.set()
-                hold()
-                assert management_committed.is_set()
-                return verified
-
-            def reset(adapter: MFA, *args: Any, **kwargs: Any) -> ResetProof:
-                proof = original_reset(adapter, *args, **kwargs)
+            def reset(adapter: PasswordReset, token: str, password: str) -> ResetProof:
+                proof = original_reset(adapter, token, password)
                 hold()
                 return proof
 
             def authenticate(adapter: IAM, token: str | None, **kwargs: Any) -> Authentication:
-                # New management command uses touch=False; competing factor uses default touch.
-                if kwargs.get("management") and kwargs.get("touch") is not False:
-                    hold()
+                nonlocal auth_calls
+                if kwargs.get("management"):
+                    auth_calls += 1
+                    if auth_calls == 2:
+                        hold()
                 return original_auth(adapter, token, **kwargs)
 
-            def worker() -> Any:
+            def worker() -> int:
                 if factor == "c3":
-                    return call(
-                        second,
-                        "/auth/password",
-                        nonce,
-                        {"current_password": password, "new_password": password},
-                    ).status_code
-                if factor in ("add", "recovery_complete"):
-                    return call(
-                        second,
-                        "/auth/passkeys/verify"
-                        if factor == "add"
-                        else "/auth/passkeys/recovery/verify",
-                        options["csrf_token"],
-                        {"credential": payload},
-                    ).status_code
+                    return int(
+                        call(
+                            second,
+                            "/auth/password",
+                            nonce,
+                            {"current_password": password, "new_password": password},
+                        ).status_code
+                    )
                 if factor == "login":
-                    return call(
-                        pending,
-                        "/auth/login/passkey/verify",
-                        options["csrf_token"],
-                        {"credential": payload},
-                    ).status_code
+                    return int(
+                        call(
+                            pending,
+                            "/auth/login",
+                            csrf(pending),
+                            {"login_id": "second.master", "password": password},
+                        ).status_code
+                    )
                 if factor == "reset_complete":
-                    return complete(second, raw, password).status_code
-                if factor == "delete":
-                    return delete(second, old, keyset)
-                return call(first, path, actor_nonce, factor_body).status_code
+                    return int(complete(second, raw, password).status_code)
+                return int(call(first, path, actor_nonce, factor_body).status_code)
 
-            with monkeypatch.context() as patch, ThreadPoolExecutor(max_workers=1) as pool:
+            with (
+                monkeypatch.context() as patch,
+                ThreadPoolExecutor(max_workers=1, thread_name_prefix="credential-worker") as pool,
+            ):
                 if factor == "c3":
                     patch.setattr(IAM, "prepare_password_change", prepare)
-                elif factor in ("add", "recovery_complete"):
-                    patch.setattr(MFA, "verify_registration", registration)
                 elif factor == "login":
-                    patch.setattr(mfa_module, "verify_authentication_response", held_assertion)
+                    patch.setattr(IAM, "verify_login", verify)
                 elif factor == "reset_complete":
-                    patch.setattr(MFA, "prepare_reset", reset)
+                    patch.setattr(PasswordReset, "prepare_reset", reset)
                 else:
                     patch.setattr(IAM, "authenticate", authenticate)
                 future = pool.submit(worker)
                 assert held.wait(20)
-                if factor == "login":
-                    assert verified_success.is_set() and not release.is_set()
                 try:
-                    # Avoid sharing a client with the held reset/recovery request.
                     with closing(TestClient(first.app, base_url=ORIGIN)) as manager:
                         manager.cookies.update(first.cookies)
-                        # Final management recheck must not enter the competitor hook.
-                        with monkeypatch.context() as inner:
-                            if factor in ("reset", "recovery", "delete"):
-                                inner.setattr(IAM, "authenticate", original_auth)
-                            assert command(manager, ident, operation, version).status_code == 200
-                            management_committed.set()
+                        assert command(manager, ident, operation, version).status_code == 200
+                        committed.set()
                 finally:
                     release.set()
-                assert future.result(timeout=25) == (
-                    409 if factor in ("reset", "recovery") else 401
-                )
+                assert future.result(timeout=25) == (409 if factor == "reset" else 401)
             if factor == "login":
-                assert verified_success.is_set() and management_committed.is_set()
+                assert verified.is_set() and committed.is_set()
                 assert pending.get("/api/v1/auth/me").status_code == 401
             assert first.get("/api/v1/auth/me").status_code == 200
             if operation == "status":
@@ -199,20 +154,18 @@ def test_management_wins_before_factor_final_lock(
 
 
 @pytest.mark.parametrize("operation", ["status", "login-id"])
-@pytest.mark.parametrize("factor", ["c3", "add", "login", "reset", "recovery", "delete"])
+@pytest.mark.parametrize("factor", ["c3", "login", "reset"])
 def test_factor_commit_before_management(
-    mfa: tuple[Settings, Database, str, str], operation: str, factor: str
+    password_app: tuple[Settings, Database, str], operation: str, factor: str
 ) -> None:
-    settings, db, password, token = mfa
+    settings, db, password = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as first:
-        actor = Authenticator()
-        enroll(first, token, actor)
-        login_mfa(first, password, actor)
+        login_password(first, password)
         with (
             closing(TestClient(first.app, base_url=ORIGIN)) as second,
             closing(TestClient(first.app, base_url=ORIGIN)) as pending,
         ):
-            ident, key = provision(first, second, password)
+            ident = provision(first, second, password)
             version = state(first, ident)["version"]
             if factor == "c3":
                 assert (
@@ -224,20 +177,11 @@ def test_factor_commit_before_management(
                     ).status_code
                     == 204
                 )
-            elif factor == "add":
-                add(second, Authenticator())
             elif factor == "login":
-                login_mfa(pending, password, key, "second.master")
-            elif factor == "delete":
-                old = keys(second)["items"][0]["key_id"]
-                add(second, Authenticator())
-                assert delete(second, old, keys(second)["key_set_version"]) == 204
+                login_password(pending, password, "second.master")
             else:
-                assert (reset_request if factor == "reset" else recovery_request)(
-                    first, ident
-                ).status_code == 201
-            # Login and key addition do not alter row_version; other factor mutations do.
-            expected = 200 if factor in ("add", "login") else 409
+                assert reset_request(first, ident).status_code == 201
+            expected = 200 if factor == "login" else 409
             assert command(first, ident, operation, version).status_code == expected
             if expected == 409:
                 assert (
@@ -249,32 +193,26 @@ def test_factor_commit_before_management(
                 assert pending.get("/api/v1/auth/me").status_code == 401
 
 
-@pytest.mark.parametrize("loss", ["status", "login-id", "reset", "recovery", "c3", "delete"])
+@pytest.mark.parametrize("loss", ["status", "login-id", "reset", "c3"])
 def test_actor_actual_authority_loss_before_command(
-    mfa: tuple[Settings, Database, str, str], loss: str
+    password_app: tuple[Settings, Database, str], loss: str
 ) -> None:
     from tests.test_iam_master_management import snapshot
 
-    settings, db, password, token = mfa
+    settings, db, password = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as first:
-        actor = Authenticator()
-        enroll(first, token, actor)
-        login_mfa(first, password, actor)
+        login_password(first, password)
         with closing(TestClient(first.app, base_url=ORIGIN)) as second:
-            ident, _ = provision(first, second, password)
-            actor_id = first.get("/api/v1/auth/me").json()["account_id"]
-            version = state(first, ident)["version"]
-            nonce = csrf(first)
+            ident = provision(first, second, password)
+            actor = first.get("/api/v1/auth/me").json()["account_id"]
+            version, nonce = state(first, ident)["version"], csrf(first)
             if loss in ("status", "login-id"):
                 assert (
-                    command(second, actor_id, loss, state(second, actor_id)["version"]).status_code
-                    == 200
+                    command(second, actor, loss, state(second, actor)["version"]).status_code == 200
                 )
-            elif loss in ("reset", "recovery"):
-                assert (reset_request if loss == "reset" else recovery_request)(
-                    second, actor_id
-                ).status_code == 201
-            elif loss == "c3":
+            elif loss == "reset":
+                assert reset_request(second, actor).status_code == 201
+            else:
                 assert (
                     call(
                         first,
@@ -284,10 +222,6 @@ def test_actor_actual_authority_loss_before_command(
                     ).status_code
                     == 204
                 )
-            else:
-                old = keys(first)["items"][0]["key_id"]
-                add(first, Authenticator())
-                assert delete(first, old, keys(first)["key_set_version"]) == 204
             before = snapshot(db)
             assert command(first, ident, "status", version, nonce=nonce).status_code == 401
             assert snapshot(db) == before

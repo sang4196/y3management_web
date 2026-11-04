@@ -48,7 +48,28 @@ class Event:
     handoff_kind: str | None = None
 
 
+@dataclass(frozen=True)
+class PasswordEmergencyEvent:
+    case_id: UUID
+    organization_id: UUID
+    target_id: UUID
+    actor_id: UUID | None
+    action: str
+    actor_role: str
+    approval_mode: str
+    before_version: int
+    after_version: int
+    before_security_version: int
+    after_security_version: int
+    before_reset_generation: int
+    after_reset_generation: int
+    policy_version: int
+    recorded_at: datetime
+
+
 class AuditPort(Protocol):
+    def append_password_emergency(self, event: PasswordEmergencyEvent) -> None: ...
+
     def append_trainer_state(self, event: TrainerStateEvent) -> None: ...
 
     def append_trainer_role(self, event: TrainerRoleEvent) -> None: ...

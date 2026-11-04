@@ -8,12 +8,12 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from y3management.cli import PrivateEnrollmentFile
+from y3management.cli import PrivateRecoveryFile
 from y3management.config import Settings
-from y3management.iam.public import Ceremony, Setup
+from y3management.iam.public import Setup
 
 
-def test_mfa_has_no_missing_configuration_fallback(settings: Settings) -> None:
+def test_password_has_no_missing_or_legacy_configuration_fallback(settings: Settings) -> None:
     values = settings.model_dump() | dict(
         iam_enabled=True,
         canonical_origin="https://localhost:8443",
@@ -23,10 +23,12 @@ def test_mfa_has_no_missing_configuration_fallback(settings: Settings) -> None:
     )
     with pytest.raises(ValidationError):
         Settings.model_validate(values)
+    assert Settings.model_validate(values | {"iam_mode": "password"}).iam_mode == "password"
     for mode in ("s1_password", "mfa"):
-        assert Settings.model_validate(values | {"iam_mode": mode}).iam_mode == mode
+        with pytest.raises(ValidationError):
+            Settings.model_validate(values | {"iam_mode": mode})
     with pytest.raises(ValidationError):
-        Settings.model_validate(values | {"iam_mode": "mfa", "environment": "production"})
+        Settings.model_validate(values | {"iam_mode": "password", "environment": "production"})
 
 
 @pytest.mark.parametrize("case", ["public_parent", "symlink_parent", "existing", "symlink_file"])
@@ -45,7 +47,7 @@ def test_private_delivery_denies_unsafe_paths(tmp_path: Path, case: str) -> None
     if case == "symlink_file":
         target.symlink_to(private / "other")
     with pytest.raises((ValueError, OSError)):
-        PrivateEnrollmentFile(str(target), "https://localhost")
+        PrivateRecoveryFile(str(target), "https://localhost")
     if case == "existing":
         assert target.read_text() == "existing"
 
@@ -59,7 +61,7 @@ def test_private_file_delivery_and_rollback(
     secret = secrets.token_urlsafe(32)
     previous = os.umask(0o777)
     try:
-        file = PrivateEnrollmentFile(str(target), "https://localhost")
+        file = PrivateRecoveryFile(str(target), "https://localhost")
     finally:
         os.umask(previous)
     file.deliver(Setup(secret, datetime.now(UTC)))
@@ -68,38 +70,35 @@ def test_private_file_delivery_and_rollback(
     file.close(remove=True)
     assert not target.exists()
     assert secret not in capsys.readouterr().out
-    ceremony = Ceremony(secret, secret, secret, datetime.now(UTC))
-    assert secret not in repr(ceremony)
+    assert secret not in repr(Setup(secret, datetime.now(UTC)))
 
 
-def test_mfa_failure_locals_canary(tmp_path: Path) -> None:
+def test_password_proof_failure_locals_canary(tmp_path: Path) -> None:
     import subprocess
     import sys
 
     from tests.test_iam import SyntheticSecret
 
-    names = ("CEREMONY", "NONCE", "CHALLENGE", "RAW_PROOF", "PUBLIC_KEY", "INSTALL_FILE")
+    names = ("TOKEN", "NONCE", "MARKER", "RAW_PROOF", "NEW_HASH", "DELIVERY_FILE")
     values = {name: SyntheticSecret(secrets.token_hex(24)) for name in names}
     probe = tmp_path / "test_mfa_failure.py"
     probe.write_text("""import os
 from datetime import datetime, UTC
 from uuid import uuid4
 from tests.test_iam import SyntheticSecret
-from tests.test_iam_mfa import protect
-from y3management.iam.public import Ceremony, RegistrationProof, Setup
+from tests.password_helpers import protect
+from y3management.iam.public import EmergencyPasswordProof, LoginProof, PolicyStamp, Setup
 
-def test_private_mfa_failure():
-    ceremony = Ceremony(os.environ['CEREMONY'],os.environ['NONCE'],
-                        os.environ['CHALLENGE'],datetime.now(UTC))
-    setup = Setup(os.environ['INSTALL_FILE'],datetime.now(UTC))
-    proof = RegistrationProof(uuid4(), bytes.fromhex(os.environ['CHALLENGE']),
-        bytes.fromhex(os.environ['RAW_PROOF']),bytes.fromhex(os.environ['PUBLIC_KEY']),0,
-        'single_device',False,'install')
-    payload = protect({'response':{'clientDataJSON':os.environ['RAW_PROOF']},
-                       'options':{'challenge':os.environ['CHALLENGE']}})
-    file_contents = SyntheticSecret(os.environ['INSTALL_FILE'])
+def test_private_password_failure():
+    policy = PolicyStamp(2, uuid4())
+    proof = LoginProof(uuid4(), 2, bytes.fromhex(os.environ['MARKER']), policy=policy)
+    setup = Setup(os.environ['DELIVERY_FILE'], datetime.now(UTC))
+    emergency = EmergencyPasswordProof(uuid4(),uuid4(),uuid4(),uuid4(),1,1,1,1,
+        datetime.now(UTC),policy,os.environ['NEW_HASH'])
+    payload = protect({'token':os.environ['TOKEN'],'nonce':os.environ['NONCE'],
+                       'proof':os.environ['RAW_PROOF']})
     passed = False
-    assert passed, 'EXPECTED_MFA_PRIVATE_FAILURE'
+    assert passed, 'EXPECTED_PASSWORD_PRIVATE_FAILURE'
 """)
     result = subprocess.run(
         [
@@ -121,7 +120,7 @@ def test_private_mfa_failure():
     code = result.returncode
     output = SyntheticSecret((result.stdout + result.stderr).decode())
     del result
-    assert code == 1 and "EXPECTED_MFA_PRIVATE_FAILURE" in output
+    assert code == 1 and "EXPECTED_PASSWORD_PRIVATE_FAILURE" in output
     assert not any(
         value in output or repr(bytes.fromhex(value)) in output for value in values.values()
     )

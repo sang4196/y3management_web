@@ -12,8 +12,8 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
+from tests.password_helpers import call, password_app  # noqa: F401
 from tests.test_iam import ORIGIN, csrf
-from tests.test_iam_mfa import call, mfa  # noqa: F401
 from tests.test_workforce import Scene, activity, counts, scene  # noqa: F401
 from tests.test_workforce_integrity import (
     branch_actor,
@@ -144,9 +144,9 @@ def test_exact_body_budget_valid_json(scene: Scene) -> None:
 
 
 def test_actual_home_reauthorization(
-    scene: Scene, mfa: tuple[Settings, Database, str, str]
+    scene: Scene, password_app: tuple[Settings, Database, str]
 ) -> None:
-    with closing(branch_actor(scene, mfa[2])) as other:
+    with closing(branch_actor(scene, password_app[2])) as other:
         body = scene.body()
         result = scene.send(body).json()
         ident = result["trainer"]["id"]
@@ -265,11 +265,11 @@ def test_actor_revocation_order(
 
 
 def test_c2_other_accounts_and_sources_preserved(
-    scene: Scene, mfa: tuple[Settings, Database, str, str]
+    scene: Scene, password_app: tuple[Settings, Database, str]
 ) -> None:
     import hashlib
 
-    with closing(branch_actor(scene, mfa[2])):
+    with closing(branch_actor(scene, password_app[2])):
         from fastapi.testclient import TestClient
 
         with closing(TestClient(scene.client.app, base_url=ORIGIN)) as unknown:

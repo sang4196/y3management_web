@@ -9,8 +9,8 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
+from tests.password_helpers import call, password_app  # noqa: F401
 from tests.test_iam import ORIGIN, csrf
-from tests.test_iam_mfa import call, mfa  # noqa: F401
 from tests.test_iam_trainer import TrainerScene, source, trainer  # noqa: F401
 from tests.test_iam_trainer_roles import body as role_body
 from tests.test_iam_trainer_roles import change as role_change

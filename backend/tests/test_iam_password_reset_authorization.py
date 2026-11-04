@@ -9,11 +9,17 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
+from tests.password_helpers import (  # noqa: F401
+    activate,
+    call,
+    complete,
+    link_token,
+    login_password,
+    password_app,
+    provision,
+    reset_request,
+)
 from tests.test_iam import ORIGIN, csrf
-from tests.test_iam_mfa import Authenticator, call, enroll, login_mfa, mfa  # noqa: F401
-from tests.test_iam_mfa_management import keys, link_token
-from tests.test_iam_mfa_management_races import provision
-from tests.test_iam_password_reset import complete, reset_request
 from y3management.application import create_app
 from y3management.config import Settings
 from y3management.database import Database
@@ -24,15 +30,13 @@ pytestmark = pytest.mark.postgres
 
 
 def test_reset_authorization_and_other_organization(
-    mfa: tuple[Settings, Database, str, str],
+    password_app: tuple[Settings, Database, str],
 ) -> None:
-    settings, db, password, token = mfa
+    settings, db, password = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as first:
-        key = Authenticator()
-        enroll(first, token, key)
-        login_mfa(first, password, key)
+        login_password(first, password)
         with closing(TestClient(first.app, base_url=ORIGIN)) as second:
-            ident, _ = provision(first, second, password)
+            ident = provision(first, second, password)
             # Existing management is still Branch Admin-only for real Master target.
             for suffix, body in [
                 ("/activation", {"expected_version": 2}),
@@ -97,29 +101,17 @@ def test_reset_authorization_and_other_organization(
                 ).status_code
                 == 404
             )
-            foreign_key = keys(second)["items"][0]["key_id"]
-            assert (
-                first.request(
-                    "DELETE",
-                    "/api/v1/auth/passkeys/" + foreign_key,
-                    headers={"Origin": ORIGIN, "X-CSRF-Token": csrf(first)},
-                    json={"expected_key_set_version": 1},
-                ).status_code
-                == 404
-            )
 
 
 @pytest.mark.parametrize("expiry", ["idle", "absolute", "revoked"])
 def test_final_reset_actor_rechecked(
-    mfa: tuple[Settings, Database, str, str], monkeypatch: pytest.MonkeyPatch, expiry: str
+    password_app: tuple[Settings, Database, str], monkeypatch: pytest.MonkeyPatch, expiry: str
 ) -> None:
-    settings, db, password, token = mfa
+    settings, db, password = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as first:
-        key = Authenticator()
-        enroll(first, token, key)
-        login_mfa(first, password, key)
+        login_password(first, password)
         with closing(TestClient(first.app, base_url=ORIGIN)) as second:
-            ident, _ = provision(first, second, password)
+            ident = provision(first, second, password)
             original = IAM.authenticate
             count = 0
 
@@ -182,13 +174,11 @@ def test_final_reset_actor_rechecked(
 
 
 def test_reset_self_branch_actor_and_unsupported_target_states(
-    mfa: tuple[Settings, Database, str, str],
+    password_app: tuple[Settings, Database, str],
 ) -> None:
-    settings, db, password, token = mfa
+    settings, db, password = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as first:
-        key = Authenticator()
-        enroll(first, token, key)
-        login_mfa(first, password, key)
+        login_password(first, password)
         actor = first.get("/api/v1/auth/me").json()["account_id"]
         body = {"expected_account_version": 1, "expected_generation": 0, "identity_confirmed": True}
         path = "/admin/accounts/" + actor + "/password-reset"
@@ -208,9 +198,8 @@ def test_reset_self_branch_actor_and_unsupported_target_states(
             == 409
         )
         with closing(TestClient(first.app, base_url=ORIGIN)) as second:
-            other = Authenticator()
-            enroll(second, link_token(issued["setup_link"]), other, password)
-            login_mfa(second, password, other, "branch.test")
+            activate(second, link_token(issued["setup_link"]), password)
+            login_password(second, password, "branch.test")
             assert call(second, path, csrf(second), body).status_code == 403
             current = first.get("/api/v1/admin/accounts/" + ident).json()
             assert (
@@ -231,14 +220,12 @@ def test_reset_self_branch_actor_and_unsupported_target_states(
             assert s.execute(text("SELECT count(*) FROM iam_reset_credentials")).scalar_one() == 0
 
 
-def test_reset_preserves_existing_c2_cooldown(mfa: tuple[Settings, Database, str, str]) -> None:
-    settings, db, password, token = mfa
+def test_reset_preserves_existing_c2_cooldown(password_app: tuple[Settings, Database, str]) -> None:
+    settings, db, password = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as first:
-        key = Authenticator()
-        enroll(first, token, key)
-        login_mfa(first, password, key)
+        login_password(first, password)
         with closing(TestClient(first.app, base_url=ORIGIN)) as second:
-            ident, _ = provision(first, second, password)
+            ident = provision(first, second, password)
             assert call(second, "/auth/logout", csrf(second), {}).status_code == 204
             for _ in range(5):
                 assert (

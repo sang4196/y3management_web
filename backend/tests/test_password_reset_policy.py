@@ -15,9 +15,9 @@ def test_reset_failure_locals_canary(tmp_path: Path) -> None:
     probe.write_text("""import os
 from uuid import uuid4
 from y3management.http import ResetComplete
-from y3management.iam.public import ResetProof
+from y3management.iam.public import PolicyStamp, ResetProof
 from tests.test_iam import SyntheticSecret
-from tests.test_iam_mfa_management import link_token
+from tests.password_helpers import link_token
 from tests.test_iam_password_reset import complete
 
 class Response:
@@ -35,7 +35,7 @@ class Client:
 def test_actual_reset_helpers():
     body = ResetComplete(reset_token=os.environ["RESET_CANARY"],
                          new_password=os.environ["RESET_CANARY"])
-    proof = ResetProof(uuid4(),uuid4(),1,1)
+    proof = ResetProof(uuid4(),uuid4(),1,1,policy=PolicyStamp(2,uuid4()))
     link = SyntheticSecret("https://example.invalid/reset#token="+os.environ["RESET_CANARY"])
     complete(Client(),link_token(link),SyntheticSecret(os.environ["RESET_CANARY"]))
 """)

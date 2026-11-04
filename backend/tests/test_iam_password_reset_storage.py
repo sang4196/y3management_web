@@ -13,11 +13,16 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
+from tests.legacy_helpers import (  # noqa: F401
+    assert_revision_loss_guard,
+    legacy_database,
+    legacy_master,
+)
+from tests.legacy_helpers import (
+    migration_status as migrate,
+)
+from tests.password_helpers import login_password, protect, provision, reset_request
 from tests.test_iam import ORIGIN, child_env
-from tests.test_iam_mfa import Authenticator, enroll, login_mfa, mfa, protect  # noqa: F401
-from tests.test_iam_mfa_management_migration import migrate
-from tests.test_iam_mfa_management_races import provision
-from tests.test_iam_password_reset import reset_request
 from y3management.application import create_app
 from y3management.config import Settings
 from y3management.database import Database
@@ -46,11 +51,12 @@ def fingerprint(db: Database) -> str:
     return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
 
 
-def test_reset_empty_roundtrip(mfa: tuple[Settings, Database, str, str]) -> None:
-    settings, db, _, _ = mfa
+@pytest.mark.parametrize("legacy_master", ["0007_iam_password_reset"], indirect=True)
+def test_reset_empty_roundtrip(legacy_master: tuple[Settings, Database]) -> None:
+    settings, db = legacy_master
     before = fingerprint(db)
     assert migrate(settings, "downgrade", "0006_iam_mfa_management") == 0
-    assert migrate(settings, "upgrade", "head") == 0
+    assert migrate(settings, "upgrade", "0007_iam_password_reset") == 0
     assert fingerprint(db) == before
 
 
@@ -58,8 +64,9 @@ def test_reset_empty_roundtrip(mfa: tuple[Settings, Database, str, str]) -> None
     "seed",
     ["pending", "generation", "source", "parent", "start", "reissue", "complete", "metadata"],
 )
-def test_reset_each_downgrade_guard(mfa: tuple[Settings, Database, str, str], seed: str) -> None:
-    settings, db, _, _ = mfa
+@pytest.mark.parametrize("legacy_master", ["0007_iam_password_reset"], indirect=True)
+def test_reset_each_downgrade_guard(legacy_master: tuple[Settings, Database], seed: str) -> None:
+    settings, db = legacy_master
     with db.session() as s:
         account = s.execute(text("SELECT id,organization_id FROM iam_accounts")).one()
         if seed == "pending":
@@ -108,6 +115,7 @@ def test_reset_each_downgrade_guard(mfa: tuple[Settings, Database, str, str], se
         s.commit()
     before = fingerprint(db)
     assert migrate(settings, "downgrade", "0006_iam_mfa_management") != 0
+    assert_revision_loss_guard(db, "0007_iam_password_reset.py", "Password reset state or history")
     assert fingerprint(db) == before
 
 
@@ -120,23 +128,23 @@ def test_reset_each_downgrade_guard(mfa: tuple[Settings, Database, str, str], se
         "state='PENDING_SETUP'",
     ],
 )
-def test_reset_readiness_constraints(mfa: tuple[Settings, Database, str, str], change: str) -> None:
-    _, db, _, _ = mfa
+def test_reset_readiness_constraints(
+    password_app: tuple[Settings, Database, str], change: str
+) -> None:
+    _, db, _ = password_app
     with db.session() as s, pytest.raises(IntegrityError):
         s.execute(text("UPDATE iam_accounts SET " + change))
         s.commit()
 
 
 def test_reset_gc_locked_source_then_cleanup_preserves_pending(
-    mfa: tuple[Settings, Database, str, str],
+    password_app: tuple[Settings, Database, str],
 ) -> None:
-    settings, db, password, token = mfa
+    settings, db, password = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as first:
-        key = Authenticator()
-        enroll(first, token, key)
-        login_mfa(first, password, key)
+        login_password(first, password)
         with closing(TestClient(first.app, base_url=ORIGIN)) as second:
-            ident, _ = provision(first, second, password)
+            ident = provision(first, second, password)
             assert reset_request(first, ident).status_code == 201
             with db.session() as s:
                 source = s.execute(
@@ -158,7 +166,9 @@ def test_reset_gc_locked_source_then_cleanup_preserves_pending(
                     gc.execute(text("SET LOCAL lock_timeout='300ms'"))
                     blocked = False
                     try:
-                        Security(gc, settings.iam_key.get_secret_value(), 2048, 128).allocate("mfa")
+                        Security(gc, settings.iam_key.get_secret_value(), 2048, 128).allocate(
+                            "preparation"
+                        )
                         gc.commit()
                     except DBAPIError:
                         blocked = True
@@ -172,7 +182,7 @@ def test_reset_gc_locked_source_then_cleanup_preserves_pending(
                     == 1
                 )
             with db.session() as gc:
-                Security(gc, settings.iam_key.get_secret_value(), 2048, 128).allocate("mfa")
+                Security(gc, settings.iam_key.get_secret_value(), 2048, 128).allocate("preparation")
                 gc.commit()
                 assert (
                     gc.execute(
@@ -193,19 +203,24 @@ def test_reset_gc_locked_source_then_cleanup_preserves_pending(
             assert reset_request(first, ident, reissue=True).status_code == 201
 
 
-@pytest.mark.parametrize("mfa", [False], indirect=True)
+@pytest.mark.parametrize("legacy_master", ["0007_iam_password_reset"], indirect=True)
 def test_reset_downgrade_waits_for_inflight_allocation(
-    mfa: tuple[Settings, Database, str, str],
+    legacy_master: tuple[Settings, Database],
 ) -> None:
     import time
 
     from tests.conftest import qa_register_process, qa_stop_process
-    from y3management.iam.security import Security
 
-    settings, db, _, _ = mfa
+    settings, db = legacy_master
     with db.session() as allocation:
-        security = Security(allocation, settings.iam_key.get_secret_value(), 2048, 128)
-        security.allocate("password_reset")
+        allocation.execute(text("SELECT id FROM iam_security_control WHERE id=1 FOR UPDATE"))
+        allocation.execute(
+            text(
+                "INSERT INTO iam_security_states(id,kind,expires_at) "
+                "VALUES(:i,'password_reset',clock_timestamp()+interval '30 minutes')"
+            ),
+            {"i": uuid4()},
+        )
         allocator_pid = allocation.execute(text("SELECT pg_backend_pid()")).scalar_one()
         migration_app = "reset-downgrade-" + uuid4().hex
         env = child_env(settings)
@@ -242,6 +257,9 @@ def test_reset_downgrade_waits_for_inflight_allocation(
             expected = fingerprint(db)
             process.communicate(timeout=10)
             assert process.returncode != 0
+            assert_revision_loss_guard(
+                db, "0007_iam_password_reset.py", "Password reset state or history"
+            )
             assert fingerprint(db) == expected
         finally:
             qa_stop_process(process)

@@ -91,7 +91,7 @@ def test_startup_failure_releases_canonical_guard(settings: Settings) -> None:
             **settings.model_dump(),
             "database_schema": "iam_test_" + uuid4().hex,
             "iam_enabled": True,
-            "iam_mode": "s1_password",
+            "iam_mode": "password",
             "canonical_origin": "https://localhost:8443",
             "iam_key": "s" * 43,
             "security_state_capacity": 64,
@@ -156,15 +156,16 @@ def test_failure_locals_keep_synthetic_secrets_private(tmp_path: Path) -> None:
 from uuid import uuid4
 from tests.test_iam import SyntheticSecret
 from tests.test_iam_s2 import fingerprint_rows
-from y3management.iam.public import LoginProof, Reservation
+from y3management.iam.public import PolicyStamp, LoginProof, Reservation
 
 def test_deliberate_failure():
     password = SyntheticSecret(os.environ['PASSWORD'])
     cookie = SyntheticSecret(os.environ['COOKIE'])
     nonce = SyntheticSecret(os.environ['NONCE'])
     encoded = SyntheticSecret(os.environ['HASH'])
-    reservation = Reservation(bytes.fromhex(os.environ['ANCHOR']), uuid4(), uuid4(), 2)
-    proof = LoginProof(uuid4(), 2, bytes.fromhex(os.environ['HASH']))
+    reservation = Reservation(bytes.fromhex(os.environ['ANCHOR']), uuid4(), uuid4(), 2,
+        policy=PolicyStamp(2,uuid4()))
+    proof = LoginProof(uuid4(), 2, bytes.fromhex(os.environ['HASH']), policy=PolicyStamp(2,uuid4()))
     fingerprint = fingerprint_rows([(encoded, reservation.key)])
     safe_boolean = False
     assert safe_boolean, 'EXPECTED_PRIVATE_FAILURE'

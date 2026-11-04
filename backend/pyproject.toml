@@ -15,7 +15,6 @@ dependencies = [
   "argon2-cffi-bindings==26.1.0",
   "cffi==2.1.1",
   "pycparser==3.0",
-  "webauthn==3.0.1",
 ]
 
 [dependency-groups]
@@ -76,7 +75,7 @@ forbidden_modules = ["fastapi", "starlette"]
 name = "Use cases depend only on module public contracts"
 type = "forbidden"
 source_modules = ["y3management.use_cases", "y3management.http"]
-forbidden_modules = ["y3management.iam.mfa", "y3management.iam.infrastructure", "y3management.iam.roles", "y3management.iam.security", "y3management.iam.passwords", "y3management.organization.infrastructure", "y3management.audit.infrastructure", "y3management.workforce.application", "y3management.workforce.infrastructure", "y3management.workforce.validation"]
+forbidden_modules = ["y3management.iam.password_reset", "y3management.iam.policy", "y3management.iam.infrastructure", "y3management.iam.roles", "y3management.iam.security", "y3management.iam.passwords", "y3management.organization.infrastructure", "y3management.audit.infrastructure", "y3management.workforce.application", "y3management.workforce.infrastructure", "y3management.workforce.validation"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
@@ -95,7 +94,7 @@ forbidden_modules = ["y3management.organization", "y3management.audit", "y3manag
 name = "Organization depends only on IAM public facts"
 type = "forbidden"
 source_modules = ["y3management.organization"]
-forbidden_modules = ["y3management.iam.mfa", "y3management.iam.infrastructure", "y3management.iam.roles", "y3management.iam.security", "y3management.iam.passwords", "y3management.audit", "y3management.workforce"]
+forbidden_modules = ["y3management.iam.password_reset", "y3management.iam.policy", "y3management.iam.infrastructure", "y3management.iam.roles", "y3management.iam.security", "y3management.iam.passwords", "y3management.audit", "y3management.workforce"]
 
 [[tool.importlinter.contracts]]
 name = "Audit does not read business modules"
@@ -107,4 +106,4 @@ forbidden_modules = ["y3management.iam", "y3management.organization", "y3managem
 name = "Workforce uses public identity and branch facts only"
 type = "forbidden"
 source_modules = ["y3management.workforce"]
-forbidden_modules = ["y3management.iam.infrastructure", "y3management.iam.roles", "y3management.iam.mfa", "y3management.iam.security", "y3management.iam.passwords", "y3management.iam.emergency", "y3management.iam.handoff", "y3management.organization.application", "y3management.organization.infrastructure", "y3management.audit"]
+forbidden_modules = ["y3management.iam.infrastructure", "y3management.iam.roles", "y3management.iam.password_reset", "y3management.iam.policy", "y3management.iam.security", "y3management.iam.passwords", "y3management.iam.emergency", "y3management.iam.handoff", "y3management.organization.application", "y3management.organization.infrastructure", "y3management.audit"]

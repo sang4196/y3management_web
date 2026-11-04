@@ -2,8 +2,6 @@
 """Durable variant constraints, preservation and commit reconciliation."""
 
 import hashlib
-import subprocess
-import sys
 from uuid import UUID
 
 import pytest
@@ -11,12 +9,20 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from tests.test_iam import child_env, csrf
+from tests.legacy_helpers import (  # noqa: F401
+    assert_revision_loss_guard,
+    legacy_database,
+    legacy_master,
+    migration_status,
+)
+from tests.password_helpers import link_token
+from tests.test_iam import csrf
 from tests.test_iam_emergency import issue, request
 from tests.test_iam_emergency_handoff import Scene, scene  # noqa: F401
-from tests.test_iam_mfa import mfa  # noqa: F401
-from tests.test_iam_mfa_management import link_token
+from tests.test_password_transition_legacy import seed_case
+from y3management.config import Settings
 from y3management.contracts import CommitUncertain
+from y3management.database import Database
 
 pytestmark = pytest.mark.postgres
 
@@ -26,15 +32,11 @@ def test_variants_nulls_parent_factors_and_history_downgrade(scene: Scene) -> No
     body = scene.body()
     assert scene.send(body).status_code == 201
     operation = body["operation_id"]
-    for field in (
-        "issuer_account_id",
-        "approval_origin_case_id",
-        "handoff_parent_id",
-        "supersedes",
-    ):
+    for field in ("issuer_account_id", "parent_id"):
         with scene.db.session() as db, pytest.raises(IntegrityError):
             db.execute(
-                text(f"UPDATE iam_emergency_cases SET {field}=NULL WHERE id=:i"), {"i": operation}
+                text(f"UPDATE iam_password_emergency_cases SET {field}=NULL WHERE id=:i"),
+                {"i": operation},
             )
     for field in (
         "approval_ref",
@@ -46,65 +48,60 @@ def test_variants_nulls_parent_factors_and_history_downgrade(scene: Scene) -> No
     ):
         with scene.db.session() as db, pytest.raises(IntegrityError):
             db.execute(
-                text(f"UPDATE iam_emergency_cases SET {field}=NULL WHERE id=:i"),
+                text(f"UPDATE iam_password_emergency_cases SET {field}=NULL WHERE id=:i"),
                 {"i": original.operation_id},
             )
     for update in (
-        "factors='password'",
+        "purpose='both'",
         "issuer_account_id=account_id",
         "approval_ref='fabricated'",
         "approval_mode='manual'",
-        "supersedes=id,handoff_parent_id=id",
+        "parent_id=id",
     ):
         with scene.db.session() as db, pytest.raises(IntegrityError):
             db.execute(
-                text(f"UPDATE iam_emergency_cases SET {update} WHERE id=:i"), {"i": operation}
-            )
-    for field in (
-        "actor_id",
-        "approval_origin_case_id",
-        "previous_case_id",
-        "handoff_kind",
-        "approval_mode",
-    ):
-        with scene.db.session() as db, pytest.raises(IntegrityError):
-            db.execute(
-                text(f"UPDATE audit_events SET {field}=NULL WHERE emergency_case_id=:i"),
+                text(f"UPDATE iam_password_emergency_cases SET {update} WHERE id=:i"),
                 {"i": operation},
             )
-    result = subprocess.run(
-        [sys.executable, "-m", "alembic", "downgrade", "0008_iam_emergency_recovery"],
-        env=child_env(scene.service.uow.settings),
-        capture_output=True,
-        timeout=30,
+    for field in ("actor_id", "case_id", "approval_mode", "actor_role"):
+        with scene.db.session() as db, pytest.raises(IntegrityError):
+            db.execute(
+                text(f"UPDATE audit_password_emergency_events SET {field}=NULL WHERE case_id=:i"),
+                {"i": operation},
+            )
+    assert_revision_loss_guard(
+        scene.db, "0014_password_only.py", "PASSWORD_DOWNGRADE_REQUIRES_GLOBAL_EMPTY"
     )
-    assert result.returncode != 0
-    # env.py deliberately suppresses database exception detail; verify retained revision/history.
-    with scene.db.session() as db:
-        assert (
-            db.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-            == "0013_workforce_trainer_state"
-        )
     assert scene.state()["operation_id"] == operation
 
 
-def test_operating_history_roundtrip_and_fresh_operating_reissue(scene: Scene) -> None:
-    original = scene.operating("password")
-    for command in (("downgrade", "0008_iam_emergency_recovery"), ("upgrade", "head")):
-        result = subprocess.run(
-            [sys.executable, "-m", "alembic", *command],
-            env=child_env(scene.service.uow.settings),
-            capture_output=True,
-            timeout=30,
+@pytest.mark.parametrize("legacy_master", ["0009_iam_emergency_handoff"], indirect=True)
+def test_operating_history_roundtrip(legacy_master: tuple[Settings, Database]) -> None:
+    settings, db = legacy_master
+    seed_case(db, factors="password")
+    with db.session() as session:
+        before = session.execute(
+            text("SELECT row_to_json(c)::text FROM iam_emergency_cases c")
+        ).scalar_one()
+    assert migration_status(settings, "downgrade", "0008_iam_emergency_recovery") == 0
+    assert migration_status(settings, "upgrade", "0009_iam_emergency_handoff") == 0
+    with db.session() as session:
+        assert (
+            session.execute(
+                text("SELECT row_to_json(c)::text FROM iam_emergency_cases c")
+            ).scalar_one()
+            == before
         )
-        assert result.returncode == 0, "Operating-only history migration roundtrip failed"
+
+
+def test_fresh_operating_reissue_after_handoff(scene: Scene) -> None:
+    original = scene.operating()
     body = scene.body()
     assert scene.send(body).status_code == 201
-    # New current manual approval can change factor scope under the old operator contract.
-    req = request(scene.service, scene.principal, scene.ident, "both", UUID(body["operation_id"]))
+    req = request(scene.service, scene.principal, scene.ident, UUID(body["operation_id"]))
     issue(scene.service, scene.principal, req)
     state = scene.state()
-    assert state["issuer_kind"] == "operating" and state["factors"] == "both"
+    assert state["issuer_kind"] == "operating" and state["factors"] == "password"
     assert scene.state(original.operation_id)["status"] == "superseded"
 
 
@@ -204,7 +201,8 @@ def test_commit_ack_loss_status_and_explicit_reissue(
     def commit(session: Session) -> None:
         hit = (
             session.execute(
-                text("SELECT 1 FROM iam_emergency_cases WHERE id=:i"), {"i": body["operation_id"]}
+                text("SELECT 1 FROM iam_password_emergency_cases WHERE id=:i"),
+                {"i": body["operation_id"]},
             ).first()
             is not None
         )
@@ -224,3 +222,48 @@ def test_commit_ack_loss_status_and_explicit_reissue(
     assert next_response.status_code == 201
     assert len(link_token(next_response.json()["recipient_link"])) >= 40
     assert scene.state(UUID(body["operation_id"]))["status"] == "superseded"
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "completed_at=issued_at",
+        "row_version=row_version+1",
+        "security_version=security_version+1",
+        "reset_generation=reset_generation+1",
+    ],
+)
+def test_durable_parent_semantics_checked_for_issuer_and_recipient(
+    scene: Scene, mutation: str
+) -> None:
+    from tests.password_helpers import call
+
+    original = scene.operating()
+    issued = scene.send(scene.body())
+    assert issued.status_code == 201
+    token = link_token(issued.json()["recipient_link"])
+    next_body = scene.body()
+    with scene.db.session() as session:
+        session.execute(
+            text("UPDATE iam_password_emergency_cases SET " + mutation + " WHERE id=:i"),
+            {"i": original.operation_id},
+        )
+        session.commit()
+    assert scene.send(next_body).status_code == 409
+    assert (
+        call(
+            scene.target,
+            "/auth/emergency-recovery/password/complete",
+            csrf(scene.target),
+            {"emergency_token": token, "new_password": scene.password},
+        ).status_code
+        == 401
+    )
+    with scene.db.session() as session:
+        assert (
+            session.execute(
+                text("SELECT password_reset_pending FROM iam_accounts WHERE id=:i"),
+                {"i": scene.ident},
+            ).scalar_one()
+            is True
+        )

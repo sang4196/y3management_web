@@ -3,13 +3,16 @@
 
 import subprocess
 import sys
+from typing import cast
 
 import pytest
+from fastapi import FastAPI
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
+from tests.legacy_helpers import legacy_database, legacy_master  # noqa: F401
+from tests.password_helpers import password_app  # noqa: F401
 from tests.test_iam import child_env
-from tests.test_iam_mfa import mfa  # noqa: F401
 from tests.test_iam_trainer import TrainerScene, counts, source, trainer  # noqa: F401
 from tests.test_workforce import scene  # noqa: F401
 from tests.workforce_state_seed import legacy_trainer  # noqa: F401
@@ -43,13 +46,13 @@ def test_issue_audit_rejects_null_or_wrong_transition(
 
 
 def test_gc_preserves_operation_and_binding(
-    trainer: TrainerScene, mfa: tuple[Settings, Database, str, str]
+    trainer: TrainerScene, password_app: tuple[Settings, Database, str]
 ) -> None:
     source(trainer.issue())
     with trainer.base.db.session() as s:
         s.execute(text("UPDATE iam_trainer_setup_credentials SET consumed=true"))
         s.commit()
-    with UnitOfWork(trainer.base.db, mfa[0]).open() as w:
+    with UnitOfWork(trainer.base.db, password_app[0]).open() as w:
         slot = w.security.allocate("credential")
         w.security.release(slot)
     assert counts(trainer) == (1, 1, 0, 1)
@@ -57,14 +60,14 @@ def test_gc_preserves_operation_and_binding(
 
 
 def test_identity_history_blocks_downgrade(
-    legacy_trainer: TrainerScene, mfa: tuple[Settings, Database, str, str]
+    legacy_trainer: TrainerScene,
 ) -> None:
     trainer = legacy_trainer
     source(trainer.issue())
     before = counts(trainer)
     r = subprocess.run(
         [sys.executable, "-m", "alembic", "downgrade", "0010_workforce_initial"],
-        env=child_env(mfa[0]),
+        env=child_env(cast(FastAPI, trainer.base.client.app).state.iam_service.uow.settings),
         capture_output=True,
         timeout=30,
     )
@@ -79,21 +82,19 @@ def test_identity_history_blocks_downgrade(
     with trainer.base.db.session() as s:
         assert (
             s.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-            == "0013_workforce_trainer_state"
+            == "0014_password_only"
         )
 
 
-def test_blank_identity_tables_roundtrip(mfa: tuple[Settings, Database, str, str]) -> None:
-    for direction, revision in [("downgrade", "0010_workforce_initial"), ("upgrade", "head")]:
-        r = subprocess.run(
-            [sys.executable, "-m", "alembic", direction, revision],
-            env=child_env(mfa[0]),
-            capture_output=True,
-            timeout=30,
-        )
-        assert r.returncode == 0
-    with mfa[1].session() as s:
-        assert s.execute(text("SELECT count(*) FROM iam_trainer_bindings")).scalar_one() == 0
+@pytest.mark.parametrize("legacy_master", ["0011_iam_trainer_login"], indirect=True)
+def test_blank_identity_tables_roundtrip(legacy_master: tuple[Settings, Database]) -> None:
+    from tests.legacy_helpers import migration_status
+
+    settings, db = legacy_master
+    assert migration_status(settings, "downgrade", "0010_workforce_initial") == 0
+    assert migration_status(settings, "upgrade", "0011_iam_trainer_login") == 0
+    with db.session() as session:
+        assert session.execute(text("SELECT count(*) FROM iam_trainer_bindings")).scalar_one() == 0
 
 
 def test_unique_trainer_and_account_bindings(trainer: TrainerScene) -> None:
@@ -104,7 +105,7 @@ def test_unique_trainer_and_account_bindings(trainer: TrainerScene) -> None:
 
 
 def test_gc_skips_owned_locked_source(
-    trainer: TrainerScene, mfa: tuple[Settings, Database, str, str]
+    trainer: TrainerScene, password_app: tuple[Settings, Database, str]
 ) -> None:
     source(trainer.issue())
     with trainer.base.db.session() as s:
@@ -112,13 +113,13 @@ def test_gc_skips_owned_locked_source(
         s.commit()
     with trainer.base.db.session() as holder:
         holder.execute(text("SELECT id FROM iam_trainer_setup_credentials FOR UPDATE")).one()
-        with UnitOfWork(trainer.base.db, mfa[0]).open() as w:
+        with UnitOfWork(trainer.base.db, password_app[0]).open() as w:
             w.security.allocate("credential")
         assert (
             holder.execute(text("SELECT count(*) FROM iam_trainer_setup_credentials")).scalar_one()
             == 1
         )
         holder.commit()
-    with UnitOfWork(trainer.base.db, mfa[0]).open() as w:
+    with UnitOfWork(trainer.base.db, password_app[0]).open() as w:
         w.security.allocate("credential")
     assert counts(trainer) == (1, 1, 0, 1)

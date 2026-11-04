@@ -12,11 +12,16 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
+from tests.password_helpers import (  # noqa: F401
+    activate,
+    call,
+    link_token,
+    login_password,
+    password_app,
+    provision,
+)
 from tests.test_iam import ORIGIN, SyntheticSecret, csrf
 from tests.test_iam_master_management import command, snapshot, state
-from tests.test_iam_mfa import Authenticator, call, enroll, login_mfa, mfa  # noqa: F401
-from tests.test_iam_mfa_management import link_token
-from tests.test_iam_mfa_management_races import provision
 from y3management.application import create_app
 from y3management.config import Settings
 from y3management.contracts import Rejected
@@ -30,15 +35,13 @@ pytestmark = pytest.mark.postgres
 
 @pytest.mark.parametrize("operation", ["status", "restore", "login-id"])
 def test_target_guards_and_existing_branch_routes(
-    mfa: tuple[Settings, Database, str, str], operation: str
+    password_app: tuple[Settings, Database, str], operation: str
 ) -> None:
-    settings, db, password, token = mfa
+    settings, db, password = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as first:
-        key = Authenticator()
-        enroll(first, token, key)
-        login_mfa(first, password, key)
+        login_password(first, password)
         with closing(TestClient(first.app, base_url=ORIGIN)) as second:
-            ident, _ = provision(first, second, password)
+            ident = provision(first, second, password)
             actor_id = first.get("/api/v1/auth/me").json()["account_id"]
             assert command(first, actor_id, operation, 1).status_code == 404
             assert command(first, str(uuid4()), operation, 1).status_code == 404
@@ -75,9 +78,8 @@ def test_target_guards_and_existing_branch_routes(
             assert response.status_code == 404
             # A genuinely provisioned Branch Admin is authenticated but not authorized.
             with closing(TestClient(first.app, base_url=ORIGIN)) as branch_actor:
-                branch_key = Authenticator()
-                enroll(branch_actor, link_token(issued["setup_link"]), branch_key, password)
-                login_mfa(branch_actor, password, branch_key, "branch.test")
+                activate(branch_actor, link_token(issued["setup_link"]), password)
+                login_password(branch_actor, password, "branch.test")
                 assert command(branch_actor, ident, operation, 2).status_code == 403
             with db.session() as s:
                 organization = uuid4()
@@ -102,17 +104,15 @@ def test_target_guards_and_existing_branch_routes(
 
 
 @pytest.mark.parametrize("operation", ["status", "restore", "login-id"])
-@pytest.mark.parametrize("invalid", ["csrf", "weak", "revoked", "idle", "grant", "key"])
+@pytest.mark.parametrize("invalid", ["csrf", "revoked", "idle", "grant"])
 def test_actor_guard(
-    mfa: tuple[Settings, Database, str, str], operation: str, invalid: str
+    password_app: tuple[Settings, Database, str], operation: str, invalid: str
 ) -> None:
-    settings, db, password, token = mfa
+    settings, db, password = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as first:
-        key = Authenticator()
-        enroll(first, token, key)
-        login_mfa(first, password, key)
+        login_password(first, password)
         with closing(TestClient(first.app, base_url=ORIGIN)) as second:
-            ident, _ = provision(first, second, password)
+            ident = provision(first, second, password)
             version = state(first, ident)["version"]
             if operation == "restore":
                 assert command(first, ident, "status", version).status_code == 200
@@ -143,18 +143,16 @@ def test_actor_guard(
 @pytest.mark.parametrize("operation", ["status", "login-id"])
 @pytest.mark.parametrize("cross", [True, False])
 def test_management_race(
-    mfa: tuple[Settings, Database, str, str],
+    password_app: tuple[Settings, Database, str],
     monkeypatch: pytest.MonkeyPatch,
     operation: str,
     cross: bool,
 ) -> None:
-    settings, db, password, token = mfa
+    settings, db, password = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as first:
-        key = Authenticator()
-        enroll(first, token, key)
-        login_mfa(first, password, key)
+        login_password(first, password)
         with closing(TestClient(first.app, base_url=ORIGIN)) as second:
-            ident, _ = provision(first, second, password)
+            ident = provision(first, second, password)
             actor = first.get("/api/v1/auth/me").json()["account_id"]
             clients = (first, second if cross else first)
             tokens = [SyntheticSecret(c.cookies.get("__Host-y3-auth") or "") for c in clients]
@@ -215,20 +213,18 @@ def test_management_race(
 @pytest.mark.parametrize("operation", ["status", "restore", "login-id"])
 @pytest.mark.parametrize("expiry", ["idle", "absolute"])
 def test_final_actor_expiry_rolls_back(
-    mfa: tuple[Settings, Database, str, str],
+    password_app: tuple[Settings, Database, str],
     monkeypatch: pytest.MonkeyPatch,
     operation: str,
     expiry: str,
 ) -> None:
     from datetime import datetime, timedelta
 
-    settings, db, password, token = mfa
+    settings, db, password = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as first:
-        key = Authenticator()
-        enroll(first, token, key)
-        login_mfa(first, password, key)
+        login_password(first, password)
         with closing(TestClient(first.app, base_url=ORIGIN)) as second:
-            ident, _ = provision(first, second, password)
+            ident = provision(first, second, password)
             version = state(first, ident)["version"]
             if operation == "restore":
                 assert command(first, ident, "status", version).status_code == 200
@@ -268,14 +264,12 @@ def test_final_actor_expiry_rolls_back(
             assert snapshot(db) == before
 
 
-def test_dto_collision_and_minimal_response(mfa: tuple[Settings, Database, str, str]) -> None:
-    settings, db, password, token = mfa
+def test_dto_collision_and_minimal_response(password_app: tuple[Settings, Database, str]) -> None:
+    settings, db, password = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as first:
-        key = Authenticator()
-        enroll(first, token, key)
-        login_mfa(first, password, key)
+        login_password(first, password)
         with closing(TestClient(first.app, base_url=ORIGIN)) as second:
-            ident, _ = provision(first, second, password)
+            ident = provision(first, second, password)
             version = state(first, ident)["version"]
             nonce = csrf(first)
             before = snapshot(db)

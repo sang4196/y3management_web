@@ -1,1 +1,24 @@
-["explicit_start", "old_session_denied", "fragment_removed", "get_nonmutating", "form_complete", "no_auto_login", "url_private", "replay_denied", "old_password_denied", "existing_uv_key_login", "keys_preserved"]
+[
+  "identity_required",
+  "explicit_start",
+  "old_session_denied",
+  "fragment_removed",
+  "get_nonmutating",
+  "form_complete",
+  "no_auto_login",
+  "url_private",
+  "replay_denied",
+  "old_password_denied",
+  "new_password_login",
+  "identity_scope_preserved",
+  "branch_old_login",
+  "branch_reset_issued",
+  "branch_old_session_denied",
+  "branch_fragment_removed",
+  "branch_reset_form",
+  "branch_no_auto_login",
+  "branch_url_private",
+  "branch_password_login",
+  "branch_scope_preserved",
+  "actor_preserved"
+]

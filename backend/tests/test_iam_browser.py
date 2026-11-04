@@ -1,4 +1,3 @@
-# ruff: noqa: F811
 """Real trusted HTTPS browser acceptance; no certificate bypass or global trust writes."""
 
 import hashlib
@@ -15,32 +14,33 @@ from pathlib import Path
 
 import pytest
 
-from tests.browser_result import REQUIRED, validate_browser_report
+from tests.browser_result import load_required, validate_browser_report
 from tests.conftest import _qa_write, qa_register_process, qa_root, qa_stop_process
-from tests.test_iam import child_env, iam  # noqa: F401
-from tests.test_iam_mfa import mfa  # noqa: F401
+from tests.test_iam import child_env
 from y3management.config import Settings
 from y3management.database import Database
 
 pytestmark = pytest.mark.postgres
 
 
-def test_actual_https_browser(iam: tuple[Settings, Database, str], tmp_path: Path) -> None:  # noqa: F811
-    settings, _, password = iam
+def test_actual_https_browser(password_app: tuple[Settings, Database, str], tmp_path: Path) -> None:
+    settings, _, password = password_app
     run_browser(settings, password, tmp_path)
 
 
-def test_actual_https_mfa_browser(mfa: tuple[Settings, Database, str, str], tmp_path: Path) -> None:
-    settings, _, password, token = mfa
-    run_browser(settings, password, tmp_path, token)
+def test_actual_https_password_management_browser(
+    password_app: tuple[Settings, Database, str], tmp_path: Path
+) -> None:
+    settings, _, password = password_app
+    run_browser(settings, password, tmp_path, management=True)
 
 
 def run_browser(
     settings: Settings,
     password: str,
     tmp_path: Path,
-    token: str | None = None,
     *,
+    management: bool = False,
     emergency_db: Database | None = None,
     handoff_db: Database | None = None,
     workforce: bool = False,
@@ -49,14 +49,7 @@ def run_browser(
 ) -> None:
     root = tmp_path / "https-browser"
     root.mkdir(mode=0o700)
-    if (
-        token
-        and emergency_db is None
-        and handoff_db is None
-        and not workforce
-        and not trainer
-        and not trainer_roles
-    ):
+    if management:
         for name in (
             "management.cjs",
             "management-checks.json",
@@ -171,7 +164,6 @@ def run_browser(
     env["Y3_CANONICAL_ORIGIN"] = origin
     inputs = {
         "origin": origin,
-        "enrollmentToken": token,
         "masterPassword": password,
         "branchPassword": "브라우저 가상 암호 " + secrets.token_urlsafe(24),
     }
@@ -190,7 +182,7 @@ def run_browser(
             if handoff_db
             else "browser/emergency.cjs"
             if emergency_db
-            else ("browser/mfa.cjs" if token else "browser/s1.cjs")
+            else ("browser/password-management.cjs" if management else "browser/s1.cjs")
         ),
         root / "browser.cjs",
     )
@@ -207,7 +199,11 @@ def run_browser(
             if handoff_db
             else "browser/emergency-checks.json"
             if emergency_db
-            else ("browser/mfa-checks.json" if token else "browser/required-checks.json")
+            else (
+                "browser/password-management-checks.json"
+                if management
+                else "browser/required-checks.json"
+            )
         ),
         root / "required-checks.json",
     )
@@ -353,26 +349,17 @@ def run_browser(
                 selected_db = handoff_db if handoff_db is not None else emergency_db
                 assert selected_db is not None
                 service, principal, ident = operator(local, selected_db, private)
-                previous = None
-                from typing import Literal
-
-                factors: tuple[Literal["password", "passkey", "both"], ...] = (
-                    "password",
-                    "passkey",
-                    "both",
-                )
-                if handoff_db is not None:
-                    factors = ("both",)
-                for index, factor in enumerate(factors):
+                # AB5 is an explicit protected human approval, not a DB count.
+                # Password-only has one operating source; R4 consumes its real expired case.
+                for index in range(1):
                     deadline = time.monotonic() + 60
                     while not (root / f"emergency-issue-ready-{index}").exists():
                         assert browser_process.poll() is None, "Emergency browser form flow failed"
                         assert time.monotonic() < deadline, "Emergency browser form flow timed out"
                         time.sleep(0.1)
                     qa_stop_process(server)
-                    execution = request(service, principal, ident, factor, previous)
+                    execution = request(service, principal, ident)
                     delivery = cli_execute(local, private, execution)
-                    previous = execution.operation_id
                     if handoff_db is not None:
                         from tests.test_iam_emergency_handoff import expire_case
 
@@ -403,7 +390,8 @@ def run_browser(
             result = subprocess.run(args, capture_output=True, timeout=90)
         (root / "browser.log").write_bytes(result.stdout + result.stderr)
         stage_match = re.search(
-            rb"(?:MFA|WORKFORCE|TRAINER)_BROWSER_FAILED stage=([a-z0-9-]{1,64})(?:\r?\n|$)",
+            rb"(?:PASSWORD|EMERGENCY|HANDOFF|WORKFORCE|TRAINER)_BROWSER_FAILED "
+            rb"stage=([a-z0-9-]{1,64})(?:\r?\n|$)",
             result.stderr,
         )
         safe_stage = stage_match.group(1).decode() if stage_match else "unspecified"
@@ -439,7 +427,18 @@ def run_browser(
         # Keep only the current safe verdict; raw logs/profiles/credentials are disposable.
         checks = report.get("checks", {})
         version = str(report.get("browser", ""))
-        required = json.loads((root / "required-checks.json").read_text()) if token else REQUIRED
+        required = load_required(root / "required-checks.json")
+        # Validate raw keysets before projecting the safe verdict, including every submanifest.
+        validate_browser_report(report, required)
+        if management:
+            for field, manifest in (
+                ("management", "management-checks.json"),
+                ("reset", "reset-checks.json"),
+                ("masterManagement", "master-management-checks.json"),
+            ):
+                validate_browser_report(
+                    {"checks": report.get(field)}, load_required(root / manifest)
+                )
         safe: dict[str, object] = {
             "checks": {
                 name: isinstance(checks, dict) and checks.get(name) is True for name in required
@@ -459,23 +458,18 @@ def run_browser(
             if handoff_db
             else "latest-emergency-browser.json"
             if emergency_db
-            else ("latest-mfa-browser.json" if token else "latest-browser.json")
+            else (
+                "latest-password-management-browser.json" if management else "latest-browser.json"
+            )
         )
         _qa_write(qa_root() / evidence, safe)
-        if (
-            token
-            and emergency_db is None
-            and handoff_db is None
-            and not workforce
-            and not trainer
-            and not trainer_roles
-        ):
-            management = report.get("management", {})
+        if management:
+            management_checks = report.get("management", {})
             expected = json.loads((root / "management-checks.json").read_text())
             _qa_write(
                 qa_root() / "latest-management-browser.json",
                 {
-                    "checks": {name: management.get(name) is True for name in expected},
+                    "checks": {name: management_checks.get(name) is True for name in expected},
                     "browser": safe["browser"],
                     "run_id": safe["run_id"],
                     "scope": "actual trusted HTTPS management browser",
@@ -505,24 +499,6 @@ def run_browser(
                     "scope": "actual trusted HTTPS other-Master management browser",
                 },
             )
-            assert set(master_management) == set(master_expected) and all(
-                master_management[k] is True for k in master_expected
-            )
-            assert set(reset) == set(reset_expected) and all(
-                reset[k] is True for k in reset_expected
-            )
-            assert set(management) == set(expected) and all(management[k] is True for k in expected)
-            assert set(checks) == set(required) and all(checks[name] is True for name in required)
-        elif (
-            emergency_db is not None
-            or handoff_db is not None
-            or workforce
-            or trainer
-            or trainer_roles
-        ):
-            assert set(checks) == set(required) and all(checks[name] is True for name in required)
-        else:
-            validate_browser_report(report)
         assert trust() == before
         print("Browser evidence: " + str(root / "browser-results.json"))
     finally:

@@ -11,16 +11,21 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
+from tests.password_helpers import (  # noqa: F401
+    activate,
+    call,
+    link_token,
+    login_password,
+    password_app,
+)
 from tests.test_iam import ORIGIN, SyntheticSecret, csrf
 from tests.test_iam_emergency import facts
 from tests.test_iam_emergency_handoff import Scene, fingerprint, scene  # noqa: F401
-from tests.test_iam_mfa import Authenticator, call, enroll, login_mfa, mfa  # noqa: F401
-from tests.test_iam_mfa_management import link_token
 from y3management.audit.infrastructure import Audit
-from y3management.audit.public import Event
+from y3management.audit.public import PasswordEmergencyEvent as Event
 from y3management.contracts import Rejected
-from y3management.iam.mfa import MFA
-from y3management.iam.public import EmergencySnapshot, HandoffRequest, RegistrationProof
+from y3management.iam.emergency import Emergency
+from y3management.iam.public import EmergencyPasswordProof, EmergencySnapshot, HandoffRequest
 
 pytestmark = pytest.mark.postgres
 
@@ -43,17 +48,17 @@ def test_audit_delay_cannot_rescue_idle_actor(
         )
         db.commit()
     before = fingerprint(scene)
-    original = Audit.append
+    original = Audit.append_password_emergency
     reached = []
 
     def delayed(adapter: Audit, event: Event) -> None:
         original(adapter, event)
-        if event.action == "emergency_handoff":
+        if event.action == "handoff":
             reached.append(True)
             adapter.s.execute(text("SELECT pg_sleep(1.1)"))
             adapter.s.execute(text("SELECT pg_sleep(1.1)"))
 
-    monkeypatch.setattr(Audit, "append", delayed)
+    monkeypatch.setattr(Audit, "append_password_emergency", delayed)
     assert scene.send(body, nonce).status_code == 401
     assert reached == [True]
     assert fingerprint(scene) == before
@@ -66,14 +71,14 @@ def test_audit_failure_rolls_back_all_business_effects(
     body = scene.body()
     nonce = csrf(scene.actor)
     before = fingerprint(scene)
-    original = Audit.append
+    original = Audit.append_password_emergency
 
     def fail(adapter: Audit, event: Event) -> None:
         original(adapter, event)
-        if event.action == "emergency_handoff":
+        if event.action == "handoff":
             raise Rejected(503, "unavailable")
 
-    monkeypatch.setattr(Audit, "append", fail)
+    monkeypatch.setattr(Audit, "append_password_emergency", fail)
     assert scene.send(body, nonce).status_code == 503
     assert fingerprint(scene) == before
 
@@ -84,9 +89,9 @@ def test_concurrent_same_parent_only_one_child(scene: Scene) -> None:
             scene.actor, "/admin/master-accounts", csrf(scene.actor), {"login_id": "third.master"}
         )
         assert created.status_code == 201
-        key = Authenticator()
-        enroll(third, link_token(created.json()["setup_link"]), key, scene.password)
-        login_mfa(third, scene.password, key, "third.master")
+
+        activate(third, link_token(created.json()["setup_link"]), scene.password)
+        login_password(third, scene.password, "third.master")
         actors = [scene.actor_id, str(created.json()["account_id"])]
         assert actors[0] != actors[1]
         scene.operating()
@@ -139,25 +144,22 @@ def test_concurrent_same_parent_only_one_child(scene: Scene) -> None:
         with scene.db.session() as db:
             assert (
                 db.execute(
-                    text(
-                        "SELECT count(*) FROM iam_emergency_cases "
-                        "WHERE issuer_kind='master_handoff'"
-                    )
+                    text("SELECT count(*) FROM iam_password_emergency_cases WHERE kind='handoff'")
                 ).scalar_one()
                 == 1
             )
             assert (
                 db.execute(
                     text(
-                        "SELECT count(*) FROM iam_emergency_credentials e "
-                        "JOIN iam_emergency_cases c ON c.id=e.case_id "
-                        "WHERE c.issuer_kind='master_handoff'"
+                        "SELECT count(*) FROM iam_password_emergency_credentials e "
+                        "JOIN iam_password_emergency_cases c ON c.id=e.case_id "
+                        "WHERE c.kind='handoff'"
                     )
                 ).scalar_one()
                 == 1
             )
             assert db.execute(
-                text("SELECT actor_id FROM audit_events WHERE action='emergency_handoff'")
+                text("SELECT actor_id FROM audit_password_emergency_events WHERE action='handoff'")
             ).scalar_one() == UUID(winner)
             assert (
                 db.execute(
@@ -167,49 +169,41 @@ def test_concurrent_same_parent_only_one_child(scene: Scene) -> None:
             )
 
 
-def test_real_uv_proof_loses_to_reissue(scene: Scene, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_password_proof_loses_to_reissue(scene: Scene, monkeypatch: pytest.MonkeyPatch) -> None:
     scene.operating()
     issued = scene.send(scene.body())
     assert issued.status_code == 201
     raw = link_token(issued.json()["recipient_link"])
-    options = call(
-        scene.target,
-        "/auth/emergency-recovery/options",
-        csrf(scene.target),
-        {"emergency_token": raw, "new_password": scene.password},
-    ).json()
-    payload = Authenticator().registration(options["publicKey"])
+    nonce = csrf(scene.target)
     verified, proceed = Signal(), Signal()
-    original = MFA.verify_registration
+    original = Emergency.prepare_password
 
-    def paused(
-        adapter: MFA, token: str | None, nonce: str | None, payload: str
-    ) -> RegistrationProof:
-        proof = original(adapter, token, nonce, payload)
-        if proof.purpose == "emergency":
-            verified.set()
-            assert proceed.wait(timeout=15)
+    def paused(adapter: Emergency, token: str, password: str) -> EmergencyPasswordProof:
+        proof = original(adapter, token, password)
+        verified.set()
+        assert proceed.wait(timeout=15)
         return proof
 
-    monkeypatch.setattr(MFA, "verify_registration", paused)
+    monkeypatch.setattr(Emergency, "prepare_password", paused)
     with ThreadPoolExecutor(max_workers=1) as pool:
         job = pool.submit(
             call,
             scene.target,
-            "/auth/emergency-recovery/verify",
-            options["csrf_token"],
-            {"credential": payload},
+            "/auth/emergency-recovery/password/complete",
+            nonce,
+            {"emergency_token": raw, "new_password": scene.password},
         )
         try:
             assert verified.wait(timeout=10)
-            response = scene.send(scene.body())
-            assert response.status_code == 201
+            assert scene.send(scene.body()).status_code == 201
             before = facts(scene.db)
         finally:
             proceed.set()
         assert job.result(timeout=15).status_code == 401
     assert facts(scene.db) == before
-    assert before["password_reset_pending"] and before["recovery_pending"] and not before["ready"]
+    assert (
+        before["password_reset_pending"] and not before["recovery_pending"] and not before["ready"]
+    )
 
 
 def test_db_lease_expiry_after_audit_rolls_back(
@@ -226,7 +220,7 @@ def test_db_lease_expiry_after_audit_rolls_back(
     nonce = csrf(scene.actor)
     before = fingerprint(scene)
     allocate = Security.allocate
-    append = Audit.append
+    append = Audit.append_password_emergency
     reached = []
 
     # An application clock behind DB must never govern authorization/lease validity.
@@ -251,12 +245,12 @@ def test_db_lease_expiry_after_audit_rolls_back(
 
     def delay(adapter: Audit, event: Event) -> None:
         append(adapter, event)
-        if event.action == "emergency_handoff":
+        if event.action == "handoff":
             reached.append(True)
             adapter.s.execute(text("SELECT pg_sleep(1.2)"))
 
     monkeypatch.setattr(Security, "allocate", short)
-    monkeypatch.setattr(Audit, "append", delay)
+    monkeypatch.setattr(Audit, "append_password_emergency", delay)
     response = scene.send(body, nonce)
     assert response.status_code in (401, 409)
     assert "recipient_link" not in response.json()

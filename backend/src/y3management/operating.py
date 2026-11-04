@@ -24,13 +24,9 @@ class StrictInput(BaseModel):
 class SnapshotInput(StrictInput):
     row_version: int = Field(gt=0, strict=True)
     security_version: int = Field(gt=0, strict=True)
-    key_set_version: int = Field(ge=0, strict=True)
     reset_generation: int = Field(ge=0, strict=True)
-    recovery_generation: int = Field(ge=0, strict=True)
     password_reset_pending: bool = Field(strict=True)
-    recovery_pending: bool = Field(strict=True)
     password_ready: bool = Field(strict=True)
-    key_ready: bool = Field(strict=True)
 
 
 class ExecutionInput(StrictInput):
@@ -40,7 +36,6 @@ class ExecutionInput(StrictInput):
     environment: Literal["test", "development"]
     database: str
     database_schema: str
-    factors: Literal["password", "passkey", "both"]
     expected: SnapshotInput
     revocation_scope: Literal["target_only"]
     approval_ref: Ref
@@ -133,7 +128,7 @@ def protected_read(path: str, *, root_policy: bool = False) -> bytes:
 def authority(settings: Settings, organization: UUID, action: str) -> OperatingRecoveryAuthority:
     if (
         os.getuid() != os.geteuid()
-        or settings.iam_mode != "mfa"
+        or settings.iam_mode != "password"
         or settings.environment not in ("test", "development")
         or not settings.emergency_authority_file
     ):
@@ -172,7 +167,6 @@ def execution(settings: Settings, path: str) -> EmergencyRequest:
         body.operation_id,
         body.organization_id,
         body.account_id,
-        body.factors,
         EmergencySnapshot(**body.expected.model_dump()),
         body.approval_ref,
         body.owner_ref,

@@ -1,11 +1,12 @@
 'use strict';
-module.exports=async function({api,login,master,other,ident,cfg,setStage}){
+module.exports=async function({page,api,login,master,other,branch,ident,cfg,setStage}){
  const checks={};setStage('password-reset');
+ const beforeMe=await api(other.p,'/auth/me');
  const prior=(await other.context.cookies()).find(c=>c.name==='__Host-y3-auth');
- const keys=(await api(other.p,'/auth/passkeys')).body;
  const state=(await api(master.p,'/admin/accounts/'+ident+'/password-reset')).body;
- const issued=await api(master.p,'/admin/accounts/'+ident+'/password-reset',{
- expected_account_version:state.account_version,expected_generation:state.generation,identity_confirmed:true});
+ const body={expected_account_version:state.account_version,expected_generation:state.generation,identity_confirmed:true};
+ checks.identity_required=(await api(master.p,'/admin/accounts/'+ident+'/password-reset',{...body,identity_confirmed:false})).status===422;
+ const issued=await api(master.p,'/admin/accounts/'+ident+'/password-reset',body);
  checks.explicit_start=issued.status===201;
  checks.old_session_denied=(await other.context.request.get(cfg.origin+'/api/v1/auth/me',{
  headers:{Cookie:'__Host-y3-auth='+prior.value}})).status()===401;
@@ -17,16 +18,36 @@ module.exports=async function({api,login,master,other,ident,cfg,setStage}){
  checks.get_nonmutating=before.password_reset_pending&&before.generation===state.generation+1;
  await other.p.locator('#password').fill(cfg.masterPassword);
  const done=other.p.waitForResponse(r=>r.url().endsWith('/auth/password-reset/complete'));
- await other.p.locator('#mfa button').click();checks.form_complete=(await done).status()===204;
- checks.no_auto_login=!(await other.context.cookies()).some(c=>c.name==='__Host-y3-auth')&&
- (await api(other.p,'/auth/me')).status===401;
+ await other.p.locator('#password-form button').click();checks.form_complete=(await done).status()===204;
+ checks.no_auto_login=!(await other.context.cookies()).some(c=>c.name==='__Host-y3-auth')&&(await api(other.p,'/auth/me')).status===401;
  checks.url_private=!leak;
- checks.replay_denied=(await api(other.p,'/auth/password-reset/complete',{
- reset_token:raw,new_password:cfg.masterPassword})).status===401;
- checks.old_password_denied=(await api(other.p,'/auth/login',{
- login_id:'browser.master.two',password:cfg.branchPassword})).status===401;
- setStage('password-reset-existing-key-login');
- checks.existing_uv_key_login=(await login(other,cfg.masterPassword,'browser.master.two')).result.status===204;
- checks.keys_preserved=JSON.stringify((await api(other.p,'/auth/passkeys')).body)===JSON.stringify(keys);
+ checks.replay_denied=(await api(other.p,'/auth/password-reset/complete',{reset_token:raw,new_password:cfg.masterPassword})).status===401;
+ checks.old_password_denied=(await api(other.p,'/auth/login',{login_id:'browser.master.two',password:cfg.branchPassword})).status===401;
+ checks.new_password_login=(await login(other,cfg.masterPassword,'browser.master.two')).status===204;
+ const afterMe=await api(other.p,'/auth/me');
+ checks.identity_scope_preserved=beforeMe.status===200&&afterMe.status===200&&JSON.stringify(beforeMe.body)===JSON.stringify(afterMe.body)&&(await api(other.p,'/branches')).body.total===2;
+ // Keep the mixed management scenario's real Branch Admin recipient and scope boundary.
+ setStage('password-reset-branch');
+ const lookup=await api(master.p,'/admin/accounts/lookup',{login_id:'browser.branch'}),branchId=lookup.body.account_id;
+ checks.branch_old_login=(await login(branch,cfg.branchPassword,'browser.branch')).status===204;
+ const branchBefore=(await api(branch.p,'/auth/me')).body;
+ const branchCookie=(await branch.context.cookies()).find(c=>c.name==='__Host-y3-auth');
+ const branchState=(await api(master.p,'/admin/accounts/'+branchId+'/password-reset')).body;
+ const reset=await api(master.p,'/admin/accounts/'+branchId+'/password-reset',{
+ expected_account_version:branchState.account_version,expected_generation:branchState.generation,identity_confirmed:true});
+ checks.branch_reset_issued=reset.status===201;
+ checks.branch_old_session_denied=(await branch.context.request.get(cfg.origin+'/api/v1/auth/me',{headers:{Cookie:'__Host-y3-auth='+branchCookie.value}})).status()===401;
+ const branchRaw=reset.body.reset_link.split('#token=')[1];let branchLeak=false;
+ branch.p.on('request',r=>{if(r.url().includes(branchRaw))branchLeak=true;});
+ await branch.p.goto(reset.body.reset_link);
+ checks.branch_fragment_removed=await branch.p.evaluate(()=>location.hash==='');
+ await branch.p.locator('#password').fill(cfg.masterPassword);
+ const branchDone=branch.p.waitForResponse(r=>r.url().endsWith('/auth/password-reset/complete'));
+ await branch.p.locator('#password-form button').click();checks.branch_reset_form=(await branchDone).status()===204;
+ checks.branch_no_auto_login=(await api(branch.p,'/auth/me')).status===401;
+ checks.branch_url_private=!branchLeak;
+ checks.branch_password_login=(await login(branch,cfg.masterPassword,'browser.branch')).status===204;
+ checks.branch_scope_preserved=JSON.stringify((await api(branch.p,'/auth/me')).body)===JSON.stringify(branchBefore)&&(await api(branch.p,'/branches')).body.total===1;
+ checks.actor_preserved=(await api(master.p,'/auth/me')).status===200;
  return checks;
 };

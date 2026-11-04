@@ -10,8 +10,8 @@ import pytest
 from sqlalchemy import event as sa_event
 from sqlalchemy import text
 
+from tests.password_helpers import call, password_app  # noqa: F401
 from tests.test_iam import csrf
-from tests.test_iam_mfa import call, mfa  # noqa: F401
 from tests.test_iam_trainer import TrainerScene, counts, source, trainer  # noqa: F401
 from tests.test_workforce import scene  # noqa: F401
 from tests.test_workforce_integrity import branch_actor, observe_waiter, wait_for_owned_block
@@ -26,7 +26,7 @@ pytestmark = pytest.mark.postgres
 @pytest.mark.parametrize("same", [True, False])
 def test_same_operation_actual_two_actor_block(
     trainer: TrainerScene,
-    mfa: tuple[Settings, Database, str, str],
+    password_app: tuple[Settings, Database, str],
     monkeypatch: pytest.MonkeyPatch,
     same: bool,
 ) -> None:
@@ -42,7 +42,7 @@ def test_same_operation_actual_two_actor_block(
             reached.set()
             assert release.wait(10)
 
-    with closing(branch_actor(t.base, mfa[2])) as other:
+    with closing(branch_actor(t.base, password_app[2])) as other:
         nonce_a, nonce_b = csrf(t.base.client), csrf(other)
         monkeypatch.setattr(Audit, "append_trainer_identity", pause)
         payload = {"operation_id": str(uuid4()), "login_id": t.login}

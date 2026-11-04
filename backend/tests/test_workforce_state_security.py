@@ -6,8 +6,8 @@ from typing import Any
 import pytest
 from sqlalchemy import text
 
+from tests.password_helpers import call, password_app  # noqa: F401
 from tests.test_iam import csrf
-from tests.test_iam_mfa import call, mfa  # noqa: F401
 from tests.test_iam_trainer import TrainerScene, source, trainer  # noqa: F401
 from tests.test_workforce import scene  # noqa: F401
 from tests.test_workforce_state import change, request
@@ -64,7 +64,7 @@ def test_original_source_expiry_not_extended(trainer: TrainerScene) -> None:
 
 
 def test_current_scope_direct_id_trainer_and_csrf_denials(
-    trainer: TrainerScene, mfa: tuple[Any, Any, str, str]
+    trainer: TrainerScene, password_app: tuple[Any, Any, str, str]
 ) -> None:
     from contextlib import closing
     from uuid import uuid4
@@ -115,7 +115,7 @@ def test_current_scope_direct_id_trainer_and_csrf_denials(
         ).status_code
         == 401
     )
-    with closing(branch_actor(t.base, mfa[2])) as other:
+    with closing(branch_actor(t.base, password_app[2])) as other:
         # Home BA succeeds, then cannot touch another Home's existing Trainer.
         assert (
             call(other, "/admin/trainers/" + t.trainer + "/state", csrf(other), payload).status_code

@@ -46,7 +46,14 @@ def create_app(
                 if configuration.iam_enabled:
                     if not isinstance(resource, Database):
                         raise ValueError("IAM_REQUIRES_DATABASE")
-                    app.state.iam_service = Service(UnitOfWork(resource, configuration))
+                    uow = UnitOfWork(resource, configuration)
+
+                    def verify_policy() -> None:
+                        with uow.open() as work:
+                            work.iam.policy()
+
+                    await run_in_threadpool(verify_policy)
+                    app.state.iam_service = Service(uow)
             except Exception:
                 raise ValueError("APPLICATION_STARTUP_FAILED") from None
             logger.info("application_started")

@@ -13,41 +13,40 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
+from tests.password_helpers import (  # noqa: F401
+    activate,
+    call,
+    link_token,
+    login_password,
+    password_app,
+    provision,
+    reset_request,
+)
 from tests.test_iam import ORIGIN, SyntheticSecret, csrf
-from tests.test_iam_mfa import Authenticator, call, enroll, login_mfa, mfa  # noqa: F401
-from tests.test_iam_mfa_management import add, keys, link_token
-from tests.test_iam_mfa_management_races import provision
-from tests.test_iam_password_reset import reset_request
 from y3management.application import create_app
 from y3management.config import Settings
 from y3management.contracts import Rejected
 from y3management.database import Database
 from y3management.iam.infrastructure import IAM
-from y3management.iam.mfa import MFA
+from y3management.iam.password_reset import PasswordReset
 from y3management.iam.public import Authentication, LoginProof, ResetProof
 from y3management.use_cases import Service
 
 pytestmark = pytest.mark.postgres
 
 
-@pytest.mark.parametrize("case", ["cross", "same", "recovery", "delete"])
+@pytest.mark.parametrize("case", ["cross", "same"])
 def test_reset_management_races(
-    mfa: tuple[Settings, Database, str, str], monkeypatch: pytest.MonkeyPatch, case: str
+    password_app: tuple[Settings, Database, str], monkeypatch: pytest.MonkeyPatch, case: str
 ) -> None:
-    settings, db, password, token = mfa
+    settings, db, password = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as first:
-        key = Authenticator()
-        enroll(first, token, key)
-        login_mfa(first, password, key)
+        login_password(first, password)
         with closing(TestClient(first.app, base_url=ORIGIN)) as second:
-            ident, other = provision(first, second, password)
-            if case == "delete":
-                add(second, Authenticator())
-                key_list = keys(second)
+            ident = provision(first, second, password)
             actor = first.get("/api/v1/auth/me").json()["account_id"]
             target_state = first.get("/api/v1/admin/accounts/" + ident + "/password-reset").json()
             actor_state = second.get("/api/v1/admin/accounts/" + actor + "/password-reset").json()
-            recovery = first.get("/api/v1/admin/accounts/" + ident + "/passkey-recovery").json()
             a, b = (SyntheticSecret(c.cookies.get("__Host-y3-auth") or "") for c in (first, second))
             an, bn = csrf(first), csrf(second)
             service: Service = cast(FastAPI, first.app).state.iam_service
@@ -92,20 +91,6 @@ def test_reset_management_races(
                             True,
                             reissue=False,
                         )
-                    elif case == "recovery":
-                        service.recover(
-                            a,
-                            an,
-                            UUID(ident),
-                            recovery["account_version"],
-                            recovery["key_set_version"],
-                            True,
-                            reissue=False,
-                        )
-                    else:
-                        service.delete_passkey(
-                            b, bn, UUID(key_list["items"][0]["key_id"]), key_list["key_set_version"]
-                        )
                     return 204
                 except Rejected as error:
                     return error.status
@@ -138,13 +123,11 @@ def test_reset_management_races(
     "case", ["two_passwords", "reissue", "expiry", "disable", "scope", "rename"]
 )
 def test_reset_final_after_hash(
-    mfa: tuple[Settings, Database, str, str], monkeypatch: pytest.MonkeyPatch, case: str
+    password_app: tuple[Settings, Database, str], monkeypatch: pytest.MonkeyPatch, case: str
 ) -> None:
-    settings, db, password, token = mfa
+    settings, db, password = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as first:
-        key = Authenticator()
-        enroll(first, token, key)
-        login_mfa(first, password, key)
+        login_password(first, password)
         with (
             closing(TestClient(first.app, base_url=ORIGIN)) as second,
             closing(TestClient(first.app, base_url=ORIGIN)) as third,
@@ -163,10 +146,10 @@ def test_reset_final_after_hash(
                     {"login_id": "target.test", "branch_id": branch["id"]},
                 ).json()
                 ident = issued["account_id"]
-                target_key = Authenticator()
-                enroll(second, link_token(issued["setup_link"]), target_key, password)
+
+                activate(second, link_token(issued["setup_link"]), password)
             else:
-                ident, target_key = provision(first, second, password)
+                ident = provision(first, second, password)
             raw = link_token(reset_request(first, ident).json()["reset_link"])
             # Fresh preauth in two independent clients and distinct new passwords.
             second.cookies.clear()
@@ -176,9 +159,9 @@ def test_reset_final_after_hash(
                 SyntheticSecret("독립 암호 검증 " + secrets.token_urlsafe(24)) for _ in range(2)
             ]
             barrier, held, release = Barrier(2), Event(), Event()
-            original = MFA.prepare_reset
+            original = PasswordReset.prepare_reset
 
-            def prepare(adapter: MFA, token: str, password: str) -> ResetProof:
+            def prepare(adapter: PasswordReset, token: str, password: str) -> ResetProof:
                 proof = original(adapter, token, password)
                 if case == "two_passwords":
                     barrier.wait(timeout=15)
@@ -198,7 +181,7 @@ def test_reset_final_after_hash(
                 )
 
             with monkeypatch.context() as patch, ThreadPoolExecutor(max_workers=2) as pool:
-                patch.setattr(MFA, "prepare_reset", prepare)
+                patch.setattr(PasswordReset, "prepare_reset", prepare)
                 futures = [pool.submit(worker, 0)]
                 if case == "two_passwords":
                     futures.append(pool.submit(worker, 1))
@@ -243,19 +226,17 @@ def test_reset_final_after_hash(
             if case == "two_passwords":
                 winner = results.index(204)
                 with closing(TestClient(first.app, base_url=ORIGIN)) as fresh:
-                    login_mfa(fresh, passwords[winner], target_key, "second.master")
+                    login_password(fresh, passwords[winner], "second.master")
 
 
 def test_c3_hash_cannot_restore_reset_password(
-    mfa: tuple[Settings, Database, str, str], monkeypatch: pytest.MonkeyPatch
+    password_app: tuple[Settings, Database, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    settings, db, password, token = mfa
+    settings, db, password = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as first:
-        key = Authenticator()
-        enroll(first, token, key)
-        login_mfa(first, password, key)
+        login_password(first, password)
         with closing(TestClient(first.app, base_url=ORIGIN)) as second:
-            ident, _ = provision(first, second, password)
+            ident = provision(first, second, password)
             nonce = csrf(second)
             held, release = Event(), Event()
             original = IAM.prepare_password_change

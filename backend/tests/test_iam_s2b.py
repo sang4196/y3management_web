@@ -2,19 +2,16 @@
 
 import concurrent.futures
 import secrets
-import subprocess
-import sys
 import threading
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass
+from pathlib import Path
 from urllib.parse import urlsplit
 from uuid import UUID
 
 import httpx
 import pytest
-from alembic.config import Config
-from alembic.script import ScriptDirectory
 from fastapi.testclient import TestClient
 from sqlalchemy import event as sql_event
 from sqlalchemy import text
@@ -22,7 +19,9 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from tests.test_iam import ORIGIN, SyntheticSecret, child_env, iam, login  # noqa: F401
+from tests.historical_backend import archive_backend, execute_original
+from tests.legacy_helpers import legacy_database, migration_status  # noqa: F401
+from tests.test_iam import ORIGIN, SyntheticSecret, iam, login  # noqa: F401
 from tests.test_iam_s2 import fingerprint_rows
 from y3management.application import create_app
 from y3management.audit.infrastructure import Audit
@@ -551,28 +550,45 @@ def test_login_snapshot_loses_to_password_change(
             assert pending.result(timeout=5) == 401
 
 
-def test_password_migration_roundtrip_and_history_guard(world: World) -> None:
-    def migrate(direction: str, target: str) -> int:
-        return subprocess.run(
-            [sys.executable, "-m", "alembic", direction, target],
-            env=child_env(world.settings),
-            capture_output=True,
-            timeout=30,
-        ).returncode
-
-    before = facts(world.db)
-    assert migrate("downgrade", "0002_iam_restore") == 0
-    assert migrate("upgrade", "head") == 0
-    assert facts(world.db) == before
-    new = SyntheticSecret("이력 보존 암호 변경 " + secrets.token_urlsafe(24))
-    expect(change(world.branch, world.branch_password, new), 204)
-    after = facts(world.db)
-    assert migrate("downgrade", "0002_iam_restore") != 0
-    assert facts(world.db) == after
-    with world.db.session() as s:
-        assert (
-            s.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-            == ScriptDirectory.from_config(Config("alembic.ini")).get_current_head()
+def test_password_migration_roundtrip_and_history_guard(
+    legacy_database: tuple[Settings, Database],  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    # Historical contract: prepare real CLI/API input before 0014, never bypass its guard.
+    settings, db = legacy_database
+    assert migration_status(settings, "downgrade", "0003_iam_password") == 0
+    old = archive_backend(tmp_path, "0a947f9bccc615140b4a3ea24809790aa452172e")
+    migration = Path("alembic/versions/0003_iam_password.py")
+    assert (old / migration).read_bytes() == migration.read_bytes()
+    execute_original(
+        old,
+        settings,
+        """from contextlib import closing
+import secrets
+from sqlalchemy import text
+from tests.test_iam import cli_bootstrap
+from tests.test_iam_s2b import world
+from tests.test_iam_s2b import test_password_migration_roundtrip_and_history_guard
+from y3management.config import load_settings
+from y3management.database import Database
+cfg=load_settings()
+password="Historical revision password " + secrets.token_urlsafe(24)
+db=Database(cfg)
+try:
+    with db.session() as session:
+        revision=session.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+        assert revision=="0003_iam_password"
+    cli_bootstrap(cfg,password)
+    with closing(world.__wrapped__((cfg,db,password))) as prepared:
+        subject=next(prepared)
+        test_password_migration_roundtrip_and_history_guard(subject)
+finally:
+    db.close()
+""",
+    )
+    with db.session() as session:
+        assert session.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == (
+            "0003_iam_password"
         )
 
 

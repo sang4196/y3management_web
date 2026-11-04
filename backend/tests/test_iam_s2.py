@@ -3,17 +3,14 @@
 import concurrent.futures
 import hmac
 import secrets
-import subprocess
-import sys
 import threading
 import time
 from collections.abc import Iterable, Iterator, Sequence
+from pathlib import Path
 from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
 import pytest
-from alembic.config import Config
-from alembic.script import ScriptDirectory
 from fastapi.testclient import TestClient
 from sqlalchemy import event as sql_event
 from sqlalchemy import text
@@ -21,7 +18,9 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from tests.test_iam import ORIGIN, SyntheticSecret, child_env, csrf, iam, login  # noqa: F401
+from tests.historical_backend import archive_backend, execute_original
+from tests.legacy_helpers import legacy_database, migration_status  # noqa: F401
+from tests.test_iam import ORIGIN, SyntheticSecret, csrf, iam, login  # noqa: F401
 from y3management.application import create_app
 from y3management.audit.infrastructure import Audit
 from y3management.audit.public import Event
@@ -356,49 +355,42 @@ def test_restore_pg_lock_order(
 
 
 def test_restore_migration_preserves_existing_data_and_audit(
-    restored_subject: tuple[Settings, Database, TestClient, Service, str, UUID, str, list[str]],
+    legacy_database: tuple[Settings, Database],  # noqa: F811
+    tmp_path: Path,
 ) -> None:
-    settings, db, master, _, nonce, ident, _, _ = restored_subject
-
-    def migrate(target: str, direction: str = "upgrade") -> int:
-        result = subprocess.run(
-            [sys.executable, "-m", "alembic", direction, target],
-            env=child_env(settings),
-            capture_output=True,
-            timeout=30,
-        )
-        return result.returncode
-
-    def facts() -> list[str]:
-        with db.session() as s:
-            return [
-                fingerprint_rows(s.execute(text(f"SELECT * FROM {table} ORDER BY 1")).all())
-                for table in (
-                    "iam_accounts",
-                    "iam_admin_grants",
-                    "iam_login_ids",
-                    "iam_credentials",
-                    "audit_events",
-                )
-            ]
-
-    before = facts()
-    assert migrate("0001_iam_s1", "downgrade") == 0
-    assert migrate("head") == 0
-    assert facts() == before, "Existing IAM data changed during revision roundtrip"
-    assert (
-        master.post(
-            f"/api/v1/admin/accounts/{ident}/restore",
-            json={"expected_version": 3},
-            headers={"Origin": ORIGIN, "X-CSRF-Token": nonce},
-        ).status_code
-        == 200
+    # Historical contract: prepare real CLI/API input before 0014, never bypass its guard.
+    settings, db = legacy_database
+    assert migration_status(settings, "downgrade", "0002_iam_restore") == 0
+    old = archive_backend(tmp_path, "c2b01076298e3b1fee9d75ea71acf0184edbd859")
+    migration = Path("alembic/versions/0002_iam_restore.py")
+    assert (old / migration).read_bytes() == migration.read_bytes()
+    execute_original(
+        old,
+        settings,
+        """from contextlib import closing
+import secrets
+from sqlalchemy import text
+from tests.test_iam import cli_bootstrap
+from tests.test_iam_s2 import restored_subject
+from tests.test_iam_s2 import test_restore_migration_preserves_existing_data_and_audit
+from y3management.config import load_settings
+from y3management.database import Database
+cfg=load_settings()
+password="Historical revision password " + secrets.token_urlsafe(24)
+db=Database(cfg)
+try:
+    with db.session() as session:
+        revision=session.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+        assert revision=="0002_iam_restore"
+    cli_bootstrap(cfg,password)
+    with closing(restored_subject.__wrapped__((cfg,db,password))) as prepared:
+        subject=next(prepared)
+        test_restore_migration_preserves_existing_data_and_audit(subject)
+finally:
+    db.close()
+""",
     )
-    after = facts()
-    assert migrate("0001_iam_s1", "downgrade") != 0
-    assert facts() == after, "Restore audit was removed by downgrade"
-    with db.session() as s:
-        assert (
-            s.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-            == ScriptDirectory.from_config(Config("alembic.ini")).get_current_head()
+    with db.session() as session:
+        assert session.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == (
+            "0002_iam_restore"
         )

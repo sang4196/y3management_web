@@ -10,8 +10,8 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
+from tests.password_helpers import activate, call, login_password, password_app  # noqa: F401
 from tests.test_iam import ORIGIN, csrf
-from tests.test_iam_mfa import Authenticator, call, enroll, login_mfa, mfa  # noqa: F401
 from y3management.application import create_app
 from y3management.audit.infrastructure import Audit
 from y3management.config import Settings
@@ -43,12 +43,10 @@ class Scene:
 
 
 @pytest.fixture
-def scene(mfa: tuple[Settings, Database, str, str]) -> Iterator[Scene]:
-    settings, db, password, token = mfa
+def scene(password_app: tuple[Settings, Database, str]) -> Iterator[Scene]:
+    settings, db, password = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as client:
-        key = Authenticator()
-        enroll(client, token, key)
-        login_mfa(client, password, key)
+        login_password(client, password)
         b = call(client, "/admin/branches", csrf(client), {"code": "W0", "name": "가상지점"})
         assert b.status_code == 201
         yield Scene(client, db, str(b.json()["id"]))

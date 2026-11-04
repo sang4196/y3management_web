@@ -10,10 +10,15 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
+from tests.password_helpers import (  # noqa: F401
+    call,
+    complete,
+    fingerprint,
+    link_token,
+    password_app,
+    reset_request,
+)
 from tests.test_iam import ORIGIN, SyntheticSecret, csrf
-from tests.test_iam_mfa import call, mfa  # noqa: F401
-from tests.test_iam_mfa_management import link_token
-from tests.test_iam_password_reset import complete, fingerprint, reset_request
 from tests.test_iam_trainer import TrainerScene, source, trainer  # noqa: F401
 from tests.test_iam_trainer_roles import body as role_body
 from tests.test_iam_trainer_roles import change as role_change
@@ -21,7 +26,7 @@ from tests.test_workforce import scene  # noqa: F401
 from tests.test_workforce_state import change as state_change
 from tests.test_workforce_state import request as state_request
 from y3management.contracts import Rejected
-from y3management.iam.mfa import MFA
+from y3management.iam.password_reset import PasswordReset
 
 pytestmark = pytest.mark.postgres
 
@@ -83,8 +88,8 @@ def test_bound_trainer_credential_repair_state_matrix(
         assert role_change(t, role_body(t, True)).status_code == 200
     if not (active and granted):
         assert t.signin(password=new).status_code == 204
-    assert t.recipient.get("/api/v1/auth/passkeys").status_code == 401
-    assert call(t.recipient, "/auth/passkeys/options", csrf(t.recipient), {}).status_code == 401
+    assert t.recipient.get("/api/v1/auth/passkeys").status_code == 404
+    assert call(t.recipient, "/auth/passkeys/options", csrf(t.recipient), {}).status_code == 404
     with t.base.db.session() as s:
         assert (
             s.execute(
@@ -111,7 +116,7 @@ def test_pending_disabled_self_and_mfa_boundaries(trainer: TrainerScene) -> None
     assert t.base.client.get(f"/api/v1/admin/accounts/{ident}/password-reset").status_code == 409
     assert t.complete(token).status_code == 204
     assert t.signin().status_code == 204
-    # A Trainer recipient is not an administrator for any normal MFA/recovery path.
+    # A Trainer recipient is not an administrator for any normal PasswordReset/recovery path.
     assert t.recipient.get(f"/api/v1/admin/accounts/{ident}/password-reset").status_code == 401
     assert t.base.client.get(f"/api/v1/admin/accounts/{ident}/passkey-recovery").status_code == 404
     master = t.base.client.get("/api/v1/auth/me").json()["account_id"]
@@ -149,17 +154,17 @@ def test_reset_source_survives_w1_and_rejects_old_role_proof(
             ).all()
             == original
         )
-    original_prepare = MFA.prepare_reset
+    original_prepare = PasswordReset.prepare_reset
     new = SyntheticSecret(secrets.token_urlsafe(24))
 
-    def prepare(adapter: MFA, raw: str, password: str) -> Any:
+    def prepare(adapter: PasswordReset, raw: str, password: str) -> Any:
         proof = original_prepare(adapter, raw, password)
         assert role_change(t, role_body(t, False)).status_code == 200
         assert role_change(t, role_body(t, True)).status_code == 200
         return proof
 
     with monkeypatch.context() as patch:
-        patch.setattr(MFA, "prepare_reset", prepare)
+        patch.setattr(PasswordReset, "prepare_reset", prepare)
         assert complete(t.recipient, token, new).status_code == 401
     with t.base.db.session() as s:
         assert (

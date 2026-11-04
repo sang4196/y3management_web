@@ -1,20 +1,18 @@
-# 2026-10-31 인증수단 변경의 현재 게이트
+# 2026-11-05 IAM-014 현재 게이트
 
-[직접 영향 전환 상세](iam-014-password-only-transition.md)는 방향 설계를 구체화한 문서이며 실제 SQL/코드·DB 전환 검증은 아직 수행하지 않았다.
+[PW-1–PW-6](../product/product-decisions.md#review-20261031-password-only)/
+[ADR-0005](../decisions/0005-password-only-authentication.md)의 password-only 방향을 구현했고,
+[설계·전환](iam-014-password-only-transition.md)의 P0 기술 진입과 [독립 실행·설계자 인수](iam-014-password-only-results.md)를 마쳤다.
+Passkey/MFA 의무를 재질문하지 않는다. 지원 계정의 현재 인가·A8/M6/M8/C1/C3/C5/A9·AB5/R4를 유지한다.
 
-사용자 [PW-1–PW-6](../product/product-decisions.md#review-20261031-password-only)와
-[ADR-0005](../decisions/0005-password-only-authentication.md)로 전 지원 v1 Actor는 아이디·비밀번호만 사용한다.
-Passkey/운영 MFA 의무를 재질문하지 않는다. 기존 A8/M6/M8/C1/C3/C5/A9·AB5/R4와 현재 인가를 유지한다.
-현재 [IAM-014 설계](iam-014-password-only-design.md)는 독립 제한 설계 검토를 마쳤으며, 실제 DDL/미분류 영향군의 기술 진입 확인·구현·전환검증은 후속이다.
+독립 fast197, 소스 동등성을 승인한 분할 PG626(261+15+94+256), 같은 R3 native283조건을 확인했다.
+원래 실패·중단을 단일 전체 성공으로 바꾸지 않는다. 정확한 범위는 [최소 근거](iam-014-password-only-review.json)를 따른다.
+기존13 revision/감사·원본 키/사건과 금액·권한·상태 사실을 보존하고 현재 key 기능만 제거했다.
+모순/분류 불능 데이터는 전환을 중단한다. 원본 DB 전환/보호 backup·restore/운영 배포·production 허용은 별도다.
 
-P0 진입 조건은 모든 source/DDL/FK/GC 및 기존 node/assertion의 의미별 대응, 정책 marker/원본과 준비 proof
-폐기·원래기한·전환 audit/ACK 대사, legacy both의 password 승인 범위와 인계 연결을 구체화하는 것이다.
-폐지 key요인만 대기한 ACTIVE 계정은 실제 사실을 분류해 retired 이력으로 종료하며, password 복구/차단/권한
-복원과 혼동하지 않는다. 모순·분류 불능 자료가 있으면 실제 전환은 중단하고 원자료를 보존한다.
-원본13 migration/감사·옛 PASS는 보존하고 물리 삭제/원본DB 전환·운영 인수는 이번 설계 승인이 아니다.
-설정 전 차단/복구·ID 변경 상태 확대의 이전 미답변 두 선택은 여전히 보류다.
-다른22 OPEN/8 CLOSED·PD1 OPEN/26 CLOSED와 전역 모듈 PROPOSED/운영 게이트를 닫지 않는다.
-아래 이전 MFA 게이트는 명시 대체 범위에서 당시 이력이다.
+다음 실제 사용자 게이트는 이전 미답변 **PENDING_SETUP 차단·복구 상태** 및 **Login ID 변경 대상 상태 확대**다.
+해당 새 동작을 구현하지 않았다. 다른22 OPEN/8 CLOSED·PD1 OPEN/26 CLOSED 및 전역 모듈 PROPOSED는 유지한다.
+아래 이전 MFA 게이트는 PW의 명시 대체 범위에서 당시 이력이다.
 
 # 결정 게이트
 

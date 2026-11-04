@@ -14,13 +14,13 @@ from y3management.database import Database
 from y3management.iam.emergency import Emergency
 from y3management.iam.handoff import Handoff
 from y3management.iam.infrastructure import IAM
-from y3management.iam.mfa import MFA
+from y3management.iam.password_reset import PasswordReset
 from y3management.iam.passwords import Passwords
 from y3management.iam.public import (
     EmergencyPort,
     HandoffPort,
     IAMPort,
-    MFAPort,
+    PasswordResetPort,
     SecurityPort,
     TrainerRolesPort,
 )
@@ -40,7 +40,7 @@ class Work:
     organization: OrganizationPort
     audit: AuditPort
     security: SecurityPort
-    mfa: MFAPort
+    password_reset: PasswordResetPort
     emergency: EmergencyPort
     handoff: HandoffPort
     workforce: WorkforcePort
@@ -69,6 +69,7 @@ class UnitOfWork:
                     self.settings.iam_key.get_secret_value(),
                     self.settings.iam_mode,
                 )
+                iam.policy()
                 work = Work(
                     iam,
                     Organization(OrganizationRepository(session)),
@@ -79,9 +80,9 @@ class UnitOfWork:
                         self.settings.security_state_capacity or 0,
                         self.settings.auth_session_capacity or 0,
                     ),
-                    MFA(iam, self.settings.canonical_origin),
-                    Emergency(MFA(iam, self.settings.canonical_origin)),
-                    Handoff(Emergency(MFA(iam, self.settings.canonical_origin))),
+                    PasswordReset(iam),
+                    Emergency(iam),
+                    Handoff(Emergency(iam)),
                     Workforce(WorkforceRepository(session)),
                     TrainerRoles(iam),
                 )

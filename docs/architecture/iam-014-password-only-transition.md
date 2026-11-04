@@ -1,5 +1,9 @@
 # IAM-014 — password-only 전환 상세 계약
 
+> 2026-11-05: P0 기술 진입·구현·로컬 인수를 마쳤다. [실행 결과](iam-014-password-only-results.md)와
+> [최소 근거](iam-014-password-only-review.json)를 현재 상태로 사용한다. 아래2026-10-31의 미구현/진입 대기
+> 설명은 설계 작성 당시 이력이다. 원본 DB 전환·운영 인수는 여전히 별도이며 계약의 보존/인가 경계를 유지한다.
+
 2026-10-31. [현재 인증 정책](../product/product-decisions.md#review-20261031-password-only)과
 [전체 설계](iam-014-password-only-design.md)의 직접 영향 전환 명세다. 기준 구현은7855786이다.
 독립 제한 설계 검토를 마쳤다. 실제 DDL/코드·원본 DB 상태 집계/전환·테스트는 미구현·미실행이며 구현 전 기술 게이트를 유지한다.

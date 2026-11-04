@@ -14,9 +14,8 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
+from tests.password_helpers import call, login_password, password_app, provision  # noqa: F401
 from tests.test_iam import ORIGIN, csrf
-from tests.test_iam_mfa import call, login_mfa, mfa  # noqa: F401
-from tests.test_iam_mfa_management_races import provision
 from tests.test_iam_trainer import TrainerScene, source, trainer  # noqa: F401
 from tests.test_iam_trainer_roles import change as role_change
 from tests.test_iam_trainer_roles_security import link
@@ -33,14 +32,14 @@ pytestmark = pytest.mark.postgres
 
 
 def test_admin_self_state_preserves_current_session(
-    trainer: TrainerScene, mfa: tuple[Settings, Database, str, str]
+    trainer: TrainerScene, password_app: tuple[Settings, Database, str]
 ) -> None:
     t = trainer
     with closing(TestClient(t.base.client.app, base_url=ORIGIN)) as target:
-        ident, key = provision(t.base.client, target, mfa[2])
+        ident = provision(t.base.client, target, password_app[2])
         assert role_change(t, link(t, ident, "second.master")).status_code == 200
         target.cookies.clear()
-        login_mfa(target, mfa[2], key, "second.master")
+        login_password(target, password_app[2], "second.master")
         cookie = target.cookies.get("__Host-y3-auth")
         for active in (False, True):
             payload = request(t, active)
@@ -121,7 +120,7 @@ def test_ack_loss_receipt_does_not_revoke_new_session(
 @pytest.mark.parametrize("same", [True, False])
 def test_commands_observed_block_then_replay_or_conflict(
     trainer: TrainerScene,
-    mfa: tuple[Settings, Database, str, str],
+    password_app: tuple[Settings, Database, str],
     monkeypatch: pytest.MonkeyPatch,
     same: bool,
 ) -> None:
@@ -137,7 +136,7 @@ def test_commands_observed_block_then_replay_or_conflict(
         reached.set()
         assert release.wait(15)
 
-    with closing(branch_actor(t.base, mfa[2])) as other:
+    with closing(branch_actor(t.base, password_app[2])) as other:
         nonce_a, nonce_b = csrf(t.base.client), csrf(other)
         other_payload = payload if same else {**payload, "operation_id": str(uuid4())}
         monkeypatch.setattr(Audit, "append_trainer_state", pause)

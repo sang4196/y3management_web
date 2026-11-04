@@ -7,9 +7,9 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
+from tests.password_helpers import activate, login_password, password_app  # noqa: F401
 from tests.test_iam import ORIGIN, SyntheticSecret, iam, login  # noqa: F401
 from tests.test_iam_master_management import snapshot
-from tests.test_iam_mfa import Authenticator, enroll, login_mfa, mfa  # noqa: F401
 from y3management.application import create_app
 from y3management.config import Settings
 from y3management.contracts import Rejected
@@ -51,13 +51,13 @@ def assert_roleless_denials(
     ],
 )
 def test_roleless_real_uv_session_audience_and_validity(
-    mfa: tuple[Settings, Database, str, str], invalid: str
+    password_app: tuple[Settings, Database, str], invalid: str
 ) -> None:
-    settings, db, password, setup = mfa
+    # Keep historical node labels, but do not claim UV verification: password is
+    # sufficient under policy2. "weak" and "key" are now explicit positive controls.
+    settings, db, password = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as client:
-        key = Authenticator()
-        enroll(client, setup, key)
-        login_mfa(client, password, key)
+        login_password(client, password)
         ident = client.get("/api/v1/auth/me").json()["account_id"]
         token = SyntheticSecret(client.cookies.get("__Host-y3-auth") or "")
         assert token
@@ -77,8 +77,14 @@ def test_roleless_real_uv_session_audience_and_validity(
                 "UPDATE iam_sessions SET created_at=created_at-interval '1 hour', "
                 "last_activity=last_activity-interval '31 minutes' WHERE account_id=:a"
             ),
-            "weak": "UPDATE iam_sessions SET assurance='password' WHERE account_id=:a",
-            "key": "UPDATE iam_passkeys SET revoked_at=clock_timestamp() WHERE account_id=:a",
+            "weak": (
+                "UPDATE iam_sessions SET assurance='password' WHERE account_id=:a "
+                "RETURNING account_id"
+            ),
+            "key": (
+                "UPDATE iam_passkeys SET revoked_at=clock_timestamp() WHERE account_id=:a "
+                "RETURNING account_id"
+            ),
             "epoch": "UPDATE iam_accounts SET security_version=security_version+1 WHERE id=:a",
             "recovery": "UPDATE iam_accounts SET recovery_pending=true WHERE id=:a",
             "reset": (
@@ -88,13 +94,50 @@ def test_roleless_real_uv_session_audience_and_validity(
             "disabled": "UPDATE iam_accounts SET state='DISABLED' WHERE id=:a",
         }
         with db.session() as session:
+            if invalid in ("weak", "key"):
+                assert session.execute(
+                    text("SELECT assurance,policy_version FROM iam_sessions WHERE account_id=:a"),
+                    {"a": ident},
+                ).one() == ("password", 2)
+                if invalid == "key":
+                    assert (
+                        session.execute(
+                            text("SELECT count(*) FROM iam_passkeys WHERE account_id=:a"),
+                            {"a": ident},
+                        ).scalar_one()
+                        == 0
+                    )
             session.execute(text("DELETE FROM iam_admin_grants WHERE account_id=:a"), {"a": ident})
+            if invalid in ("weak", "key"):
+                session.commit()
             if invalid in mutations:
-                session.execute(text(mutations[invalid]), {"a": ident})
+                before_noop = snapshot(db) if invalid in ("weak", "key") else None
+                result = session.execute(text(mutations[invalid]), {"a": ident})
+                if invalid == "weak":
+                    assert len(result.all()) == 1
+                elif invalid == "key":
+                    assert len(result.all()) == 0
             session.commit()
+        if invalid in ("weak", "key"):
+            # Compare the intended no-op separately from the grant removal.
+            assert snapshot(db) == before_noop
+            with db.session() as session:
+                assert session.execute(
+                    text("SELECT assurance,policy_version FROM iam_sessions WHERE account_id=:a"),
+                    {"a": ident},
+                ).one() == ("password", 2)
+                assert (
+                    session.execute(
+                        text("SELECT count(*) FROM iam_passkeys WHERE account_id=:a"),
+                        {"a": ident},
+                    ).scalar_one()
+                    == 0
+                )
         if invalid == "cookie":
             token = SyntheticSecret("invalid-synthetic-cookie")
-        assert_roleless_denials(settings, db, token, 403 if invalid == "valid" else 401)
+        assert_roleless_denials(
+            settings, db, token, 403 if invalid in ("valid", "weak", "key") else 401
+        )
 
 
 @pytest.mark.parametrize("revoked", [False, True])

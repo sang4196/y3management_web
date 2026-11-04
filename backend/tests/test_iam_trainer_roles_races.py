@@ -13,8 +13,9 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
+from tests.legacy_helpers import legacy_database, password_downgrade_guard  # noqa: F401
+from tests.password_helpers import call, password_app  # noqa: F401
 from tests.test_iam import csrf
-from tests.test_iam_mfa import call, mfa  # noqa: F401
 from tests.test_iam_trainer import TrainerScene, source, trainer  # noqa: F401
 from tests.test_iam_trainer_roles import body, change, state
 from tests.test_workforce import scene  # noqa: F401
@@ -31,7 +32,7 @@ pytestmark = pytest.mark.postgres
 @pytest.mark.parametrize("same", [True, False])
 def test_role_commands_observed_block_and_single_transition(
     trainer: TrainerScene,
-    mfa: tuple[Settings, Database, str, str],
+    password_app: tuple[Settings, Database, str],
     monkeypatch: pytest.MonkeyPatch,
     same: bool,
 ) -> None:
@@ -48,7 +49,7 @@ def test_role_commands_observed_block_and_single_transition(
         reached.set()
         assert release.wait(10)
 
-    with closing(branch_actor(t.base, mfa[2])) as other:
+    with closing(branch_actor(t.base, password_app[2])) as other:
         nonce_a, nonce_b = csrf(t.base.client), csrf(other)
         alternate = request if same else {**request, "operation_id": str(uuid4())}
         path = "/admin/trainers/" + t.trainer + "/role"
@@ -141,22 +142,22 @@ def test_prepared_password_login_cannot_cross_role_epoch(
 @pytest.mark.parametrize("same_trainer", [False, True])
 def test_first_binding_competition_observed_one_immutable_pair(
     trainer: TrainerScene,
-    mfa: tuple[Settings, Database, str, str],
+    password_app: tuple[Settings, Database, str],
     monkeypatch: pytest.MonkeyPatch,
     same_trainer: bool,
 ) -> None:
     from fastapi.testclient import TestClient
 
+    from tests.password_helpers import provision
     from tests.test_iam import ORIGIN
-    from tests.test_iam_mfa_management_races import provision
     from tests.test_iam_trainer_roles_security import link
 
     t = trainer
     with (
         closing(TestClient(t.base.client.app, base_url=ORIGIN)) as target,
-        closing(branch_actor(t.base, mfa[2])) as other,
+        closing(branch_actor(t.base, password_app[2])) as other,
     ):
-        ident, _ = provision(t.base.client, target, mfa[2])
+        ident = provision(t.base.client, target, password_app[2])
         first_request = link(t, ident, "second.master")
         if same_trainer:
             master = t.base.client.get("/api/v1/auth/me").json()["account_id"]
@@ -232,16 +233,10 @@ def test_first_binding_competition_observed_one_immutable_pair(
 
 def test_downgrade_waits_for_actual_role_change_and_preserves_committed_history(
     legacy_trainer: TrainerScene,
-    mfa: tuple[Settings, Database, str, str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     trainer = legacy_trainer
-    import subprocess
-    import sys
     import time
-
-    from tests.conftest import qa_register_process, qa_stop_process
-    from tests.test_iam import child_env
 
     t = trainer
     source(t.issue())
@@ -258,23 +253,15 @@ def test_downgrade_waits_for_actual_role_change_and_preserves_committed_history(
 
     monkeypatch.setattr(Audit, "append_trainer_role", pause)
     appname = "roles-downgrade-" + uuid4().hex
-    env = child_env(mfa[0])
-    env["PGAPPNAME"] = appname
-    with ThreadPoolExecutor(max_workers=1) as pool:
+    with ThreadPoolExecutor(max_workers=2) as pool:
         changing = pool.submit(change, t, request)
-        process = None
+        migration = None
         try:
             assert reached.wait(5)
-            process = subprocess.Popen(
-                [sys.executable, "-m", "alembic", "downgrade", "0011_iam_trainer_login"],
-                env=env,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
-            qa_register_process(process)
+            migration = pool.submit(password_downgrade_guard, t.base.db, appname)
             waiting = False
             deadline = time.monotonic() + 5
-            while time.monotonic() < deadline and process.poll() is None:
+            while time.monotonic() < deadline and not migration.done():
                 with t.base.db.session() as reader:
                     waiting = bool(
                         reader.execute(
@@ -293,8 +280,7 @@ def test_downgrade_waits_for_actual_role_change_and_preserves_committed_history(
             assert waiting
             release.set()
             assert changing.result(timeout=10).status_code == 200
-            process.communicate(timeout=10)
-            assert process.returncode != 0
+            assert migration.result(timeout=10) == "PASSWORD_DOWNGRADE_REQUIRES_GLOBAL_EMPTY"
             from tests.workforce_state_seed import assert_loss_guard
 
             assert_loss_guard(
@@ -305,7 +291,7 @@ def test_downgrade_waits_for_actual_role_change_and_preserves_committed_history(
             with t.base.db.session() as reader:
                 assert (
                     reader.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                    == "0013_workforce_trainer_state"
+                    == "0014_password_only"
                 )
                 assert (
                     reader.execute(
@@ -332,5 +318,5 @@ def test_downgrade_waits_for_actual_role_change_and_preserves_committed_history(
             assert state(t)["granted"] is False
         finally:
             release.set()
-            if process is not None:
-                qa_stop_process(process)
+            if migration is not None:
+                migration.result(timeout=10)

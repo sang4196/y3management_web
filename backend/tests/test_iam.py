@@ -21,6 +21,7 @@ from tests.conftest import qa_record_schema, qa_register_process, qa_stop_proces
 from y3management.application import create_app
 from y3management.config import Settings
 from y3management.database import Database
+from y3management.iam.public import Account, LoginProof, Reservation
 
 pytestmark = pytest.mark.postgres
 ORIGIN = "https://localhost:8443"
@@ -120,7 +121,7 @@ def iam(postgres_database: Database) -> Iterator[tuple[Settings, Database, str]]
             database_url=postgres_database.engine.url.render_as_string(hide_password=False),
             database_schema=schema,
             iam_enabled=True,
-            iam_mode="s1_password",
+            iam_mode="password",
             canonical_origin=ORIGIN,
             iam_key=secrets.token_urlsafe(32),
             security_state_capacity=2048,
@@ -517,6 +518,8 @@ def test_commit_ack_loss_preserves_committed_children(
     from sqlalchemy.exc import SQLAlchemyError
     from sqlalchemy.orm import Session
 
+    from y3management.iam.infrastructure import IAM
+
     settings, db, password = iam
     app = create_app(settings, database=db)
     with TestClient(app, base_url=ORIGIN) as master:
@@ -605,6 +608,22 @@ def test_commit_ack_loss_preserves_committed_children(
             baseline = s.execute(
                 text("SELECT count(*) FROM audit_events WHERE action='login'")
             ).scalar_one()
+        original_login = IAM.login
+        captured: list[SyntheticSecret] = []
+
+        def capture_login(
+            self: IAM,
+            proof: LoginProof,
+            slot: UUID,
+            preauth: str | None,
+            nonce: str | None,
+            reservation: Reservation,
+        ) -> tuple[str, Account]:
+            result = original_login(self, proof, slot, preauth, nonce, reservation)
+            captured.append(SyntheticSecret(result[0]))
+            return result
+
+        monkeypatch.setattr(IAM, "login", capture_login)
         pre = csrf(target)
         inject.update(action="login", baseline=baseline)
         r = target.post(
@@ -617,7 +636,7 @@ def test_commit_ack_loss_preserves_committed_children(
         with db.session() as s:
             assert (
                 s.execute(
-                    text("SELECT count(*) FROM iam_sessions WHERE account_id=:a AND NOT revoked"),
+                    text("SELECT count(*) FROM iam_sessions WHERE account_id=:a AND revoked"),
                     {"a": UUID(ident)},
                 ).scalar_one()
                 == 1
@@ -628,6 +647,27 @@ def test_commit_ack_loss_preserves_committed_children(
                 ).scalar_one()
                 == baseline + 1
             )
+            assert (
+                s.execute(
+                    text("""SELECT count(*) FROM iam_sessions s
+              JOIN iam_security_states slot ON slot.id=s.id
+              JOIN iam_attempts a ON a.id=s.login_attempt_id
+              WHERE s.account_id=:a AND s.revoked AND a.outcome='pending'
+              AND s.policy_version=2"""),
+                    {"a": UUID(ident)},
+                ).scalar_one()
+                == 1
+            )
+            assert (
+                s.execute(
+                    text("SELECT count(*) FROM iam_attempts WHERE outcome='failure'")
+                ).scalar_one()
+                == 0
+            )
+        assert len(captured) == 1
+        target.cookies.set("__Host-y3-auth", captured[0], domain="localhost.local", path="/")
+        assert target.get("/api/v1/auth/me").status_code == 401
+        assert master.get("/api/v1/auth/me").status_code == 200
         target.close()
 
 
@@ -1249,7 +1289,7 @@ def test_business_commit_precedes_waiting_management(
         ) -> None:
             if (
                 threading.current_thread().name.startswith("management-waiter")
-                and "iam_accounts" in statement
+                and ("iam_installation" if first_action == "login" else "iam_accounts") in statement
                 and "FOR UPDATE" in statement
             ):
                 driver = connection.connection.driver_connection
@@ -1287,7 +1327,9 @@ def test_business_commit_precedes_waiting_management(
                     try:
                         assert held.wait(5), "Business transaction did not acquire locks"
                         waiter = waiter_pool.submit(management)
-                        assert entered.wait(5), "Management did not reach account lock"
+                        assert entered.wait(5), (
+                            "Management did not reach the canonical installation/account lock"
+                        )
                         deadline = time.monotonic() + 3
                         blocked_by_winner = False
                         while time.monotonic() < deadline:

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from y3management.audit.public import (
     Event,
     InitialCompensationSet,
+    PasswordEmergencyEvent,
     TrainerIdentityEvent,
     TrainerRegistered,
     TrainerRoleEvent,
@@ -22,6 +23,19 @@ class Audit:
     def __init__(self, session: Session) -> None:
         self.s = session
         self.request_id = uuid4()
+
+    def append_password_emergency(self, event: PasswordEmergencyEvent) -> None:
+        values = {"id": uuid4(), **asdict(event)}
+        self.s.execute(
+            text(
+                "INSERT INTO audit_password_emergency_events ("
+                + ",".join(values)
+                + ") VALUES ("
+                + ",".join(":" + k for k in values)
+                + ")"
+            ),
+            values,
+        )
 
     def append_trainer_identity(self, event: TrainerIdentityEvent) -> None:
         columns = tuple(asdict(event))

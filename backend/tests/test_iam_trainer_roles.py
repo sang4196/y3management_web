@@ -8,8 +8,8 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
+from tests.password_helpers import activate, call, login_password, password_app  # noqa: F401
 from tests.test_iam import ORIGIN, csrf
-from tests.test_iam_mfa import Authenticator, call, enroll, login_mfa, mfa  # noqa: F401
 from tests.test_iam_trainer import TrainerScene, source, trainer  # noqa: F401
 from tests.test_workforce import Scene, scene  # noqa: F401
 from y3management.application import create_app
@@ -97,13 +97,11 @@ def test_last_role_preserves_password_and_replay_new_login(trainer: TrainerScene
 
 
 def test_first_link_self_requires_new_uv_and_preserves_admin(
-    mfa: tuple[Settings, Database, str, str],
+    password_app: tuple[Settings, Database, str],
 ) -> None:
-    settings, db, password, token = mfa
+    settings, db, password = password_app
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as c:
-        key = Authenticator()
-        enroll(c, token, key)
-        login_mfa(c, password, key)
+        login_password(c, password)
         actor = c.get("/api/v1/auth/me").json()["account_id"]
         b = call(c, "/admin/branches", csrf(c), {"code": "R", "name": "역할 가상지점"}).json()
         s = Scene(c, db, b["id"])
@@ -135,7 +133,7 @@ def test_first_link_self_requires_new_uv_and_preserves_admin(
         r = call(c, "/admin/trainers/" + t["id"] + "/role", csrf(c), request)
         assert r.status_code == 200 and r.json()["reauthentication_required"] is True
         assert c.get("/api/v1/auth/me").status_code == 401
-        login_mfa(c, password, key)
+        login_password(c, password)
         profile = c.get("/api/v1/auth/me").json()
         assert [x["role"] for x in profile["roles"]] == ["ADMIN", "TRAINER"]
         assert c.get("/api/v1/branches").status_code == 200
