@@ -85,6 +85,7 @@ class IAM:
             row["branch_id"],
             row["scope"] == "ORGANIZATION",
             row["row_version"],
+            row["restore_state"],
         )
 
     def installation_lock(self) -> None:
@@ -393,7 +394,18 @@ class IAM:
             raise Rejected(404, "not_found")
         return account
 
-    def lookup(self, caller: Caller, identifier: str) -> Account:
+    def lifecycle_target(self, caller: Caller, ident: UUID) -> AccountRoles:
+        self.require_master(caller)
+        roles = self.account_roles(ident)
+        if (
+            caller.account_id == ident
+            or caller.organization_id != roles.account.organization_id
+            or (not roles.admin and roles.binding is None)
+        ):
+            raise Rejected(404, "not_found")
+        return roles
+
+    def lifecycle_id(self, caller: Caller, identifier: str) -> UUID:
         self.require_master(caller)
         row = self.s.execute(
             text("SELECT id FROM iam_accounts WHERE organization_id=:org AND login_id=:l"),
@@ -401,7 +413,11 @@ class IAM:
         ).first()
         if row is None:
             raise Rejected(404, "not_found")
-        return self.scoped_account(caller, row.id)
+        ident: UUID = row.id
+        return ident
+
+    def lookup(self, caller: Caller, identifier: str) -> Account:
+        return self.scoped_account(caller, self.lifecycle_id(caller, identifier))
 
     def issue(self, caller: Caller, identifier: str, branch: UUID) -> Account:
         self.require_master(caller)
@@ -541,27 +557,34 @@ class IAM:
             {"a": ident},
         ).all()
 
-    def change(self, account: Account, branch: UUID | None, disable: bool) -> Account:
-        if account.state != "ACTIVE":
+    def disable(self, account: Account) -> Account:
+        if account.state not in ("PENDING_SETUP", "ACTIVE"):
             raise Rejected(409, "conflict")
-        if not disable and account.branch_id == branch:
-            return account
-        self.s.execute(
-            text("SELECT id FROM iam_credentials WHERE account_id=:a ORDER BY id FOR UPDATE"),
-            {"a": account.id},
-        ).all()
         self.s.execute(
             text(
-                "UPDATE iam_accounts SET state=:s,row_version=row_version+1,"
+                "UPDATE iam_accounts SET restore_state=state,state='DISABLED',"
+                "row_version=row_version+1,security_version=security_version+1 WHERE id=:a"
+            ),
+            {"a": account.id},
+        )
+        return self._account(account.id)
+
+    def change_scope(self, account: Account, branch: UUID) -> Account:
+        if account.state != "ACTIVE":
+            raise Rejected(409, "conflict")
+        if branch == account.branch_id:
+            return account
+        self.s.execute(
+            text(
+                "UPDATE iam_accounts SET row_version=row_version+1,"
                 "security_version=security_version+1 WHERE id=:a"
             ),
-            {"s": "DISABLED" if disable else "ACTIVE", "a": account.id},
+            {"a": account.id},
         )
-        if not disable:
-            self.s.execute(
-                text("UPDATE iam_admin_grants SET branch_id=:b WHERE account_id=:a"),
-                {"a": account.id, "b": branch},
-            )
+        self.s.execute(
+            text("UPDATE iam_admin_grants SET branch_id=:b WHERE account_id=:a"),
+            {"a": account.id, "b": branch},
+        )
         self.s.execute(
             text("UPDATE iam_sessions SET revoked=true WHERE account_id=:a"), {"a": account.id}
         )
@@ -571,11 +594,8 @@ class IAM:
         return self._account(account.id)
 
     def change_login_id(self, account: Account, identifier: str) -> Account:
-        if account.state != "ACTIVE":
-            raise Rejected(409, "conflict")
         if account.login_id == identifier:
             return account
-        self.lock_credentials(account.id)
         owner = self.s.execute(
             text("SELECT account_id FROM iam_login_ids WHERE login_id=:l"), {"l": identifier}
         ).scalar_one_or_none()
@@ -597,12 +617,6 @@ class IAM:
                 "k": hmac.digest(self.key, account.login_id.encode(), "sha256"),
                 "a": account.id,
             },
-        )
-        self.s.execute(
-            text("UPDATE iam_sessions SET revoked=true WHERE account_id=:a"), {"a": account.id}
-        )
-        self.s.execute(
-            text("UPDATE iam_credentials SET consumed=true WHERE account_id=:a"), {"a": account.id}
         )
         return self._account(account.id)
 
@@ -764,8 +778,8 @@ class IAM:
             raise Rejected(409, "conflict")
         self.s.execute(
             text(
-                "UPDATE iam_accounts SET state='ACTIVE',row_version=row_version+1,"
-                "security_version=security_version+1 WHERE id=:a"
+                "UPDATE iam_accounts SET state=restore_state,restore_state=NULL,"
+                "row_version=row_version+1,security_version=security_version+1 WHERE id=:a"
             ),
             {"a": account.id},
         )
@@ -810,6 +824,14 @@ class IAM:
         if caller.account_id == ident:
             raise Rejected(404, "not_found")
         return account
+
+    def revoke_lifecycle_sources(self, ident: UUID) -> None:
+        # The lifecycle use case already holds the canonical role/source locks.
+        self.revoke_management_sources(ident)
+        self.s.execute(
+            text("UPDATE iam_trainer_setup_credentials SET consumed=true WHERE account_id=:a"),
+            {"a": ident},
+        )
 
     def revoke_management_sources(self, ident: UUID) -> None:
         # Installation, Accounts and all affected Sessions are already locked.

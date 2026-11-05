@@ -1,4 +1,15 @@
-# 현재 IAM-014 로컬 인수 완료 — 비밀번호 전용 인증
+# 현재 IAM-015 로컬 인수 완료 — 승인된 계정 수명 정책
+
+2026-11-05 [LC-1/LC-2](../product/product-decisions.md#review-20261105-account-lifecycle) 모두1 승인으로
+설정 대기 차단/설정 대기 복구와 세 상태 Login ID 변경을 확정했다.
+[IAM-015 제한 계약](iam-015-account-lifecycle-design.md)을 구현하고 독립 실행/설계자 인수를 마쳤다.
+[실행 결과](iam-015-account-lifecycle-results.md)와 [최소 근거](iam-015-account-lifecycle-review.json)를 따른다.
+새 fast197·승인된 동등성 분할 PG311(293+18), R1 실제 HTTPS1사례/4manifest67조건을 확인했다.
+전체PG638/단일최종311 성공은 아니며, 초기 역사 테스트 실패1과 미실행17·교정/소스 동등성을 보존했다.
+Master 전용/현재 역할·업무 독립·목적별 명시 재발급·세션/옛 원본 철회·C2/감사를 유지한다.
+이 승인은 아래 IAM-014 당시의 두 질문 대기만 대체한다. 다른 OPEN/전역 PROPOSED/운영 게이트는 유지한다.
+
+# IAM-014 로컬 인수 완료 — 비밀번호 전용 인증
 
 2026-11-05 **설계자 로컬 인수 PASS**. [승인 PW-1–PW-6](../product/product-decisions.md#review-20261031-password-only)와
 [ADR-0005](../decisions/0005-password-only-authentication.md)를 [설계](iam-014-password-only-design.md)/

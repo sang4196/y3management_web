@@ -83,14 +83,14 @@ def test_password_transition_globally_empty_roundtrip(
 ) -> None:
     settings, db = legacy_database
     before = fingerprint(db)
-    migrate(settings, "upgrade", "head")
+    migrate(settings, "upgrade", "0014_password_only")
     with db.session() as s:
         row = s.execute(text("SELECT summary FROM iam_policy_transitions")).scalar_one()
         assert len(row) == 33 and all(v == 0 for v in row.values())
         assert s.execute(text("SELECT auth_policy_version FROM iam_installation")).scalar_one() == 2
     migrate(settings, "downgrade", "0013_workforce_trainer_state")
     assert fingerprint(db) == before
-    migrate(settings, "upgrade", "head")
+    migrate(settings, "upgrade", "0014_password_only")
 
 
 @pytest.mark.parametrize(
@@ -101,7 +101,7 @@ def test_summary_rejects_missing_extra_negative_fractional_or_string(
     legacy_database: tuple[Settings, Database], bad: dict[str, object]
 ) -> None:
     settings, db = legacy_database
-    migrate(settings, "upgrade", "head")
+    migrate(settings, "upgrade", "0014_password_only")
     before = fingerprint(db)
     with db.session() as s:
         original = s.execute(text("SELECT summary FROM iam_policy_transitions")).scalar_one()
@@ -118,7 +118,7 @@ def test_nonzero_transition_summary_rejects_downgrade_before_ddl(
     legacy_database: tuple[Settings, Database],
 ) -> None:
     settings, db = legacy_database
-    migrate(settings, "upgrade", "head")
+    migrate(settings, "upgrade", "0014_password_only")
     with db.session() as s:
         s.execute(
             text(
@@ -171,7 +171,7 @@ def test_transition_preserves_account_business_facts_and_rejects_nonempty_downgr
         )
         s.execute(text("UPDATE iam_installation SET organization_id=:o"), {"o": org})
         s.commit()
-    migrate(settings, "upgrade", "head")
+    migrate(settings, "upgrade", "0014_password_only")
     with db.session() as s:
         row = (
             s.execute(text("SELECT * FROM iam_accounts WHERE id=:a"), {"a": ident}).mappings().one()

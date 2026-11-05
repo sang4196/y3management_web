@@ -13,7 +13,8 @@ def current_policy(session: Session) -> PolicyStamp:
       FROM iam_installation i JOIN iam_policy_transitions p ON p.id=i.policy_transition_id
       WHERE i.id=1 AND i.auth_policy_version=2 AND p.from_version=1 AND p.to_version=2
       AND p.target_schema_revision='0014_password_only'
-      AND EXISTS(SELECT 1 FROM alembic_version WHERE version_num='0014_password_only')""")
+      AND (SELECT array_agg(version_num::text) FROM alembic_version)
+          = ARRAY['0015_account_lifecycle']""")
     ).first()
     if row is None:
         raise Rejected(503, "authentication_policy_unavailable")

@@ -10,5 +10,11 @@
   "old_id_denied",
   "new_id_existing_password_login",
   "identity_scope_preserved",
-  "actor_survives"
+  "actor_survives",
+  "lifecycle_unknown_ack",
+  "lifecycle_pending_destination",
+  "lifecycle_explicit_reissue",
+  "lifecycle_rename_clears_link",
+  "lifecycle_late_lookup_ignored",
+  "lifecycle_stale_requires_retry"
 ]

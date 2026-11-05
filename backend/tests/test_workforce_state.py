@@ -127,7 +127,10 @@ def test_grant_and_disabled_independent_blockers(trainer: TrainerScene) -> None:
     assert facts(t) == original
     ident = t.state()["account_id"]
     with t.base.db.session() as s:
-        s.execute(text("UPDATE iam_accounts SET state='DISABLED' WHERE id=:a"), {"a": ident})
+        s.execute(
+            text("UPDATE iam_accounts SET restore_state=state,state='DISABLED' WHERE id=:a"),
+            {"a": ident},
+        )
         s.commit()
     original = facts(t)
     assert change(t, request(t, False)).status_code == 200

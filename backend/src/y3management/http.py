@@ -19,6 +19,7 @@ from y3management.iam.public import (
     Account,
     EmergencySnapshot,
     HandoffRequest,
+    LifecycleAccount,
     Setup,
     TrainerRoleRequest,
 )
@@ -190,16 +191,27 @@ class Disable(Version):
 
 
 def account_json(account: Account) -> dict[str, object]:
-    return {
+    scope = None
+    if account.master or account.branch_id is not None:
+        scope = {
+            "kind": "ORGANIZATION" if account.master else "BRANCH",
+            "branch_id": str(account.branch_id) if account.branch_id else None,
+        }
+    result: dict[str, object] = {
         "account_id": str(account.id),
         "login_id": account.login_id,
         "state": account.state,
         "version": account.version,
-        "admin_scope": {
-            "kind": "ORGANIZATION" if account.master else "BRANCH",
-            "branch_id": str(account.branch_id) if account.branch_id else None,
-        },
+        "admin_scope": scope,
     }
+    if isinstance(account, LifecycleAccount):
+        result.update(
+            restore_state=account.restore_state,
+            trainer_id=str(account.trainer_id) if account.trainer_id else None,
+            trainer_granted=account.trainer_granted,
+            setup_route=account.setup_route,
+        )
+    return result
 
 
 def cookie(response: Response, name: str, value: str) -> None:
@@ -636,6 +648,15 @@ def attach(app: FastAPI, settings: Settings) -> None:
         auth, nonce = write(request)
         return issued(service(request).issue(auth, nonce, body.login_id, body.branch_id))
 
+    @router.post("/admin/account-lifecycle/lookup")
+    def lifecycle_lookup(request: Request, body: Lookup) -> dict[str, object]:
+        auth, nonce = write(request)
+        return account_json(service(request).lifecycle_read(auth, body.login_id, nonce))
+
+    @router.get("/admin/account-lifecycle/{ident}")
+    def lifecycle_get(request: Request, ident: UUID) -> dict[str, object]:
+        return account_json(service(request).lifecycle_read(read(request), ident))
+
     @router.post("/admin/accounts/lookup")
     def lookup(request: Request, body: Lookup) -> dict[str, object]:
         auth, nonce = write(request)
@@ -737,6 +758,18 @@ def attach(app: FastAPI, settings: Settings) -> None:
                 asdict(c) for c in service(request).trainer_candidates(read(request), offset, limit)
             ]
         }
+
+    @app.get("/account-lifecycle", response_class=HTMLResponse)
+    def lifecycle_page(request: Request) -> str:
+        caller, _ = service(request).principal(read(request))
+        if not caller.master:
+            raise Rejected(403, "forbidden")
+        return LIFECYCLE_PAGE
+
+    @app.get("/account-lifecycle.js")
+    def lifecycle_script(request: Request) -> Response:
+        read(request)
+        return Response(LIFECYCLE_SCRIPT, media_type="application/javascript")
 
     @app.get("/trainers", response_class=HTMLResponse)
     def trainers_page(request: Request) -> str:
@@ -908,7 +941,11 @@ const current=await fetch('/api/v1/auth/me');if(!current.ok)throw Error();
 const identity=await current.json();
 if(identity.roles.length===1&&identity.roles[0].role==='TRAINER'){
 location.href='/account';return;}
-out.textContent='로그인되었습니다.';}
+out.textContent='로그인되었습니다.';
+const old=document.getElementById('lifecycle-link');if(old)old.remove();
+if(identity.capabilities.includes('accounts:manage')){
+ const link=document.createElement('a');link.id='lifecycle-link';link.href='/account-lifecycle';
+ link.textContent='계정 관리';out.after(link);}}
 
 else{token=null;form.hidden=true;out.textContent='비밀번호가 설정되었습니다. 로그인해 주세요.';}
 }catch{out.textContent='처리하지 못했습니다. 입력 또는 설정 링크를 확인해 주세요.';}
@@ -1453,3 +1490,111 @@ $('new').disabled=false;
 }}init();
 })();
 """
+
+
+LIFECYCLE_PAGE = """<!doctype html><html lang="ko"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>계정 관리</title><link rel="stylesheet" href="/trainers.css">
+<h1>계정 관리</h1><form id="lookup" method="post" action="/account-lifecycle">
+<label>현재 로그인 ID <input id="identifier" required maxlength="64" autocomplete="off"></label>
+<button>정확히 일치하는 계정 조회</button></form>
+<p id="state"></p><button id="refresh" disabled>최신 상태 조회</button>
+<fieldset id="actions" disabled><legend>계정 변경</legend>
+<button id="disable">차단</button><button id="restore">복구</button>
+<label>새 로그인 ID <input id="new-id" maxlength="64"></label><button id="rename">ID 변경</button>
+<button id="setup">최초 설정 링크 별도 발급</button></fieldset>
+<p id="message" role="status"></p><output id="link"></output>
+<script src="/account-lifecycle.js"></script></html>"""
+
+
+LIFECYCLE_SCRIPT = r"""(()=>{
+'use strict';
+const el=id=>document.getElementById(id),base='/api/v1/admin/account-lifecycle/';
+let current=null,target=null,generation=0,writing=false;
+function display(account){
+ current=account;
+ el('link').textContent='';
+ el('actions').disabled=writing||!current;
+ el('refresh').disabled=writing||!target;
+ el('identifier').disabled=writing;
+ el('lookup').querySelector('button').disabled=writing;
+ const roles=[];
+ if(account?.admin_scope)
+  roles.push(account.admin_scope.kind==='ORGANIZATION'?'Master':'Branch Admin');
+ if(account?.trainer_granted)roles.push('Trainer');
+ el('state').textContent=account?[account.login_id,roles.join(' + ')||'현재 역할 없음',
+  account.state,
+  account.restore_state?'복구 시 '+account.restore_state:'',
+  account.state==='PENDING_SETUP'&&!account.setup_route?'현재 최초 설정 링크 발급 불가':''
+ ].filter(Boolean).join(' / '):'';
+ el('disable').disabled=!current||current.state==='DISABLED';
+ el('restore').disabled=!current||current.state!=='DISABLED';
+ el('setup').disabled=!current?.setup_route;
+}
+async function request(url,method,body){
+ const token=await fetch('/api/v1/auth/csrf',{headers:{'X-Y3-Client':'account-lifecycle'}});
+ if(!token.ok)throw Error();
+ return fetch(url,{method,headers:{'Content-Type':'application/json',
+ 'X-CSRF-Token':(await token.json()).csrf_token},body:JSON.stringify(body)});
+}
+async function read(id){
+ const response=await fetch(base+id);if(!response.ok)throw Error();
+ const row=await response.json();if(row.account_id!==id)throw Error();return row;
+}
+async function lookup(refresh){
+ if(writing)return;
+ const mine=++generation,id=target;
+ if(!refresh)target=null;
+ el('message').textContent='';display(null);
+ try{
+  let row;
+  if(refresh)row=await read(id);
+  else{
+   const response=await request(base+'lookup','POST',{login_id:el('identifier').value});
+   if(!response.ok)throw Error();row=await response.json();
+  }
+  if(mine!==generation)return;
+  target=row.account_id;display(row);
+ }catch{if(mine===generation)el('message').textContent='계정을 확인할 수 없습니다.';}
+}
+el('lookup').onsubmit=e=>{e.preventDefault();lookup(false);};
+el('identifier').oninput=()=>{generation++;target=null;display(null);el('message').textContent='';};
+el('refresh').onclick=()=>lookup(true);
+async function change(kind){
+ if(writing||!current)return;
+ const before=current,id=before.account_id,mine=++generation;
+ writing=true;display(before);el('message').textContent='';
+ let next=null,secret='',message='';
+ try{
+  const setup=kind==='setup',trainer=setup&&before.setup_route.endsWith('/initial-setup');
+  const body=trainer?{operation_id:crypto.randomUUID(),expected_account_version:before.version}:
+   {expected_version:before.version};
+  if(kind==='status')body.status='DISABLED';
+  if(kind==='login-id')body.login_id=el('new-id').value;
+  const response=await request(setup?before.setup_route:'/api/v1/admin/accounts/'+id+'/'+kind,
+   setup||kind==='restore'?'POST':'PATCH',body);
+  if(!response.ok){
+   message=response.status===409?'최신 상태를 확인한 뒤 다시 선택해 주세요.':
+    '요청 결과를 확인할 수 없습니다. 현재 상태를 확인해 주세요.';
+   next=await read(id);
+  }else{
+   const applied=await response.json();
+   next=await read(id);
+   const version=trainer?applied.operation.committed_account_version:applied.version;
+   if(setup&&next.version===version&&next.setup_route===before.setup_route)
+    secret=applied.setup_link||'';
+   message=secret?'최초 설정 링크가 발급되었습니다.':'현재 계정 상태를 확인해 주세요.';
+  }
+ }catch{
+  message='요청 결과를 확인할 수 없습니다. 현재 상태를 확인해 주세요.';
+  try{next=await read(id);}catch{next=null;}
+ }finally{
+  if(mine===generation){
+   writing=false;display(next);el('message').textContent=message;el('link').textContent=secret;
+  }
+ }
+}
+for(const [id,action] of [['disable','status'],['restore','restore'],['rename','login-id'],
+ ['setup','setup']])el(id).onclick=()=>change(action);
+window.addEventListener('pagehide',()=>{generation++;writing=false;target=null;display(null);});
+})();"""

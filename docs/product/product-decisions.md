@@ -1,5 +1,28 @@
 # Product Decisions — 승인 반영
 
+<a id="review-20261105-account-lifecycle"></a>
+## 2026-11-05 승인 — 설정 대기 계정 차단·복구와 Login ID 변경 상태
+
+직전 두 질문: (1) 같은 Organization Master의 PENDING_SETUP 차단을 허용하고 복구는
+PENDING_SETUP으로 돌아가며 옛 링크를 살리지 않고 명시적으로 새 최초 설정 링크를 발급할 것인가,
+(2) Master의 Login ID 변경을 ACTIVE/PENDING_SETUP/DISABLED 모두에 허용하고 상태·기존 비밀번호·역할/Scope를 보존할 것인가.
+사용자 답변: “ㅇㅇ 전부 1번”. 아래 두 선택만 승인했으며 구현·migration·인수 완료 선언은 아니다.
+
+| ID | 승인 정책 | 유지 경계 |
+| --- | --- | --- |
+| LC-1 | 같은 Organization의 Master는 최초 비밀번호 설정 전 계정도 차단할 수 있다. 설정 대기에서 차단한 계정의 복구는 설정 대기로 돌아간다. | 차단 전 링크/기존 로그인은 부활하지 않는다. 새 링크는 기존 목적별 권한·상태 조건을 만족할 때 별도로 명시 재발급한다. 설정 완료 계정의 E6 복구는 유효 기존 비밀번호와 reset 대기 상태를 보존한다. |
+| LC-2 | 같은 Organization의 Master는 ACTIVE/PENDING_SETUP/DISABLED 계정의 Login ID를 변경할 수 있다. | 계정 UUID·상태·복구 대상 상태·기존 비밀번호/reset 대기·역할/Scope·Trainer 연결과 업무 이력을 유지한다. 실제 변경은 전 로그인/옛 설정·복구 입력을 철회하며 옛 ID 예약·C2 동일 계정 제한을 유지한다. 정규화 동일 ID는 기존 no-op 규칙을 유지한다. |
+
+A8/C6의 Master 전용 전체 계정 관리, 본인 관리자 변경 우회 금지·마지막 사용 가능 Master 보호와
+현재 조직 인가/감사/동시성 조건은 유지한다. 현재 구현된 Master·Branch Admin·Trainer·겸임과
+동일 Trainer 연결의 역할 회수 계정에 적용하며, 복구만으로 역할·Trainer 활성/Home Branch를 되살리지 않는다.
+Branch Admin에게 전체 계정 관리 권한을 부여하거나 Operator/Member 기능을 새로 구현하는 승인은 아니다.
+I1/I2 최초 설정·동일인 연결·역할 부여/회수 조건은 그대로다. 비활성 Trainer/무역할 계정의 복구는
+로그인 또는 최초 설정 자격의 자동 복원을 뜻하지 않는다.
+
+ARCH-002 전체나 다른 업무/운영 OPEN을 닫지 않는다. 전체22 OPEN/8 CLOSED·PD1 OPEN/26 CLOSED와
+전역 모듈 PROPOSED는 유지한다. 아래 2026-10-31 당시의 두 질문 보류는 이 두 선택에 한해 대체됐다.
+
 <a id="review-20261031-password-only"></a>
 ## 2026-10-31 승인 — Passkey 완전 제거와 아이디·비밀번호 로그인
 

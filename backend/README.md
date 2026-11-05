@@ -326,7 +326,8 @@ IAM을 켤 때 `Y3_IAM_MODE=password`를 명시한다. 과거 `s1_password`/`mfa
 정책은 [IAM-014](../docs/architecture/iam-014-password-only-design.md), 전환·보존 계약은
 [상세 계약](../docs/architecture/iam-014-password-only-transition.md)을 따른다.
 
-새 전용 빈 DB에는 기존 명시 migration 절차로 `0014_password_only`까지 적용한다.
+새 전용 빈 DB에는 기존 명시 migration 절차로 `0015_account_lifecycle`까지 적용한다.
+현재 runtime은 정확한 0015와 기존 0014 대상 policy 2 전이를 함께 확인한다.
 기존 DB 전환은 별도 승인·유지보수 작업이다. 구 앱·CLI·GC를 중지하고 원본 backup과
 대상을 확인한 뒤 같은 ProcessGuard를 획득한다. 자동 원본 DB 전환이나 프로세스 종료는 없다.
 앱/CLI와 각 UoW는 revision·설치 정책 marker 일치를 검사하며 구 source/session은 소비하지 않는다.

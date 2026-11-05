@@ -6,7 +6,12 @@ import sys
 from uuid import UUID, uuid4
 
 import pytest
+from alembic.config import Config
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
+from alembic.script import ScriptDirectory
 from sqlalchemy import text
+from sqlalchemy.engine import Connection
 
 from tests.test_iam import child_env
 from tests.test_password_transition import legacy_database as legacy_database
@@ -54,13 +59,26 @@ def legacy_master(
     return settings, db
 
 
+def prepare_password_guard(connection: Connection) -> None:
+    """Walk to the actual 0014 shape inside the caller's rollback-only transaction."""
+    context = MigrationContext.configure(connection)
+    current = context.get_current_revision()
+    if current == "0014_password_only":
+        return
+    assert current == "0015_account_lifecycle"
+    scripts = ScriptDirectory.from_config(Config("alembic.ini"))
+    script = scripts.get_revision(current)
+    assert script is not None
+    with Operations.context(context):
+        script.module.downgrade()
+        context.stamp(scripts, "0014_password_only")
+
+
 def assert_revision_loss_guard(db: Database, filename: str, expected: str) -> None:
     """Prove the DDL function reaches its specific DB guard, not a process/config rejection."""
     import importlib.util
     from pathlib import Path
 
-    from alembic.migration import MigrationContext
-    from alembic.operations import Operations
     from sqlalchemy.exc import DBAPIError
 
     spec = importlib.util.spec_from_file_location(
@@ -72,6 +90,8 @@ def assert_revision_loss_guard(db: Database, filename: str, expected: str) -> No
     with db.engine.connect() as connection:
         transaction = connection.begin()
         try:
+            if filename == "0014_password_only.py":
+                prepare_password_guard(connection)
             with pytest.raises((ValueError, DBAPIError), match=expected):
                 with Operations.context(MigrationContext.configure(connection)):
                     module.downgrade()
@@ -99,9 +119,6 @@ def password_downgrade_guard(db: Database, application_name: str) -> str:
     import importlib.util
     from pathlib import Path
 
-    from alembic.migration import MigrationContext
-    from alembic.operations import Operations
-
     spec = importlib.util.spec_from_file_location(
         "owned_password_loss_guard", Path("alembic/versions/0014_password_only.py")
     )
@@ -114,6 +131,7 @@ def password_downgrade_guard(db: Database, application_name: str) -> str:
             connection.execute(
                 text("SELECT set_config('application_name',:n,true)"), {"n": application_name}
             )
+            prepare_password_guard(connection)
             with Operations.context(MigrationContext.configure(connection)):
                 with pytest.raises(
                     ValueError, match="PASSWORD_DOWNGRADE_REQUIRES_GLOBAL_EMPTY"

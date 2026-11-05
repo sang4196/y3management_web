@@ -1,5 +1,10 @@
 # Trainer Payment Business Rules
 
+2026-11-05 계정 상태/ID 규칙은 [LC-1/LC-2](product-decisions.md#review-20261105-account-lifecycle)를 따른다.
+설정 전 차단의 복구는 설정 대기이며 옛 링크는 무효다. 실제 Login ID 변경은 세 상태 모두 허용하되
+계정·비밀번호/reset 상태·역할/Scope·Trainer 업무 사실을 유지하고 이전 인증 입력을 철회한다.
+A8/C6/E6/I1/I2의 인가·명시 재발급·역할/업무 독립성과 보상 규칙은 바꾸지 않는다.
+
 2026-10-31 인증수단은 [PW-1–PW-6](product-decisions.md#review-20261031-password-only)에 따라 모든 지원 Actor/겸임의
 아이디·비밀번호로 통일한다. 현재 권한·조직/Branch Scope/Trainer 상태와 보상/업무 규칙은 그대로다.
 추가 MFA/Passkey 유무를 관리자 권한 조건으로 쓰지 않으며 C1/C3/A8/C5/A9 및 비상 암호 복구는 유지한다.

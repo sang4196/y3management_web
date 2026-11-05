@@ -48,10 +48,9 @@ def test_target_guards_and_existing_branch_routes(
             pending = call(
                 first, "/admin/master-accounts", csrf(first), {"login_id": "pending.master"}
             ).json()
-            assert (
-                command(first, pending["account_id"], operation, pending["version"]).status_code
-                == 409
-            )
+            assert command(
+                first, pending["account_id"], operation, pending["version"]
+            ).status_code == (409 if operation == "restore" else 200)
             branch = call(first, "/admin/branches", csrf(first), {"code": "A", "name": "A"}).json()
             issued = call(
                 first,
@@ -63,7 +62,7 @@ def test_target_guards_and_existing_branch_routes(
                 command(first, issued["account_id"], operation, issued["version"]).status_code
                 == 404
             )
-            # Existing BA routes must continue rejecting a real Master target.
+            # General lifecycle routes support another Master under the same protections.
             body = {"expected_version": state(first, ident)["version"]}
             if operation == "status":
                 body["status"] = "DISABLED"
@@ -75,7 +74,7 @@ def test_target_guards_and_existing_branch_routes(
                 headers={"Origin": ORIGIN, "X-CSRF-Token": csrf(first)},
                 json=body,
             )
-            assert response.status_code == 404
+            assert response.status_code == (409 if operation == "restore" else 200)
             # A genuinely provisioned Branch Admin is authenticated but not authorized.
             with closing(TestClient(first.app, base_url=ORIGIN)) as branch_actor:
                 activate(branch_actor, link_token(issued["setup_link"]), password)
@@ -305,4 +304,8 @@ def test_dto_collision_and_minimal_response(password_app: tuple[Settings, Databa
                 "state",
                 "version",
                 "admin_scope",
+                "restore_state",
+                "trainer_id",
+                "trainer_granted",
+                "setup_route",
             }

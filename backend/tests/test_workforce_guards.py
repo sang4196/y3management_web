@@ -229,7 +229,8 @@ def test_actor_revocation_order(
             s.execute(
                 text(
                     "UPDATE iam_accounts SET "
-                    "state='DISABLED',security_version=security_version+1 WHERE "
+                    "restore_state=state,state='DISABLED',"
+                    "security_version=security_version+1 WHERE "
                     "login_id='master.test'"
                 )
             )

@@ -189,13 +189,17 @@ def test_rename_denials_and_noop_preserve_facts(world: World, case: str) -> None
     )
     expected = (
         200
-        if case == "noop"
+        if case in ("noop", "disabled", "pending")
         else 403
         if case in ("csrf", "branch")
         else (404 if case in ("master", "missing", "foreign") else 409)
     )
     expect(response, expected)
-    assert facts(world.db) == before
+    if case in ("disabled", "pending"):
+        assert response.json()["version"] == version + 1
+        assert response.json()["state"] == ("DISABLED" if case == "disabled" else "PENDING_SETUP")
+    else:
+        assert facts(world.db) == before
 
 
 @pytest.mark.parametrize("case", ["audit", "ack"])

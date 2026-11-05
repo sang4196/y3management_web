@@ -97,6 +97,7 @@ def prepare(
         "issue",
         "reissue",
         "change",
+        "pending_disable",
         "scope",
         "restore",
         "login_id",
@@ -132,7 +133,7 @@ def prepare(
             assert issued.status_code == 201
             ident = issued.json()["account_id"]
             version = 1
-            if operation != "reissue":
+            if operation not in ("reissue", "pending_disable"):
                 target.cookies.clear()
                 activate(target, link_token(issued.json()["setup_link"]), password)
                 login_password(target, password, "clock.branch")
@@ -420,7 +421,7 @@ def test_c3_final_check_rejects_unexpected_self_changes(
             assert business_fingerprint(db) == before
 
 
-@pytest.mark.parametrize("operation", ["c3", "branch"])
+@pytest.mark.parametrize("operation", ["c3", "branch", "pending_disable"])
 @pytest.mark.parametrize("clock", ["idle", "absolute"])
 def test_independent_audit_lock_crosses_original_deadline(
     password_app: tuple[Settings, Database, str],

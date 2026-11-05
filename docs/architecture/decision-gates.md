@@ -1,4 +1,14 @@
-# 2026-11-05 IAM-014 현재 게이트
+# 2026-11-05 IAM-015 현재 게이트
+
+[LC-1/LC-2](../product/product-decisions.md#review-20261105-account-lifecycle)로 설정 대기 차단/복구 및
+세 상태 ID 변경의 사용자 게이트를 해소했다. 다시 묻지 않는다.
+[제한 계약](iam-015-account-lifecycle-design.md)의 독립 진입·구현·동결·실행·설계자 로컬 인수를 마쳤다.
+[결과](iam-015-account-lifecycle-results.md)/[근거](iam-015-account-lifecycle-review.json)의 새fast197,
+동등성 승인 분할PG311(293+18) 및R1실제native67을 따른다. 초기실패1을 최종전체성공으로 바꾸지 않는다.
+Master 전용/본인·마지막 Master 보호·기존 암호/reset 대기·C2·I1/I2·역할/업무 독립은 유지한다.
+다른22 OPEN/8 CLOSED 및 운영/전체 모듈 PROPOSED를 닫지 않는다. 아래는 앞선 증분의 당시 기록이다.
+
+# 2026-11-05 IAM-014 게이트 이력
 
 [PW-1–PW-6](../product/product-decisions.md#review-20261031-password-only)/
 [ADR-0005](../decisions/0005-password-only-authentication.md)의 password-only 방향을 구현했고,

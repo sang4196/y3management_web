@@ -17,7 +17,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
 
-from tests.legacy_helpers import legacy_database  # noqa: F401
+from tests.legacy_helpers import legacy_database, password_downgrade_guard  # noqa: F401
 from tests.password_helpers import call, password_app  # noqa: F401
 from tests.test_iam import ORIGIN, SyntheticSecret, csrf
 from tests.test_iam_trainer import TrainerScene, source, trainer  # noqa: F401
@@ -390,40 +390,12 @@ def test_downgrade_waits_for_actual_state_writer_and_preserves_history(
     monkeypatch.setattr(Audit, "append_trainer_state", pause)
     appname = "state-downgrade-" + uuid4().hex
 
-    def downgrade() -> str:
-        import importlib.util
-        from pathlib import Path
-
-        from alembic.migration import MigrationContext
-        from alembic.operations import Operations
-
-        spec = importlib.util.spec_from_file_location(
-            "owned_loss_guard", Path("alembic/versions/0014_password_only.py")
-        )
-        assert spec and spec.loader
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        with t.base.db.engine.connect() as connection:
-            transaction = connection.begin()
-            try:
-                connection.execute(
-                    text("SELECT set_config('application_name',:n,true)"), {"n": appname}
-                )
-                with Operations.context(MigrationContext.configure(connection)):
-                    with pytest.raises(
-                        ValueError, match="PASSWORD_DOWNGRADE_REQUIRES_GLOBAL_EMPTY"
-                    ) as error:
-                        module.downgrade()
-                    return str(error.value)
-            finally:
-                transaction.rollback()
-
     with ThreadPoolExecutor(max_workers=2) as pool:
         changing = pool.submit(change, t, payload)
         migration = None
         try:
             assert reached.wait(5)
-            migration = pool.submit(downgrade)
+            migration = pool.submit(password_downgrade_guard, t.base.db, appname)
             waiter = None
             deadline = time.monotonic() + 5
             while time.monotonic() < deadline and not migration.done():
@@ -457,7 +429,7 @@ def test_downgrade_waits_for_actual_state_writer_and_preserves_history(
             with t.base.db.session() as reader:
                 assert (
                     reader.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                    == "0014_password_only"
+                    == "0015_account_lifecycle"
                 )
                 assert (
                     reader.execute(text("SELECT active FROM workforce_trainers")).scalar_one()

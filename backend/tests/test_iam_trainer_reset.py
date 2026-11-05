@@ -125,7 +125,7 @@ def test_pending_disabled_self_and_mfa_boundaries(trainer: TrainerScene) -> None
         s.execute(
             text(
                 "UPDATE iam_accounts SET "
-                "state='DISABLED',row_version=row_version+1,security_version=security_v"
+                "restore_state=state,state='DISABLED',row_version=row_version+1,security_version=security_v"
                 "ersion+1 WHERE id=:a"
             ),
             {"a": ident},

@@ -90,7 +90,8 @@ def test_branch_scope_and_revocation(
         with scene.db.session() as s:
             s.execute(
                 text(
-                    "UPDATE iam_accounts SET state='DISABLED',security_version=security_version+1 "
+                    "UPDATE iam_accounts SET restore_state=state,state='DISABLED',"
+                    "security_version=security_version+1 "
                     "WHERE login_id='workforce.branch'"
                 )
             )

@@ -247,7 +247,10 @@ def test_pending_scope_and_target_state(scene: Scene) -> None:
         db.commit()
     assert scene.send(scene.body()).status_code == 409
     with scene.db.session() as db:
-        db.execute(text("UPDATE iam_accounts SET state='DISABLED' WHERE id=:a"), {"a": scene.ident})
+        db.execute(
+            text("UPDATE iam_accounts SET restore_state=state,state='DISABLED' WHERE id=:a"),
+            {"a": scene.ident},
+        )
         db.commit()
     assert scene.send(body).status_code == 409
 

@@ -91,7 +91,7 @@ def test_roleless_real_uv_session_audience_and_validity(
                 "UPDATE iam_accounts SET password_reset_pending=true,password_hash=NULL,"
                 "reset_generation=reset_generation+1 WHERE id=:a"
             ),
-            "disabled": "UPDATE iam_accounts SET state='DISABLED' WHERE id=:a",
+            "disabled": "UPDATE iam_accounts SET restore_state=state,state='DISABLED' WHERE id=:a",
         }
         with db.session() as session:
             if invalid in ("weak", "key"):

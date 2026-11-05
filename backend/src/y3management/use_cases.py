@@ -27,6 +27,7 @@ from y3management.iam.public import (
     HandoffRequest,
     HandoffState,
     IdentityTransition,
+    LifecycleAccount,
     OperatingRecoveryAuthority,
     Preparation,
     Reservation,
@@ -386,6 +387,10 @@ class Service:
         *,
         disable: bool = False,
     ) -> Account:
+        if disable:
+            return self.lifecycle_change(auth, nonce, ident, version, "account_disable")
+        if branch is None:
+            raise Rejected(422, "invalid_request")
         with self.uow.open() as w:
             a = w.iam.authenticate(auth, management=True, target=ident, touch=False)
             w.iam.csrf(a, nonce)
@@ -394,42 +399,59 @@ class Service:
             if before.version != version:
                 raise Rejected(409, "conflict")
             w.iam.lock_credentials(ident)
-            if not disable:
-                if branch is None:
-                    raise Rejected(422, "invalid_request")
-                w.organization.require_branch(a.caller, branch)
-            after = w.iam.change(before, branch, disable)
+            w.organization.require_branch(a.caller, branch)
+            after = w.iam.change_scope(before, branch)
             if after.version != before.version:
-                w.audit.append(
-                    event(
-                        "account_disable" if disable else "scope_change",
-                        a.caller,
-                        ident,
-                        before,
-                        after,
-                    )
-                )
+                w.audit.append(event("scope_change", a.caller, ident, before, after))
             w.roles.confirm_actor(actor_snapshot, self_change=False, touch=True)
             return after
+
+    def _lifecycle_view(self, w: Work, caller: Caller, ident: UUID) -> LifecycleAccount:
+        roles = w.iam.lifecycle_target(caller, ident)
+        account = roles.account
+        trainer = roles.binding.trainer_id if roles.binding else None
+        fact = self._trainer_scope(w, caller, trainer) if trainer else None
+        route = None
+        if account.state == "PENDING_SETUP":
+            if roles.admin:
+                resource = "master-accounts" if account.master else "accounts"
+                route = f"/api/v1/admin/{resource}/{ident}/activation"
+            elif fact and fact.active and roles.trainer_granted:
+                route = f"/api/v1/admin/trainers/{trainer}/initial-setup"
+        return LifecycleAccount(
+            **asdict(account),
+            trainer_id=trainer,
+            trainer_granted=roles.trainer_granted,
+            setup_route=route,
+        )
+
+    def lifecycle_read(
+        self, auth: str | None, target: UUID | str, nonce: str | None = None
+    ) -> LifecycleAccount:
+        identifier = normalize_login(target) if isinstance(target, str) else None
+        if isinstance(target, str):
+            with self.uow.open() as w:
+                actor = w.iam.authenticate(auth, touch=False)
+                w.iam.csrf(actor, nonce)
+                assert identifier is not None
+                ident = w.iam.lifecycle_id(actor.caller, identifier)
+        else:
+            ident = target
+        with self.uow.open() as w:
+            actor = w.iam.authenticate(auth, management=True, target=ident, touch=False)
+            if identifier is not None:
+                w.iam.csrf(actor, nonce)
+            snapshot = w.roles.snapshot(actor)
+            result = self._lifecycle_view(w, actor.caller, ident)
+            if identifier is not None and identifier != result.login_id:
+                raise Rejected(404, "not_found")
+            w.roles.confirm_actor(snapshot, self_change=False, touch=True)
+            return result
 
     def change_login_id(
         self, auth: str | None, nonce: str | None, ident: UUID, version: int, identifier: str
     ) -> Account:
-        identifier = normalize_login(identifier)
-        with self.uow.open() as w:
-            a = w.iam.authenticate(auth, management=True, target=ident, touch=False)
-            w.iam.csrf(a, nonce)
-            actor_snapshot = w.roles.snapshot(a)
-            before = w.iam.scoped_account(a.caller, ident)
-            if before.version != version:
-                raise Rejected(409, "conflict")
-            after = w.iam.change_login_id(before, identifier)
-            if after.version != before.version:
-                w.audit.append(event("login_id_change", a.caller, ident, before, after))
-            w.roles.confirm_actor(
-                actor_snapshot, self_change=False, touch=after.version != before.version
-            )
-            return after
+        return self.lifecycle_change(auth, nonce, ident, version, "login_id_change", identifier)
 
     def manage_master(
         self,
@@ -440,31 +462,52 @@ class Service:
         action: Literal["account_disable", "account_restore", "login_id_change"],
         identifier: str | None = None,
     ) -> Account:
+        return self.lifecycle_change(
+            auth, nonce, ident, version, action, identifier, master_only=True
+        )
+
+    def lifecycle_change(
+        self,
+        auth: str | None,
+        nonce: str | None,
+        ident: UUID,
+        version: int,
+        action: Literal["account_disable", "account_restore", "login_id_change"],
+        identifier: str | None = None,
+        *,
+        master_only: bool = False,
+    ) -> LifecycleAccount:
         if action == "login_id_change":
             identifier = normalize_login(identifier or "")
         with self.uow.open() as w:
             actor = w.iam.authenticate(auth, management=True, target=ident, touch=False)
             w.iam.csrf(actor, nonce)
-            actor_snapshot = w.roles.snapshot(actor)
-            before = w.iam.master_management(actor.caller, ident)
+            snapshot = w.roles.snapshot(actor)
+            if master_only:
+                w.iam.master_management(actor.caller, ident)
+            w.iam.require_master(actor.caller)
+            w.roles.lock(ident)
+            before = self._lifecycle_view(w, actor.caller, ident)
             if before.version != version:
                 raise Rejected(409, "conflict")
             if action == "login_id_change":
                 assert identifier is not None
                 after = w.iam.change_login_id(before, identifier)
             elif action == "account_disable":
-                after = w.iam.change(before, None, True)
+                after = w.iam.disable(before)
             else:
-                w.iam.lock_credentials(ident)
                 after = w.iam.restore(before)
-            if after.version != before.version:
-                w.iam.revoke_management_sources(ident)
+            changed = after.version != before.version
+            result = before
+            if changed:
+                w.iam.revoke_lifecycle_sources(ident)
+                expected = self._lifecycle_view(w, actor.caller, ident)
                 w.audit.append(event(action, actor.caller, ident, before, after))
-                w.iam.master_management(actor.caller, ident)
-            w.roles.confirm_actor(
-                actor_snapshot, self_change=False, touch=after.version != before.version
-            )
-            return after
+                result = self._lifecycle_view(w, actor.caller, ident)
+                if result != expected:
+                    raise Rejected(409, "conflict")
+            w.roles.confirm_actor(snapshot, self_change=False, touch=changed)
+            return result
 
     def change_password(
         self, auth: str | None, nonce: str | None, current_password: str, new_password: str
@@ -497,18 +540,7 @@ class Service:
                 w.iam.confirm_password_change(password_actor)
 
     def restore(self, auth: str | None, nonce: str | None, ident: UUID, version: int) -> Account:
-        with self.uow.open() as w:
-            authentication = w.iam.authenticate(auth, management=True, target=ident, touch=False)
-            w.iam.csrf(authentication, nonce)
-            actor_snapshot = w.roles.snapshot(authentication)
-            before = w.iam.scoped_account(authentication.caller, ident)
-            if before.version != version:
-                raise Rejected(409, "conflict")
-            w.iam.lock_credentials(ident)
-            after = w.iam.restore(before)
-            w.audit.append(event("account_restore", authentication.caller, ident, before, after))
-            w.roles.confirm_actor(actor_snapshot, self_change=False, touch=True)
-            return after
+        return self.lifecycle_change(auth, nonce, ident, version, "account_restore")
 
     def logout(self, auth: str | None, preauth: str | None, nonce: str | None) -> None:
         try:

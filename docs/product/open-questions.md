@@ -1,10 +1,15 @@
 # Open Questions / 후속 TODO
 
+2026-11-05 ARCH-002 부분 해결: [LC-1/LC-2](product-decisions.md#review-20261105-account-lifecycle) 모두1 승인으로
+PENDING_SETUP 차단→설정 대기 복구와 세 상태 Login ID 변경을 확정했다. 아래 2026-10-31의 두 질문 보류는
+이 범위에서 대체됐으며 재질문하지 않는다. 기존 Master 전용·동일인/역할/업무 독립·명시 재발급·철회와
+금액/다른 권한/운영 게이트는 유지한다. 구현·저장·경합·독립 인수는 후속이며22 OPEN/8 CLOSED는 그대로다.
+
 2026-10-31 ARCH-001/002/004의 인증수단 부분은 [PW-1–PW-6](product-decisions.md#review-20261031-password-only)로 대체됐다.
 Passkey 완전 제거·모든 지원 v1 Actor의 아이디/비밀번호 로그인이 현재 승인 방향이다. 운영 MFA 의무·Passkey
 등록/관리/분실 방식을 다시 질문하지 않는다. ARCH-002는 계정/단회 자격/기존 원본·감사·암호 비상복구와 전환/경합,
 ARCH-004는 운영 품질/배포·브라우저 등 잔여 검증 때문에 OPEN을 유지한다. 현재 코드에는 이전 MFA가 남아 있다.
-미답변인 PENDING_SETUP 차단/복구와 Login ID 허용 상태 두 선택은 별도 보류하며 이번 승인으로 해소하지 않는다.
+당시 미답변이던 PENDING_SETUP 차단/복구와 Login ID 허용 상태는 2026-11-05 LC-1/LC-2로 별도 승인됐다.
 아래 과거 날짜별 MFA 조건과 정책 후보는 대체 범위에서 역사적 참고다. 전체22 OPEN/8 CLOSED·PD1 OPEN/26 CLOSED를 유지한다.
 
 2026-10-20 ARCH-002/F03 인계 경로 부분 해결: [R4=1](product-decisions.md#review-20261020-ab5-r4)로,

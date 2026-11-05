@@ -1,0 +1,2377 @@
+{
+  "schema_version": 1,
+  "increment": "IAM-015",
+  "status": "DESIGNER_LOCAL_ACCEPTANCE_PASS_APPROVED_DISJOINT_SPLIT",
+  "at_utc": "2026-11-05T05:18:27.230588+00:00",
+  "tested_parent": "af9de549a5511eae28e66ba092c84cd98d2c8ef5",
+  "branch": "codex/iam-account-lifecycle",
+  "product": [
+    "LC-1",
+    "LC-2"
+  ],
+  "approved_contract_at_test_sha256": "1481158f6205030574f327b0d2e56c2909275f789bd0a482bcf0e60c76314d5b",
+  "backend": {
+    "file_count": 176,
+    "sha256": "442df0969ccfea0fcf00879ceffe90577e068f75cb1aacab1001854e7cd922ba",
+    "manifest_rule": "Sorted path UTF8 + NUL + ASCII content SHA256 hex + LF; all nonignored backend files.",
+    "files": {
+      "backend/.env.example": "63b8064cf6d44c8258b788107786643b52e7eb16aa3229418bdb243c8e54180e",
+      "backend/.python-version": "861b3dd8083d28f336ef70f6755bc399538ddad627b1d095820ca34cb953cf14",
+      "backend/README.md": "c222d1a5024d7272bab22e8d05f4a0c6f434c6f3e75e4103a84c1f483c5a1f9a",
+      "backend/alembic.ini": "c8dff3ed8c5474c2959696e1460714e7dbef8a5e982050a9fb177e08cedf53b3",
+      "backend/alembic/env.py": "09b623c13c8a9dd6de9d4caf2bb52d4e87a15cf675f87c0b80a0b22a66a85ac3",
+      "backend/alembic/script.py.mako": "67042994cfc495007c508ccae15e44d21057d90222461630f9bc04d3657f5f6d",
+      "backend/alembic/versions/.gitkeep": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "backend/alembic/versions/0001_iam_s1.py": "b3d402d8c2b48873f88a693429b5cc92f5a295d9681871d5ad799c178033ad1f",
+      "backend/alembic/versions/0002_iam_restore.py": "4322aa7d7a10ea56915927c3efe91c36f771741aaf92e5770a6fe2d8b0a7a5d1",
+      "backend/alembic/versions/0003_iam_password.py": "f207d7f0938e17713f78d7e46cbd806137d5e1c488ae6a6dd5f5c7c4ec90762a",
+      "backend/alembic/versions/0004_iam_login_id.py": "07144bab1120b2d9a5f00ec4a2d40e3fb218b0c5b202c742051df25f454e3937",
+      "backend/alembic/versions/0005_iam_mfa.py": "52950c64e4011ff72f4a542c4c9b50d5dfa81579087ab1bf16c987a739b59a2b",
+      "backend/alembic/versions/0006_iam_mfa_management.py": "2534c339c4be0cbcda8306ee0c719b0aa8a51cd3c88a81ff36b21cbc9b7c5f42",
+      "backend/alembic/versions/0007_iam_password_reset.py": "10d17079e948a047ed978b1258a3cae3feb7b085ca7da2ee5da3f26aa718ffd4",
+      "backend/alembic/versions/0008_iam_emergency_recovery.py": "5a74acb38eb400a538327ea1ae5f4cbb20447d3b7eeff7eb65b65b58c7c81729",
+      "backend/alembic/versions/0009_iam_emergency_handoff.py": "3b8b459fdb050a2c27b9cc03d37628c3d8866d7c1f61cd2bed31c9d7991d6061",
+      "backend/alembic/versions/0010_workforce_initial_registration.py": "84afd92af6608aef01c30909058aabec454c0fc6d32587df302c0e435de645c6",
+      "backend/alembic/versions/0011_iam_trainer_login.py": "d3276fd7fd34705a1da37a391735eb48e8fea3883ad2d30ba1701eb9f4ea6216",
+      "backend/alembic/versions/0012_iam_trainer_roles.py": "684a26a4f4dbe5ad14049ef0e35204241ec7dae8930227e7386b8f53cf466830",
+      "backend/alembic/versions/0013_workforce_trainer_state.py": "d5bfc9e19a5288bc0e9d951dd146dba5fdff31bb258b9f4f81b575ed46e2da25",
+      "backend/alembic/versions/0014_password_only.py": "c8909b77448ace6409baf5f8d7741850d90a9795f02e6c0bc7928b016f1bac81",
+      "backend/alembic/versions/0015_account_lifecycle.py": "1e1c3af8281a07c1c4b3e93762ce16fe85dc08ff46ad1569933b2a73f9e2a89c",
+      "backend/check.ps1": "abb1d8216d924c10a68e24bb73ad61eaf743d1a6ef2f68d64ff0ee6853ee5b4c",
+      "backend/check.sh": "913aca1b14811d52295d6145924464990665689158368d3024e4a769ac8e4b44",
+      "backend/compose.yaml": "057759a9125dc93d4b8b7a3e31dcee9fdbc338cec814ae76eff2b31ab63725e4",
+      "backend/logging.json": "7fe0601cf723ffd729ee970482bc5e6395a0358c64aea60f42f634e9acd2dfcf",
+      "backend/pyproject.toml": "56f44ce34fcebd8f2eb16d19f1c319d7053acf65c23247a4c0449a6f0db9b05a",
+      "backend/src/y3management/__init__.py": "8cbacc38f76fad94d97347b932b70ae2a7e917e1c382faa1136ba1ee781665c8",
+      "backend/src/y3management/application.py": "e7f94b7acfe0160a5edf265d448f7eca86cc6aec663fd0092511dce1956944ef",
+      "backend/src/y3management/audit/__init__.py": "447d8ce612052ba9911099dbd8b29fcc0bf649c190efa7e89c1c478c7de42996",
+      "backend/src/y3management/audit/infrastructure.py": "aa0c8d15065ad53662a6d92f99660b8c52699dacccfa341997b99ab9f665b334",
+      "backend/src/y3management/audit/public.py": "d95a44e629c716e10dde1b1b1bab85328274679b3d5e7a14cb70e64ffe5216b6",
+      "backend/src/y3management/cli.py": "829006627ffe32dbd4a0cdcbccf17171d3c2357f60941a72fde4832577877935",
+      "backend/src/y3management/config.py": "c94ab15342d1b479c4a5c4e6e309ab2e1862a22dbd8185a92d09fc481c4796d4",
+      "backend/src/y3management/contracts.py": "b6fb628c7332c26d1ffc04f72f62b40adc65458b49e5e3144b7fe383e991b5a0",
+      "backend/src/y3management/database.py": "c502567c5025cd527efdaebd3a7c278ed8505507ab19570ea89c8feb0047bb33",
+      "backend/src/y3management/http.py": "e372aa96ce5b59413fb0552ef185d2d7f54db8cd7be471840ab9399cb01d651a",
+      "backend/src/y3management/iam/__init__.py": "447d8ce612052ba9911099dbd8b29fcc0bf649c190efa7e89c1c478c7de42996",
+      "backend/src/y3management/iam/data/LANGUAGE-SOURCES.md": "cc1f825fdaea0f26833093acef223157751dcf8ab17c90b37dbe54df5addacab",
+      "backend/src/y3management/iam/data/SECLISTS-LICENSE": "3dbdc93d5f8829de0941744841730a09c106d0732e5ae0e98ca1d77be7ded66c",
+      "backend/src/y3management/iam/data/SOURCE-README.md": "49b7d00632c09b24bfa7c21bace2164b72815f0e50344604dd63ed66db2dbd37",
+      "backend/src/y3management/iam/data/artifact-manifest.json": "770d4b7aa4d5f75744d5e9b0e8036ad1964ea6747f4768eac490f4cedf95e445",
+      "backend/src/y3management/iam/data/blocked-sha256.txt": "0e44ccea3096de7725f495080d1e8b4e624e7ba794d1dff133905c2f38f5bfae",
+      "backend/src/y3management/iam/data/public-example-provenance.json": "d04107b4e645f128effc550835df4cb96c54d72145ffc59f8e6c4462d143a368",
+      "backend/src/y3management/iam/data/seeds.txt": "d674c8719634c9ea2dc88990833ada6884789c0e447edddac067e67398c9bc90",
+      "backend/src/y3management/iam/data/source-manifest.json": "a3d9e0db191b0c9070957b6459e4a5cedec6b8926419225c6a718fe910ad4eaf",
+      "backend/src/y3management/iam/emergency.py": "80c159b8228225d8461ae831353666cfd626466c6aac6a20e818fb66d3b7eae7",
+      "backend/src/y3management/iam/handoff.py": "6289649c5d1fb10deb29d6f6f6ec991276b051f597565acbd3d22c0e30cab7ef",
+      "backend/src/y3management/iam/infrastructure.py": "8c314aa5e4e653f7f8bb23fe21b8c637b8da430465f0c6c73739f9096d6f036f",
+      "backend/src/y3management/iam/password_reset.py": "39f4ae3fea1b4737c4344298795b2dcc97a9d765ecebd727e73c6734e274e9bf",
+      "backend/src/y3management/iam/passwords.py": "b592df3d9b9ae9d2a31ac04340a5091b7189a3d0c9ce4e32bedb6d1f0cc5fc56",
+      "backend/src/y3management/iam/policy.py": "a7634cd0494745bffdcd168f460336fdade0455875c8e32f26ea52f9a5596bf0",
+      "backend/src/y3management/iam/public.py": "de994b1437fa9366c9e7aa98f201fcb4f577fb9fc8a0afa8c92cf3ff1842deff",
+      "backend/src/y3management/iam/roles.py": "4c2f3058c81a63f006498aa8a691676e241e3bdfca53311779a5e4f0160dd411",
+      "backend/src/y3management/iam/security.py": "58520eb613296cab1257bf8340747dc4ad02433224d3bcb5f5d9772b1fd93817",
+      "backend/src/y3management/main.py": "043f955bf1959ce02cc09a8487607c3ca10ab661a045658e0b161e6207888eed",
+      "backend/src/y3management/operating.py": "127196df249cab52f8355fe1ba9ae059163d26d7a44ed6fd9afa83be9b31f246",
+      "backend/src/y3management/organization/__init__.py": "447d8ce612052ba9911099dbd8b29fcc0bf649c190efa7e89c1c478c7de42996",
+      "backend/src/y3management/organization/application.py": "80d565a3567b28a3c3bfaf6e6fb48f2469f834f6f4e13ca488d0d08a4e49ad3b",
+      "backend/src/y3management/organization/infrastructure.py": "8505d1ec6ac48a66171854761fe5b5e859af260cbfe0d7c9efdc8f28a332d361",
+      "backend/src/y3management/organization/public.py": "9f10abddd6394f49a6560d91f18ca58167c0a4fd1427146f523f7a3008e023e3",
+      "backend/src/y3management/ownership.py": "08b39878e755567dda122c68d5dc54c11a8a92e7d1ff9f82219e56dd07e83916",
+      "backend/src/y3management/runtime.py": "18dd015be1ab4b76a402fda827ee0e9de910cc68c064aff142a4c8d9487bcf97",
+      "backend/src/y3management/uow.py": "5236c27f27a658e1d18dea3601dedf2ba04a02887bdd14735cdb0ad612991ea4",
+      "backend/src/y3management/use_cases.py": "bdd415835616d61edf71d5bb291dd4b2f26bc0b7f37488934c364983f55c4a41",
+      "backend/src/y3management/workforce/__init__.py": "754fccdc4ed205dfebc989581aaa7bdd6b9209ebbefac651381f421121e6e6bb",
+      "backend/src/y3management/workforce/application.py": "2a2bf1412774e0ad420c669f40e3508622d2552018d64b815162419812b27056",
+      "backend/src/y3management/workforce/infrastructure.py": "41ee6e3070699cc1ee257dfb8936575aae3d23a16b2cad29b001793a637670cf",
+      "backend/src/y3management/workforce/public.py": "4a37a7808dc175fb05a164c3025cccac36f270db8a9c6295ee776c085ebfc23c",
+      "backend/src/y3management/workforce/validation.py": "889163021df3b02094832b493e715e33acba2ab28b9fcf82787343a765e265b8",
+      "backend/tests/__init__.py": "238b2ab9051bda8c786c28ec95bf32708a59f54b06829cda74fd9134b87f4cc5",
+      "backend/tests/browser/emergency-checks.json": "ff595f301fbe0965141dd9feeea0069395436fc83a84f977102946c58dde8620",
+      "backend/tests/browser/emergency.cjs": "2119cb1c6cd16ee6943880cd2d78c12da0bb57598f8c63a5bfae8dfafc6d6791",
+      "backend/tests/browser/handoff-checks.json": "f13d201d37b367032839da2b9ab062e4f179c21aeb8997ad8354dd45e064f567",
+      "backend/tests/browser/handoff.cjs": "02051b2182e9dafc7294ad5ba7da3ae4ebb76b95f95d35efb54154726225311c",
+      "backend/tests/browser/management-checks.json": "6db997abac4eb1f953f12cb9e29684098283e7ff83383a57727d2467054bc501",
+      "backend/tests/browser/management.cjs": "308d513ddb3592ee0b637ef8ccd8da7c3b8de2834e0aaa13fe169b4483e2720f",
+      "backend/tests/browser/master-management-checks.json": "d1eaa108f90eb52a8ccbfdddd95a45cea594521c06687933d0efb2f8a16ab88c",
+      "backend/tests/browser/master-management.cjs": "a9d72a8f698be572f45b85ddd2a29f7a136c96ed4427f1483d0fa0a1a28bae85",
+      "backend/tests/browser/password-management-checks.json": "5cc0303376e3a2fd6f8337e1d615101eb4155caba9653def31449096e492c4e9",
+      "backend/tests/browser/password-management.cjs": "eb1a45cc25c21945d4e1fb68f21c0ae97f3aba5b7b4962976f548ecb4f9aa52d",
+      "backend/tests/browser/required-checks.json": "a9f0262f0825c64c0e9fbcc72d98d63895b0906c4da946fc6b217b675454d002",
+      "backend/tests/browser/reset-checks.json": "b7d84e9877c7489f0a7e262aa85144558d5b445be3e85d5bccbf6a52976ea5d6",
+      "backend/tests/browser/reset.cjs": "be398aa69029e242618cfec645519bd32b6f61629ce9eb3ea58bc708765b793f",
+      "backend/tests/browser/s1.cjs": "31ccd590df75363bd63ede990afd5dd1042c3f605846070453d8930f7140de3a",
+      "backend/tests/browser/trainer-checks.json": "6d2d3c8c1b411df7fe32c6d00d9e96415b60278838f4341ac5f9a2fc0abf6f5e",
+      "backend/tests/browser/trainer-roles-checks.json": "5adddd79a332042b875f37978eba0fc4df8e27e7c4af6c53439e744a1f795ee0",
+      "backend/tests/browser/trainer-roles.cjs": "38dee53361a83533be02a42b31e4b1f176fe5e0636f391a8a5d26e45b2d79054",
+      "backend/tests/browser/trainer.cjs": "f06f3f87c1d864209655f059ad0a4c5a78c7ccc08c4564c61b305e8f0eaf6f3e",
+      "backend/tests/browser/workforce-checks.json": "82cd5b428bc6c1cb19bf182f96c2457397827e2678e049e6183f165fa00fec56",
+      "backend/tests/browser/workforce.cjs": "99816ac3470e0af7d4dfddaf8a899b31a18a0086f8c4e3f7795a9b34be9ffd88",
+      "backend/tests/browser_result.py": "1fb866877c8b3e2dd6af0fc88431371fd7628d516940712f694e97a8c0f045cf",
+      "backend/tests/conftest.py": "ffa91a2e3c07db0b93425233bbf0d7ec2c7b87e8c6729da637d0aa417eba6750",
+      "backend/tests/historical_backend.py": "8389adffe83117dc8b360cd3de2fe533905340c9ee66fc410a966ccbd2285de0",
+      "backend/tests/legacy_helpers.py": "6ecb59bcc0d1e95739216018dd2c735517e93991df24f1fbab72e17822b160ef",
+      "backend/tests/password_helpers.py": "68e1b56cadbd88ffd4ecadf5f9a4ef3178906fd57b688e41db8f1323aa1a18b9",
+      "backend/tests/test_account_lifecycle.py": "d9112dd75c12dbac40612fddbf756a841f56de7f76eee47beea61f5b2bb72b28",
+      "backend/tests/test_admin_actor_clock.py": "cf57e8fddc799744ed78161426bacef7a099268e061fab3c5d5e04024a6d8c76",
+      "backend/tests/test_application.py": "d489b1487acb783643a89c5f0fe09d61e544fc817099d192b067ca11186cf7ec",
+      "backend/tests/test_browser_result.py": "5ab1a631bc568fd60e0c12997bfd0b50c0a36bdd1989f58a9bd6dc4d1767c9ce",
+      "backend/tests/test_database.py": "620d674c99d2f06bbfd735db8446f99646b2ef8600b31d27d184acdc3d273f42",
+      "backend/tests/test_driver_failure.py": "661b8f8a02da7fca5d78c8dd6c524c81c1371bcc8d2d8ec50fdaf5255ef539bb",
+      "backend/tests/test_iam.py": "1e20b56b33845cb0acd1da3f2cafd76bb35302b908273149b293e20d4536bbff",
+      "backend/tests/test_iam_browser.py": "5e349c29b6550c800a1f90d5f4f249a03dcc2f990932fa5c696079f560e6239e",
+      "backend/tests/test_iam_emergency.py": "b16d541e58cc653e837005d1f10cb6752da43dbdd456a83778baa7e20ebbfd30",
+      "backend/tests/test_iam_emergency_browser.py": "4be4717d48c714b1dc1d93e8012ccef179a48c48da6b8910c770bd4c0f5b97f0",
+      "backend/tests/test_iam_emergency_files.py": "2383fe0cae91a342743d040193c6e7448c4f981f017fec2d2e91a54b65684ca8",
+      "backend/tests/test_iam_emergency_handoff.py": "700f51feaaff9be39ca5cb33270768c00b81af04b998aa018ef8313c6fa3a544",
+      "backend/tests/test_iam_emergency_handoff_browser.py": "94ee7921032e0a9563137367549e9349909657d26e0e1cdda7429efff1c70770",
+      "backend/tests/test_iam_emergency_handoff_integrity.py": "1d599dfff049225f2336e71829d8c4993769f45000d75903a355e7e05d1ca3ef",
+      "backend/tests/test_iam_emergency_handoff_races.py": "f0c6d0145f599f7a6ed05d8577672c4f8ec4ba9465ec31b923f6fe4c068e53ee",
+      "backend/tests/test_iam_emergency_integrity.py": "463f5e3af7095cd7fa63a2f7aeba2e7ef360fac4774348e56a25feaedf0a7118",
+      "backend/tests/test_iam_master_management.py": "1e9e4f32efb045d65cfb4ac5b4722e0c3454f8a8ed0477a2e0a72068a26594c6",
+      "backend/tests/test_iam_master_management_guards.py": "196e5659fd304a8ad8ae0386d78771aa231b0d3074f2525a80d0da9b24517fb2",
+      "backend/tests/test_iam_master_management_races.py": "17eb539ccdab8f2fcc169865f7d3eb2122bec434f89e1b544a3c09db38ac82ec",
+      "backend/tests/test_iam_master_privacy.py": "f44e3b1f1ad5e416bc3f75aff96dc1a59215644710881b636d0ed5b019c96193",
+      "backend/tests/test_iam_mfa_install.py": "475583be92fa403443822f62368ecf27ac75882c07c81d5232a2163f0b78f9a9",
+      "backend/tests/test_iam_mfa_management.py": "cdf7ac251683ae53ceef5f3a2eb7a6d2e6fbe42b5f3911a322235606a82a5965",
+      "backend/tests/test_iam_mfa_management_gc.py": "f328fc436344c39687fc480241fe74a93bfdb3b86e14b930a60b587ab64d63ed",
+      "backend/tests/test_iam_mfa_management_migration.py": "4c1eee3eabd1f3ee5a78919997b6ee548fc18e9fffca99972c796269999510f8",
+      "backend/tests/test_iam_mfa_security.py": "a75c9708db4080a22874927c4760b2eced80d294a729f358f3af42d0c6ff0ac5",
+      "backend/tests/test_iam_password_reset.py": "426c3d706db8e130286e0c69973e24e65e0bfd79e8528d599a4a63e802309e94",
+      "backend/tests/test_iam_password_reset_authorization.py": "6a8dfd2fbbe81834fcf9c0d0d6e510398905cbbe060d2614efe07c2fdcbb062c",
+      "backend/tests/test_iam_password_reset_edges.py": "393d29cc8654ea6de1dd1b32beef8740f51d265c461e161d90b08a6497538877",
+      "backend/tests/test_iam_password_reset_races.py": "c94d9590f6a867e011490cecd5d986af61e7c83865ad92bb4b7534837638e002",
+      "backend/tests/test_iam_password_reset_storage.py": "c0a636c49339eed754d772a3926b0bd3c1cbed559f6e80c3c4b2b12b3405499b",
+      "backend/tests/test_iam_policy.py": "68a4376fbd3170ffec058ef3c9022bfcb3ffc84129ae19fd1c417ffb2f8081d1",
+      "backend/tests/test_iam_s2.py": "a26caa317544b314bd38054dc66ef9bc87b82c1c1341bddbd3f8c8e41ec6140f",
+      "backend/tests/test_iam_s2b.py": "fc7a9d968cb4e6f69430df355395281acf51cff8d45bb3f3e8084bee239a4c84",
+      "backend/tests/test_iam_s2c.py": "f9704123e676303b240ecc2b38dede3e7b5e1f048f33df04e71ba597fbcbe85d",
+      "backend/tests/test_iam_trainer.py": "159ebdf883b4923fadd030c81af852d8820066742fbb280bdb9a4e50d363771b",
+      "backend/tests/test_iam_trainer_audience.py": "61d544b0fb2d8f2e7e5b826326cffc121a638b087a1f533642002320babc09a8",
+      "backend/tests/test_iam_trainer_browser.py": "97371a8cd34c34ff2c60d7db2c93d489d621db0b96714502bf1696af20a8ddb6",
+      "backend/tests/test_iam_trainer_dispatch.py": "8945a61f76e8358986ff497a6638dae015525257f041d284137208a87715e50d",
+      "backend/tests/test_iam_trainer_guards.py": "506e9f365d026f06f0b96df65ff398a56b71a35d41ce7a08e62d784ea413a0fa",
+      "backend/tests/test_iam_trainer_policy.py": "044290b1df7fe511dc889c71e8ca5aa22e9f68b8be33b59060413ced58d301b2",
+      "backend/tests/test_iam_trainer_races.py": "2cdf5e092c0af9f874a1d61bccbdc17039751c6907daf10744bfc5dcd82a7703",
+      "backend/tests/test_iam_trainer_reset.py": "2b9b884d0aa1ebfc1315485a127472fc6328b69f15936cdd5b169210466b0243",
+      "backend/tests/test_iam_trainer_reset_causal.py": "aba956484b9b08373d7797dc587f4809dbf28716e1267484e2053782ce7ef95b",
+      "backend/tests/test_iam_trainer_reset_clock.py": "ff8efa770bfa3ad8c448df618c07496f1b6a97ba61d1b4dde8b83200fc77d8df",
+      "backend/tests/test_iam_trainer_reset_edges.py": "ed1f95e172092739a4fc5560e3770454ed50d85f6524839bc65db7e2ccd4cbda",
+      "backend/tests/test_iam_trainer_reset_privacy.py": "d1aa03e297e206724e8516177de3641d8253afd176ea81f448c6afad7d03e358",
+      "backend/tests/test_iam_trainer_review.py": "daf41494fa5342f983029de214972c14cd94e605060471a44bb92ed1a3446d07",
+      "backend/tests/test_iam_trainer_roles.py": "6ab815f21bbbc6dd88899c6a227393a045cbd65c4d610908c0d6d56ace1a25e1",
+      "backend/tests/test_iam_trainer_roles_browser.py": "f4c3ba41b7196e00a17e747907867b4dee497bcb9069ab973aa61678baff13e0",
+      "backend/tests/test_iam_trainer_roles_causal.py": "ad7558bbfe6def382d14efd1119a4f5cc9ebe71f23b25c9e18ac3d34b6b61074",
+      "backend/tests/test_iam_trainer_roles_races.py": "fc8c1927a6c7428c4f87cdece75e647d19b2507bf90ef2b93447dec74bd8fb79",
+      "backend/tests/test_iam_trainer_roles_security.py": "238528839cdba8e1f376d162e88fcec6aec6a2f324bb22e1dd81586d1d05b3ff",
+      "backend/tests/test_iam_trainer_roles_storage.py": "8c466dc3e383b7d251df34b5de1da8c42dd106584cac1bd8438c9aab3b613ed5",
+      "backend/tests/test_iam_trainer_storage.py": "0b7fde9edb7a549e0a9bb6fce60543f38e661307491ce63fda3b2359c84a1d73",
+      "backend/tests/test_mfa_management_policy.py": "4ff79c756c2a914270d9248e6c37e5ee1badb1dcaec1cc5ac53ee90ec70a8d4f",
+      "backend/tests/test_mfa_policy.py": "1a493d852f9a7327f8f96a00dfd10a57af1410b4cd5b2b2b621314325b60f1b5",
+      "backend/tests/test_password_recipient_deadlines.py": "f898ab9cf52ee76bbd660f3d96f9098473e2006cb0dfdeadf1d2808dbf14229b",
+      "backend/tests/test_password_reset_policy.py": "463002504a2a343133c945d0d39bc07eea1a7e604c21bff4b9c80498068dddca",
+      "backend/tests/test_password_runtime.py": "56d22ce074e1542f5e1dec9f24e4c4dfbc928915800b3f7a3afdf925af773928",
+      "backend/tests/test_password_transition.py": "eacd4ebee92dca1c020498a9a55924d8038e5c374115869500cfaf7093d9eaa9",
+      "backend/tests/test_password_transition_flow.py": "221220d789f74e1557535abc80325bcbf3852e6711267a9c48954db03d557748",
+      "backend/tests/test_password_transition_legacy.py": "5290dc837b7874eb1cbf0a95e8efa139dc7ef5a40482a1efe1515ebd747bd191",
+      "backend/tests/test_password_transition_retained.py": "6124b4603dcbd7e895dafd9eff3a886c05600fb8840304cac95ff9a860f5b207",
+      "backend/tests/test_postgres.py": "9adb607898f7388f51d981a3f71c03801f2460f108483ea606ff403efefd0e4f",
+      "backend/tests/test_postgres_gate.py": "174e5373ad289d854c14d315cb4e4e6ea1cf0ce955e77fb6914be878d7a8f2c6",
+      "backend/tests/test_qa_cleanup.py": "c31d12f9f935997f607b8f91852796ccd13f514133b57dbedf1f5c550151802f",
+      "backend/tests/test_settings.py": "07d9ade228c4c8d8efd3889254036315a56adc931cda6c1c3b942b123be02fbc",
+      "backend/tests/test_workforce.py": "13b12219bd548dce52d72f366aeeb15a229e647cd502c20d3f190f3d5dbc4bf4",
+      "backend/tests/test_workforce_browser.py": "4f705040966fd1bd16cb5b01748040038478c9325afb3daac4b4d74c115e838d",
+      "backend/tests/test_workforce_guards.py": "a744db169d2904a6137eb81c1cd26bb57666f56fe06934ba12fb0586c0542f84",
+      "backend/tests/test_workforce_integrity.py": "e26e7248739d8e151e79ab6c47ec824fcb711bcbfde13f7ec3546a1b15c90102",
+      "backend/tests/test_workforce_policy.py": "0da96d977d0ddf6e15dbecfd736b81535701ac81628014522f9c819f40fcd779",
+      "backend/tests/test_workforce_state.py": "28001501fb600c8e84279baeb0ca045eb06369a97c050b49da8269db577d5ae2",
+      "backend/tests/test_workforce_state_causal.py": "4a074f4adc241f893f396394254dd2f83ecd912871ed72a3f84e6c681f6fa6cd",
+      "backend/tests/test_workforce_state_races.py": "4e4880bbe6501462208b43f57385d1fca17ff009ea51a201f8718758bc7667f7",
+      "backend/tests/test_workforce_state_security.py": "d98b2b428e1bba5653a8d4c3c3e5a06484da9e5c5292473c10c3f844caad59b2",
+      "backend/tests/test_workforce_state_storage.py": "bf125b0a0e9b662aa2a44d23a975a9cb8eb23da8e2afc522acc8ca7a9b5c28ec",
+      "backend/tests/workforce_state_seed.py": "11f05f38f0173f6a863cf18081464d6e8d2a156b8e1a762aeed488e4be9715da",
+      "backend/tools/build_password_corpus.py": "dbf12d1249af7681dcb8fcfd384358b4a178688bc9842199fb407dba365974f3",
+      "backend/uv.lock": "1365098bd3876d84ad808fe0e463b76d66681c20dc3c0c3f5e7cae84bc56ba2e"
+    }
+  },
+  "discovery": {
+    "collection": 835,
+    "setup_plan_exact_same_nodes": true,
+    "fixture_lookup_errors": 0,
+    "fast": 197,
+    "PG_total": 638,
+    "actual_collect_exit": 1,
+    "actual_setup_plan_exit": 1,
+    "guard_no_call_verification_preserved": true,
+    "counted_as_runtime_PASS": false
+  },
+  "fresh_fast": {
+    "passed": 197,
+    "five_commands_actual_exit_zero": true,
+    "skip_xfail_xpass": 0,
+    "actual_pytest_exit": 0,
+    "run_id": "auto-f51767af64ad414f8af54103124c9f53"
+  },
+  "selected_PG": {
+    "R1_preserved_passed": 293,
+    "R1_run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf",
+    "R2_new_passed": 18,
+    "R2_run_id": "auto-91bb846d1e0d4548b52744b5e66ebfbb",
+    "disjoint_exact_union": 311,
+    "intersection_missing_duplicates": 0,
+    "available_PG_total": 638,
+    "excluded_before_runtime": 327,
+    "single_final311_execution_claimed": false,
+    "whole638_PASS_claimed": false,
+    "fresh_R2_fast197_disjoint_plus_selected311": 508
+  },
+  "exact_PG_node_provenance": [
+    {
+      "nodeid": "tests/test_iam_browser.py::test_actual_https_password_management_browser",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_account_lifecycle.py::test_pending_trainer_lifecycle[trainer]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_account_lifecycle.py::test_pending_trainer_lifecycle[inactive]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_account_lifecycle.py::test_pending_trainer_lifecycle[role0]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_account_lifecycle.py::test_migrate_disabled_and_roundtrip[False]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_account_lifecycle.py::test_migrate_disabled_and_roundtrip[True]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_account_lifecycle.py::test_pending_downgrade_guards",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_account_lifecycle.py::test_prepared_setup_after_lifecycle_cycle[disable_restore]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_account_lifecycle.py::test_prepared_setup_after_lifecycle_cycle[rename_back]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_account_lifecycle.py::test_previous_runtime_rejects_current_revision",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_account_lifecycle.py::test_dual_admin_reset_pending_cycle",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[idle-c3]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[idle-c3_dual]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[idle-c3_branch]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[idle-branch]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[idle-master]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[idle-master_restore]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[idle-master_id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[idle-issue]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[idle-reissue]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[idle-change]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[idle-scope]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[idle-restore]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[idle-login_id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[idle-issue_master]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[idle-reissue_master]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[absolute-c3]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[absolute-c3_dual]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[absolute-c3_branch]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[absolute-branch]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[absolute-master]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[absolute-master_restore]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[absolute-master_id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[absolute-issue]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[absolute-reissue]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[absolute-change]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[absolute-scope]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[absolute-restore]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[absolute-login_id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[absolute-issue_master]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_required_audit_crosses_original_actor_deadline[absolute-reissue_master]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_success_uses_one_final_checked_clock[c3]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_success_uses_one_final_checked_clock[c3_dual]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_success_uses_one_final_checked_clock[c3_branch]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_success_uses_one_final_checked_clock[branch]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_success_uses_one_final_checked_clock[master]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_success_uses_one_final_checked_clock[master_restore]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_success_uses_one_final_checked_clock[master_id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_success_uses_one_final_checked_clock[issue]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_success_uses_one_final_checked_clock[reissue]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_success_uses_one_final_checked_clock[change]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_success_uses_one_final_checked_clock[scope]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_success_uses_one_final_checked_clock[restore]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_success_uses_one_final_checked_clock[login_id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_success_uses_one_final_checked_clock[issue_master]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_success_uses_one_final_checked_clock[reissue_master]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_login_id_noop_does_not_touch_or_audit[login_id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_login_id_noop_does_not_touch_or_audit[master_id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_c3_final_check_rejects_unexpected_self_changes[row_version=row_version+1]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_c3_final_check_rejects_unexpected_self_changes[security_version=security_version+1]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_c3_final_check_rejects_unexpected_self_changes[password_hash='unexpected-synthetic-hash']",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_c3_final_check_rejects_unexpected_self_changes[session_unrevoked]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_independent_audit_lock_crosses_original_deadline[idle-c3]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_independent_audit_lock_crosses_original_deadline[idle-branch]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_independent_audit_lock_crosses_original_deadline[idle-pending_disable]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_independent_audit_lock_crosses_original_deadline[absolute-c3]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_independent_audit_lock_crosses_original_deadline[absolute-branch]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_admin_actor_clock.py::test_independent_audit_lock_crosses_original_deadline[absolute-pending_disable]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam.py::test_s1_cli_http_scope_revoke_and_audit",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam.py::test_atomic_audit_rollback_and_sql_constraints",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam.py::test_concurrent_setup_single_consumption",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam.py::test_login_snapshot_then_disable_and_wait_expiry",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam.py::test_setup_snapshot_then_reissue",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam.py::test_business_commit_precedes_waiting_management[login]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam.py::test_business_commit_precedes_waiting_management[setup_complete]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_emergency_handoff.py::test_pending_scope_and_target_state",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_emergency_handoff_integrity.py::test_variants_nulls_parent_factors_and_history_downgrade",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management.py::test_master_lifecycle_id_and_proof_revocation",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management.py::test_pending_preserved_requires_reissue[status]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management.py::test_pending_preserved_requires_reissue[login-id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management.py::test_master_atomicity[audit-status]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management.py::test_master_atomicity[audit-restore]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management.py::test_master_atomicity[audit-login-id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management.py::test_master_atomicity[db-status]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management.py::test_master_atomicity[db-restore]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management.py::test_master_atomicity[db-login-id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management.py::test_master_atomicity[ack-status]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management.py::test_master_atomicity[ack-restore]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management.py::test_master_atomicity[ack-login-id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management.py::test_master_rename_preserves_c2_cooldown",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_guards.py::test_target_guards_and_existing_branch_routes[status]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_guards.py::test_target_guards_and_existing_branch_routes[restore]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_guards.py::test_target_guards_and_existing_branch_routes[login-id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_guards.py::test_actor_guard[csrf-status]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_guards.py::test_actor_guard[csrf-restore]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_guards.py::test_actor_guard[csrf-login-id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_guards.py::test_actor_guard[revoked-status]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_guards.py::test_actor_guard[revoked-restore]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_guards.py::test_actor_guard[revoked-login-id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_guards.py::test_actor_guard[idle-status]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_guards.py::test_actor_guard[idle-restore]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_guards.py::test_actor_guard[idle-login-id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_guards.py::test_actor_guard[grant-status]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_guards.py::test_actor_guard[grant-restore]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_guards.py::test_actor_guard[grant-login-id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_guards.py::test_management_race[True-status]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_guards.py::test_management_race[True-login-id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_guards.py::test_management_race[False-status]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_guards.py::test_management_race[False-login-id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_guards.py::test_final_actor_expiry_rolls_back[idle-status]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_guards.py::test_final_actor_expiry_rolls_back[idle-restore]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_guards.py::test_final_actor_expiry_rolls_back[idle-login-id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_guards.py::test_final_actor_expiry_rolls_back[absolute-status]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_guards.py::test_final_actor_expiry_rolls_back[absolute-restore]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_guards.py::test_final_actor_expiry_rolls_back[absolute-login-id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_guards.py::test_dto_collision_and_minimal_response",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_races.py::test_management_wins_before_factor_final_lock[c3-status]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_races.py::test_management_wins_before_factor_final_lock[c3-login-id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_races.py::test_management_wins_before_factor_final_lock[login-status]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_races.py::test_management_wins_before_factor_final_lock[login-login-id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_races.py::test_management_wins_before_factor_final_lock[reset_complete-status]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_races.py::test_management_wins_before_factor_final_lock[reset_complete-login-id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_races.py::test_management_wins_before_factor_final_lock[reset-status]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_races.py::test_management_wins_before_factor_final_lock[reset-login-id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_races.py::test_factor_commit_before_management[c3-status]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_races.py::test_factor_commit_before_management[c3-login-id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_races.py::test_factor_commit_before_management[login-status]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_races.py::test_factor_commit_before_management[login-login-id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_races.py::test_factor_commit_before_management[reset-status]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_races.py::test_factor_commit_before_management[reset-login-id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_races.py::test_actor_actual_authority_loss_before_command[status]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_races.py::test_actor_actual_authority_loss_before_command[login-id]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_races.py::test_actor_actual_authority_loss_before_command[reset]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_master_management_races.py::test_actor_actual_authority_loss_before_command[c3]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2.py::test_restore_real_http_existing_password_scope_and_old_sessions",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2.py::test_restore_atomic_faults[audit]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2.py::test_restore_atomic_faults[commit_ack]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2.py::test_restore_preserves_login_cooldown",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2.py::test_restore_pg_lock_order[restore]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2.py::test_restore_pg_lock_order[login]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2.py::test_restore_migration_preserves_existing_data_and_audit",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2b.py::test_password_change_two_sessions_and_scope[master]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2b.py::test_password_change_two_sessions_and_scope[branch]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2b.py::test_password_rejections_preserve_state[current]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2b.py::test_password_rejections_preserve_state[policy]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2b.py::test_password_rejections_preserve_state[csrf]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2b.py::test_password_rejections_preserve_state[origin]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2b.py::test_password_rejections_preserve_state[json]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2b.py::test_password_rejections_preserve_state[extra]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2b.py::test_password_rejections_preserve_state[anonymous]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2b.py::test_password_rejections_preserve_state[revoked]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2b.py::test_password_rejections_preserve_state[expired]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2b.py::test_password_rejections_preserve_state[disabled]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2b.py::test_password_rejections_preserve_state[capacity]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2b.py::test_password_atomic_failures[audit]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2b.py::test_password_atomic_failures[ack]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2b.py::test_password_hash_has_no_business_lock_and_rechecks[disable]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2b.py::test_password_hash_has_no_business_lock_and_rechecks[scope]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2b.py::test_password_commit_orders_waiting_pg_connections[login]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2b.py::test_password_commit_orders_waiting_pg_connections[disable]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2b.py::test_password_commit_orders_waiting_pg_connections[scope]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2b.py::test_login_snapshot_loses_to_password_change",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2b.py::test_password_migration_roundtrip_and_history_guard",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2b.py::test_password_change_does_not_clear_existing_cooldown",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2b.py::test_two_password_changes_cannot_apply_stale_proof",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_rename_sessions_reservations_and_audit",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_rename_denials_and_noop_preserve_facts[noop]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_rename_denials_and_noop_preserve_facts[stale]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_rename_denials_and_noop_preserve_facts[stale_noop]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_rename_denials_and_noop_preserve_facts[csrf]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_rename_denials_and_noop_preserve_facts[branch]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_rename_denials_and_noop_preserve_facts[master]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_rename_denials_and_noop_preserve_facts[missing]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_rename_denials_and_noop_preserve_facts[disabled]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_rename_denials_and_noop_preserve_facts[pending]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_rename_denials_and_noop_preserve_facts[reserved]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_rename_denials_and_noop_preserve_facts[foreign]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_rename_atomic_failure[audit]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_rename_atomic_failure[ack]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_account_budget_survives_rename_and_old_id_attack[4]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_account_budget_survives_rename_and_old_id_attack[5]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_old_reserved_attack_does_not_lock_current_account",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_pending_reservation_identity_survives_rename[finish]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_pending_reservation_identity_survives_rename[cancel]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_pending_reservation_identity_survives_rename[expire]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_admission_rename_barrier[unknown]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_admission_rename_barrier[reserved]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_admission_rename_barrier[aba]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_admission_rename_barrier[old_admission]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_admission_rename_barrier[old_proof]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_final_login_requires_actual_admission[key]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_final_login_requires_actual_admission[account]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_final_login_requires_actual_admission[version]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_login_id_migration_guards[unused]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_login_id_migration_guards[history]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_login_id_migration_guards[key_only]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_login_id_migration_guards[history_only]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_rename_orders_competing_pg_connections[disable]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_rename_orders_competing_pg_connections[scope]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_rename_orders_competing_pg_connections[password]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_rename_orders_competing_pg_connections[claim]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_rename_orders_competing_pg_connections[rename]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_login_commits_before_rename_late_finish_keeps_revocation",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_fixed_key_disabled_restore_gc_and_capacity",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_new_name_anonymous_cooldown_does_not_become_account_budget",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_unknown_admission_wrong_password_never_audits_new_principal",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_noop_in_cooldown_preserves_every_fact",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_subject_snapshot_then_rename_does_not_misattribute_failure",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_budget_key_storage_constraints[length]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_budget_key_storage_constraints[unique]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_actual_rename_refreshes_only_current_near_idle_actor",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_final_actor_expiry_rolls_back_entire_rename[idle]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_s2c.py::test_final_actor_expiry_rolls_back_entire_rename[absolute]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_audience.py::test_roleless_real_uv_session_audience_and_validity[valid]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_audience.py::test_roleless_real_uv_session_audience_and_validity[revoked]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_audience.py::test_roleless_real_uv_session_audience_and_validity[absolute]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_audience.py::test_roleless_real_uv_session_audience_and_validity[idle]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_audience.py::test_roleless_real_uv_session_audience_and_validity[weak]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_audience.py::test_roleless_real_uv_session_audience_and_validity[key]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_audience.py::test_roleless_real_uv_session_audience_and_validity[epoch]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_audience.py::test_roleless_real_uv_session_audience_and_validity[recovery]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_audience.py::test_roleless_real_uv_session_audience_and_validity[reset]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_audience.py::test_roleless_real_uv_session_audience_and_validity[disabled]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_audience.py::test_roleless_real_uv_session_audience_and_validity[cookie]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_guards.py::test_source_actual_expiry_after_audit_rolls_back",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_guards.py::test_admin_source_cannot_complete_trainer_setup",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_reset.py::test_pending_disabled_self_and_mfa_boundaries",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_reset_causal.py::test_prepared_reset_survives_committed_other_home_ba_off",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_reset_causal.py::test_withdraw_only_rejects_old_proof_then_same_source_repairs_role_zero",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_reset_causal.py::test_committed_start_ack_loss_safe_get_then_explicit_reissue",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_reset_causal.py::test_real_actor_deadline_after_audit_and_final_facts_rolls_back[idle]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_reset_causal.py::test_real_actor_deadline_after_audit_and_final_facts_rolls_back[absolute]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_reset_edges.py::test_two_prepared_completions_consume_once",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_reset_edges.py::test_c3_prepared_hash_cannot_undo_trainer_reset",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_reset_edges.py::test_bound_admin_keeps_uv_with_inactive_or_withdrawn_trainer",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_review.py::test_downgrade_waits_for_actual_issue_then_preserves_history",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_roles.py::test_revoke_any_state_regrant_only_eligible[False-PENDING_SETUP]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_roles.py::test_revoke_any_state_regrant_only_eligible[False-ACTIVE]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_roles.py::test_revoke_any_state_regrant_only_eligible[False-DISABLED]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_roles.py::test_revoke_any_state_regrant_only_eligible[True-PENDING_SETUP]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_roles.py::test_revoke_any_state_regrant_only_eligible[True-ACTIVE]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_roles.py::test_revoke_any_state_regrant_only_eligible[True-DISABLED]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_roles_causal.py::test_prepared_password_proof_cannot_cross_committed_role_cycle",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_roles_causal.py::test_prepared_initial_hash_cannot_cross_committed_role_cycle",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_roles_causal.py::test_initial_reissue_and_role_share_observed_lock_chain[reissue-first]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_roles_causal.py::test_initial_reissue_and_role_share_observed_lock_chain[role-first]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_roles_races.py::test_downgrade_waits_for_actual_role_change_and_preserves_committed_history",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_roles_security.py::test_all_target_sessions_and_prepared_password_rejected_other_account_preserved",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_roles_security.py::test_prepared_reset_proof_rejected_but_original_source_still_usable",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_storage.py::test_identity_history_blocks_downgrade",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_recipient_deadlines.py::test_final_recipient_deadline_after_audit[setup]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_recipient_deadlines.py::test_final_recipient_deadline_after_audit[reset]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_recipient_deadlines.py::test_final_recipient_deadline_after_audit[emergency]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition.py::test_password_transition_globally_empty_roundtrip",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition.py::test_summary_rejects_missing_extra_negative_fractional_or_string[bad0]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition.py::test_summary_rejects_missing_extra_negative_fractional_or_string[bad1]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition.py::test_summary_rejects_missing_extra_negative_fractional_or_string[bad2]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition.py::test_summary_rejects_missing_extra_negative_fractional_or_string[bad3]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition.py::test_summary_rejects_missing_extra_negative_fractional_or_string[bad4]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition.py::test_nonzero_transition_summary_rejects_downgrade_before_ddl",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition.py::test_transition_preserves_account_business_facts_and_rejects_nonempty_downgrade[ACTIVE-False-unchanged_password]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition.py::test_transition_preserves_account_business_facts_and_rejects_nonempty_downgrade[ACTIVE-True-password_pending]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition.py::test_transition_preserves_account_business_facts_and_rejects_nonempty_downgrade[DISABLED-False-disabled]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition.py::test_transition_preserves_account_business_facts_and_rejects_nonempty_downgrade[DISABLED-True-disabled]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition.py::test_transition_preserves_account_business_facts_and_rejects_nonempty_downgrade[PENDING_SETUP-False-pending_setup]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_flow.py::test_actual_legacy_case_cutover_public_handoff_and_completion[password]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_flow.py::test_actual_legacy_case_cutover_public_handoff_and_completion[both]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_flow.py::test_actual_legacy_case_cutover_public_handoff_and_completion[passkey]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_flow.py::test_actual_legacy_case_cutover_public_handoff_and_completion[stale]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_flow.py::test_actual_legacy_case_cutover_public_handoff_and_completion[foreign]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_flow.py::test_actual_legacy_case_cutover_public_handoff_and_completion[epoch]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_flow.py::test_actual_legacy_case_cutover_public_handoff_and_completion[post_security]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_flow.py::test_actual_legacy_case_cutover_public_handoff_and_completion[post_reset]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_flow.py::test_actual_legacy_case_cutover_public_handoff_and_completion[post_master]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_flow.py::test_actual_password_login_retains_old_policy_failure_budget[cooldown]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_flow.py::test_actual_password_login_retains_old_policy_failure_budget[four_failures]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_legacy.py::test_key_pending_requires_latest_complete_evidence[start-ACTIVE]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_legacy.py::test_key_pending_requires_latest_complete_evidence[start-DISABLED]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_legacy.py::test_key_pending_requires_latest_complete_evidence[reissue-ACTIVE]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_legacy.py::test_key_pending_requires_latest_complete_evidence[reissue-DISABLED]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_legacy.py::test_key_pending_requires_latest_complete_evidence[missing-ACTIVE]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_legacy.py::test_key_pending_requires_latest_complete_evidence[missing-DISABLED]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_legacy.py::test_key_pending_requires_latest_complete_evidence[completed-ACTIVE]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_legacy.py::test_key_pending_requires_latest_complete_evidence[completed-DISABLED]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_legacy.py::test_key_pending_requires_latest_complete_evidence[wrong_generation-ACTIVE]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_legacy.py::test_key_pending_requires_latest_complete_evidence[wrong_generation-DISABLED]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_legacy.py::test_key_pending_requires_latest_complete_evidence[missing_before-ACTIVE]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_legacy.py::test_key_pending_requires_latest_complete_evidence[missing_before-DISABLED]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_legacy.py::test_original_factors_preserved_and_only_pending_password_continues[password]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_legacy.py::test_original_factors_preserved_and_only_pending_password_continues[both]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_legacy.py::test_original_factors_preserved_and_only_pending_password_continues[passkey]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_legacy.py::test_ineligible_original_case_never_rebased[completed]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_legacy.py::test_ineligible_original_case_never_rebased[stale_version]",
+      "outcome": "passed",
+      "revision": "R1",
+      "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf"
+    },
+    {
+      "nodeid": "tests/test_password_transition_legacy.py::test_original_handoff_chain_requires_semantic_ancestry[not_due]",
+      "outcome": "passed",
+      "revision": "R2",
+      "run_id": "auto-91bb846d1e0d4548b52744b5e66ebfbb"
+    },
+    {
+      "nodeid": "tests/test_password_transition_legacy.py::test_original_handoff_chain_requires_semantic_ancestry[parent_completed]",
+      "outcome": "passed",
+      "revision": "R2",
+      "run_id": "auto-91bb846d1e0d4548b52744b5e66ebfbb"
+    },
+    {
+      "nodeid": "tests/test_password_transition_legacy.py::test_original_handoff_chain_requires_semantic_ancestry[security_gap]",
+      "outcome": "passed",
+      "revision": "R2",
+      "run_id": "auto-91bb846d1e0d4548b52744b5e66ebfbb"
+    },
+    {
+      "nodeid": "tests/test_password_transition_legacy.py::test_original_handoff_chain_requires_semantic_ancestry[valid]",
+      "outcome": "passed",
+      "revision": "R2",
+      "run_id": "auto-91bb846d1e0d4548b52744b5e66ebfbb"
+    },
+    {
+      "nodeid": "tests/test_password_transition_retained.py::test_cutover_retires_authority_preserves_c2_and_never_promotes_staged_hash",
+      "outcome": "passed",
+      "revision": "R2",
+      "run_id": "auto-91bb846d1e0d4548b52744b5e66ebfbb"
+    },
+    {
+      "nodeid": "tests/test_workforce_guards.py::test_actor_revocation_order[False]",
+      "outcome": "passed",
+      "revision": "R2",
+      "run_id": "auto-91bb846d1e0d4548b52744b5e66ebfbb"
+    },
+    {
+      "nodeid": "tests/test_workforce_guards.py::test_actor_revocation_order[True]",
+      "outcome": "passed",
+      "revision": "R2",
+      "run_id": "auto-91bb846d1e0d4548b52744b5e66ebfbb"
+    },
+    {
+      "nodeid": "tests/test_workforce_integrity.py::test_branch_scope_and_revocation",
+      "outcome": "passed",
+      "revision": "R2",
+      "run_id": "auto-91bb846d1e0d4548b52744b5e66ebfbb"
+    },
+    {
+      "nodeid": "tests/test_workforce_state.py::test_grant_and_disabled_independent_blockers",
+      "outcome": "passed",
+      "revision": "R2",
+      "run_id": "auto-91bb846d1e0d4548b52744b5e66ebfbb"
+    },
+    {
+      "nodeid": "tests/test_workforce_state.py::test_pending_source_paused_then_original_reused",
+      "outcome": "passed",
+      "revision": "R2",
+      "run_id": "auto-91bb846d1e0d4548b52744b5e66ebfbb"
+    },
+    {
+      "nodeid": "tests/test_workforce_state_causal.py::test_deactivate_and_self_request_observed_both_orders[self-first-c3]",
+      "outcome": "passed",
+      "revision": "R2",
+      "run_id": "auto-91bb846d1e0d4548b52744b5e66ebfbb"
+    },
+    {
+      "nodeid": "tests/test_workforce_state_causal.py::test_deactivate_and_self_request_observed_both_orders[self-first-currentprincipal]",
+      "outcome": "passed",
+      "revision": "R2",
+      "run_id": "auto-91bb846d1e0d4548b52744b5e66ebfbb"
+    },
+    {
+      "nodeid": "tests/test_workforce_state_causal.py::test_deactivate_and_self_request_observed_both_orders[w1-first-c3]",
+      "outcome": "passed",
+      "revision": "R2",
+      "run_id": "auto-91bb846d1e0d4548b52744b5e66ebfbb"
+    },
+    {
+      "nodeid": "tests/test_workforce_state_causal.py::test_deactivate_and_self_request_observed_both_orders[w1-first-currentprincipal]",
+      "outcome": "passed",
+      "revision": "R2",
+      "run_id": "auto-91bb846d1e0d4548b52744b5e66ebfbb"
+    },
+    {
+      "nodeid": "tests/test_workforce_state_causal.py::test_downgrade_waits_for_actual_state_writer_and_preserves_history",
+      "outcome": "passed",
+      "revision": "R2",
+      "run_id": "auto-91bb846d1e0d4548b52744b5e66ebfbb"
+    },
+    {
+      "nodeid": "tests/test_workforce_state_causal.py::test_new_i2_binding_between_hint_and_main_rejected",
+      "outcome": "passed",
+      "revision": "R2",
+      "run_id": "auto-91bb846d1e0d4548b52744b5e66ebfbb"
+    },
+    {
+      "nodeid": "tests/test_workforce_state_causal.py::test_prepared_setup_current_state_without_source_epoch[off-only]",
+      "outcome": "passed",
+      "revision": "R2",
+      "run_id": "auto-91bb846d1e0d4548b52744b5e66ebfbb"
+    },
+    {
+      "nodeid": "tests/test_workforce_state_causal.py::test_prepared_setup_current_state_without_source_epoch[off-then-on]",
+      "outcome": "passed",
+      "revision": "R2",
+      "run_id": "auto-91bb846d1e0d4548b52744b5e66ebfbb"
+    }
+  ],
+  "R1_failure": {
+    "actual_exit": 1,
+    "passed": 293,
+    "failed": 1,
+    "selected_unexecuted": 17,
+    "node": "tests/test_password_transition_legacy.py::test_original_handoff_chain_requires_semantic_ancestry[valid]",
+    "cause": "After asserting original0014 transition, test entered current exact0015 UoW without preparing current schema.",
+    "correction": "Preserve original0014 assertions; upgrade0015 before current UoW and assert complete original policy transition/account classification/emergency history row digests unchanged.",
+    "application_or_original_migration_changes": false,
+    "original_failed_run_remains_failed": true
+  },
+  "equivalence": {
+    "one_changed_file": "backend/tests/test_password_transition_legacy.py",
+    "only_changed_function": "test_original_handoff_chain_requires_semantic_ancestry",
+    "inverse_insert_removal_exact_R1_hash": true,
+    "other_backend175_raw_equal": true,
+    "imports_globals_other_functions_AST_equal": true,
+    "changed_function_R1_passed_cases": 0,
+    "explicit_root_split_approval": true,
+    "limit": "Bounded one-function correction with exact raw inverse and unchanged shared runtime/fixture/browser sources; no exhaustive dynamic dependency equivalence proof."
+  },
+  "actual_R2_PG": {
+    "selected": 18,
+    "passed": 18,
+    "failed_error_skip_xfail_xpass": 0,
+    "unexecuted": 0,
+    "actual_exit": 0,
+    "run_id": "auto-91bb846d1e0d4548b52744b5e66ebfbb",
+    "root_exact18_set_equal": true
+  },
+  "native": {
+    "status": "NATIVE_STRICT_PASS_SELECTED_PG_FAILED_LATER_IN_HISTORY_TEST",
+    "at_utc": "2026-11-05T04:32:19.902127+00:00",
+    "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf",
+    "nodeid": "tests/test_iam_browser.py::test_actual_https_password_management_browser",
+    "pytest_native_cases": 1,
+    "physical_raw_reports": 1,
+    "manifests": [
+      {
+        "field": "checks",
+        "manifest": "backend/tests/browser/password-management-checks.json",
+        "manifest_sha256": "5cc0303376e3a2fd6f8337e1d615101eb4155caba9653def31449096e492c4e9",
+        "actual_runtime_manifest_byte_equal": true,
+        "raw_keyset_exact": true,
+        "literal_true": 18,
+        "checks": {
+          "secure_context": true,
+          "master_password_form": true,
+          "cookie_flags": true,
+          "cookie_js_hidden": true,
+          "actual_issuance": true,
+          "fragment_removed": true,
+          "link_get_not_activated": true,
+          "branch_setup_form": true,
+          "no_auto_login": true,
+          "fragment_absent_request_urls": true,
+          "branch_login": true,
+          "scope_enforced": true,
+          "missing_csrf_denied": true,
+          "forged_origin_denied": true,
+          "logout_reuse_denied": true,
+          "nojs_disabled": true,
+          "nojs_post_fallback": true,
+          "nojs_no_secret_submission": true
+        }
+      },
+      {
+        "field": "management",
+        "manifest": "backend/tests/browser/management-checks.json",
+        "manifest_sha256": "6db997abac4eb1f953f12cb9e29684098283e7ff83383a57727d2467054bc501",
+        "actual_runtime_manifest_byte_equal": true,
+        "raw_keyset_exact": true,
+        "literal_true": 9,
+        "checks": {
+          "second_browser_login": true,
+          "independent_master_sessions": true,
+          "master_issued": true,
+          "master_setup_fragment": true,
+          "master_setup": true,
+          "master_setup_no_auto_login": true,
+          "master_setup_url_private": true,
+          "master_login": true,
+          "master_scope": true
+        }
+      },
+      {
+        "field": "reset",
+        "manifest": "backend/tests/browser/reset-checks.json",
+        "manifest_sha256": "b7d84e9877c7489f0a7e262aa85144558d5b445be3e85d5bccbf6a52976ea5d6",
+        "actual_runtime_manifest_byte_equal": true,
+        "raw_keyset_exact": true,
+        "literal_true": 22,
+        "checks": {
+          "identity_required": true,
+          "explicit_start": true,
+          "old_session_denied": true,
+          "fragment_removed": true,
+          "get_nonmutating": true,
+          "form_complete": true,
+          "no_auto_login": true,
+          "url_private": true,
+          "replay_denied": true,
+          "old_password_denied": true,
+          "new_password_login": true,
+          "identity_scope_preserved": true,
+          "branch_old_login": true,
+          "branch_reset_issued": true,
+          "branch_old_session_denied": true,
+          "branch_fragment_removed": true,
+          "branch_reset_form": true,
+          "branch_no_auto_login": true,
+          "branch_url_private": true,
+          "branch_password_login": true,
+          "branch_scope_preserved": true,
+          "actor_preserved": true
+        }
+      },
+      {
+        "field": "masterManagement",
+        "manifest": "backend/tests/browser/master-management-checks.json",
+        "manifest_sha256": "d1eaa108f90eb52a8ccbfdddd95a45cea594521c06687933d0efb2f8a16ab88c",
+        "actual_runtime_manifest_byte_equal": true,
+        "raw_keyset_exact": true,
+        "literal_true": 18,
+        "checks": {
+          "disable": true,
+          "old_cookie_disabled": true,
+          "restore": true,
+          "old_cookie_not_revived": true,
+          "original_password_login": true,
+          "normalized_noop": true,
+          "rename": true,
+          "old_cookie_renamed": true,
+          "old_id_denied": true,
+          "new_id_existing_password_login": true,
+          "identity_scope_preserved": true,
+          "actor_survives": true,
+          "lifecycle_unknown_ack": true,
+          "lifecycle_pending_destination": true,
+          "lifecycle_explicit_reissue": true,
+          "lifecycle_rename_clears_link": true,
+          "lifecycle_stale_requires_retry": true,
+          "lifecycle_late_lookup_ignored": true
+        }
+      }
+    ],
+    "individual_literal_true": 67,
+    "browser": "151.0.7922.34",
+    "raw_and_safe_match": true,
+    "native_report_sha256": "5b822f8ccdfe381d9203a4a55cd8c12108213966c755d3aa078369719b370b34",
+    "author": "developer",
+    "static_reviewer_and_executor": "independent tester",
+    "additional_native_cases_claimed": 0,
+    "within_selected_PG_not_extra_credit": true,
+    "whole_selected_PG_actual_exit": 1,
+    "whole_selected_PG_pass_claimed": false
+  },
+  "native_equivalence": {
+    "run_id": "auto-b8bd03bd803c4c999a274344dbfbaccf",
+    "actual_pytest_cases": 1,
+    "physical_raw_reports": 1,
+    "manifests": 4,
+    "individual_literal_true": 67,
+    "manifest_counts": [
+      18,
+      9,
+      22,
+      18
+    ],
+    "new_lifecycle_conditions": 6,
+    "R1_native_original_selected_run_failed_later": true,
+    "new_R2_native_execution": false,
+    "within_R1_293_not_additional_credit": true,
+    "raw_safe_manifest_exact_literal_true_verified": true,
+    "source_equivalence_verified": true,
+    "author": "developer",
+    "static_review_and_original_execution": "independent tester",
+    "initial_plan107_was_metadata_error_not_runtime_score": true
+  },
+  "native_planning_count_correction": {
+    "incorrect_plan": 107,
+    "actual": 67,
+    "reason": "Management runner uses password-management18, not standalone required58. Actual18+9+22+18; no extra native run or invented score."
+  },
+  "cleanup": {
+    "R1": {
+      "own_runtime_resources_clean": true,
+      "observed_auto_roots_absent": 6,
+      "captured_unique_OS_identities_absent": 248,
+      "recorded_schemas_absent": 294,
+      "observed_PG_identities_absent": 1074,
+      "DB_other_sessions": 0,
+      "DB_schema_table_baseline_equal": true,
+      "source273_and_trust4_equal": true,
+      "HEAD_branch_index_equal": true,
+      "protected_main_refs_equal": false,
+      "protected_ref_difference": {
+        "protected_refs": {
+          "before": {
+            "refs/heads/main": "4deb779b622f34d3aac17c30259b47faf781f629",
+            "refs/remotes/origin/main": "4deb779b622f34d3aac17c30259b47faf781f629"
+          },
+          "after": {
+            "refs/heads/main": "af9de549a5511eae28e66ba092c84cd98d2c8ef5",
+            "refs/remotes/origin/main": "af9de549a5511eae28e66ba092c84cd98d2c8ef5"
+          }
+        }
+      },
+      "Git_mutations_by_tester": false,
+      "manual_drop_or_other_run_cleanup": false
+    },
+    "R2": {
+      "source273_and_trust4_raw_fullset_equal": true,
+      "R2_Git_equal_new_baseline": true,
+      "original14_and_dependencies_unchanged": true,
+      "observed_auto_roots_absent": 4,
+      "captured_OS_identities_absent": 17,
+      "recorded_schemas_absent": 18,
+      "observed_PG_identities_absent": 62,
+      "other_DB_sessions": 0,
+      "baseline_DB_schema_table_sets_restored": true,
+      "manual_drop_or_other_run_cleanup": false
+    },
+    "own_runtime_fully_terminated": true,
+    "raw_completed_evidence": "Minimum public acceptance and unresolved next-operator facts retained; own completed raw logs/profile/captures may be removed after final review. Original/shared data excluded."
+  },
+  "git_observation": {
+    "R1_initial_main": "4deb779b622f34d3aac17c30259b47faf781f629",
+    "R1_main_drift_record_kept": true,
+    "separate_user_authorized_IAM014_fast_forward": "commit-ref-audit.json",
+    "audit_sha256": "cddbb767cbac9457a241ab15f3de9d2eb144a7ed584d8ef99b9befd2a2e4b2c7",
+    "root_reconciled_remote_and_reflog": true,
+    "R2_protected_main_and_origin_main": "af9de549a5511eae28e66ba092c84cd98d2c8ef5",
+    "R2_HEAD_branch_index_refs_raw_baseline_equal": true,
+    "reviewer_Git_mutations": false,
+    "all_Git_unchanged_since_R1_claimed": false
+  },
+  "original_revisions": {
+    "count": 14,
+    "unchanged_from_parent": true,
+    "sha256": {
+      "backend/alembic/versions/0001_iam_s1.py": "b3d402d8c2b48873f88a693429b5cc92f5a295d9681871d5ad799c178033ad1f",
+      "backend/alembic/versions/0002_iam_restore.py": "4322aa7d7a10ea56915927c3efe91c36f771741aaf92e5770a6fe2d8b0a7a5d1",
+      "backend/alembic/versions/0003_iam_password.py": "f207d7f0938e17713f78d7e46cbd806137d5e1c488ae6a6dd5f5c7c4ec90762a",
+      "backend/alembic/versions/0004_iam_login_id.py": "07144bab1120b2d9a5f00ec4a2d40e3fb218b0c5b202c742051df25f454e3937",
+      "backend/alembic/versions/0005_iam_mfa.py": "52950c64e4011ff72f4a542c4c9b50d5dfa81579087ab1bf16c987a739b59a2b",
+      "backend/alembic/versions/0006_iam_mfa_management.py": "2534c339c4be0cbcda8306ee0c719b0aa8a51cd3c88a81ff36b21cbc9b7c5f42",
+      "backend/alembic/versions/0007_iam_password_reset.py": "10d17079e948a047ed978b1258a3cae3feb7b085ca7da2ee5da3f26aa718ffd4",
+      "backend/alembic/versions/0008_iam_emergency_recovery.py": "5a74acb38eb400a538327ea1ae5f4cbb20447d3b7eeff7eb65b65b58c7c81729",
+      "backend/alembic/versions/0009_iam_emergency_handoff.py": "3b8b459fdb050a2c27b9cc03d37628c3d8866d7c1f61cd2bed31c9d7991d6061",
+      "backend/alembic/versions/0010_workforce_initial_registration.py": "84afd92af6608aef01c30909058aabec454c0fc6d32587df302c0e435de645c6",
+      "backend/alembic/versions/0011_iam_trainer_login.py": "d3276fd7fd34705a1da37a391735eb48e8fea3883ad2d30ba1701eb9f4ea6216",
+      "backend/alembic/versions/0012_iam_trainer_roles.py": "684a26a4f4dbe5ad14049ef0e35204241ec7dae8930227e7386b8f53cf466830",
+      "backend/alembic/versions/0013_workforce_trainer_state.py": "d5bfc9e19a5288bc0e9d951dd146dba5fdff31bb258b9f4f81b575ed46e2da25",
+      "backend/alembic/versions/0014_password_only.py": "c8909b77448ace6409baf5f8d7741850d90a9795f02e6c0bc7928b016f1bac81"
+    }
+  },
+  "dependencies_unchanged": true,
+  "warnings": [
+    "Starlette TestClient httpx deprecation",
+    "AnyIO BlockingPortal alias deprecation"
+  ],
+  "limits": [
+    "Only fresh R2 fast197 plus explicit R1/R2 split selected311 is accepted;327 available PG cases were not selected.",
+    "Developer checks/IAM014 checks/R1 fast are not added to current scores. R1 actual failed exit and17 unexecuted history remain intact.",
+    "No new R2 native run is claimed. Current source equivalence preserves actual R1 native67, never107.",
+    "Separate pending full-table no-op snapshot execution is not claimed; selected ACTIVE/disabled snapshots and state-independent branch review are recorded in the R1 plan.",
+    "No original/production DB conversion, deployment, physical-device or other-browser acceptance.",
+    "Global module boundaries/other OPEN unchanged. No new Operator/Member/PT/compensation/settlement/deployment approval.",
+    "Root post-test edits only acceptance documentation/current stage. Tested backend bytes unchanged."
+  ],
+  "authorship": {
+    "implementation_and_browser_author": "developer",
+    "independent_static_and_execution": "independent tester",
+    "acceptance": "root architect",
+    "commit_review_commit_push": "dedicated committer after final exact-file authorization"
+  },
+  "raw_result_integrity": {
+    "R1_selected_pg_xml": "448f0bfd51742b31a6e59d490dd865e3a54ceb9a4a2f38b3a230fc1fd29a17e6",
+    "R2_selected_pg_xml": "6b0f38baf275452f6be33156549a6a90a4c4be00ec7723f906d235747a22048f",
+    "R2_fast_xml": "a5b17b321b083a4032da48d824ee79c7325f8c5ab844c6c4faf961a032456897"
+  }
+}

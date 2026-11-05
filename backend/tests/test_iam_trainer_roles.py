@@ -226,7 +226,8 @@ def test_revoke_any_state_regrant_only_eligible(
         with t.base.db.session() as s:
             s.execute(
                 text(
-                    "UPDATE iam_accounts SET state='DISABLED',row_version=row_version+1 WHERE id=:a"
+                    "UPDATE iam_accounts SET restore_state=state,state='DISABLED',"
+                    "row_version=row_version+1 WHERE id=:a"
                 ),
                 {"a": ident},
             )

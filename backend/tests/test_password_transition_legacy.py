@@ -58,7 +58,7 @@ def test_key_pending_requires_latest_complete_evidence(
         session.commit()
     before = fingerprint(db)
     valid = evidence in ("start", "reissue")
-    migrate(settings, "upgrade", "head", success=valid)
+    migrate(settings, "upgrade", "0014_password_only", success=valid)
     if not valid:
         assert fingerprint(db) == before
         return
@@ -186,7 +186,7 @@ def test_original_factors_preserved_and_only_pending_password_continues(
         original = session.execute(
             text("SELECT row_to_json(c)::text FROM iam_emergency_cases c")
         ).scalar_one()
-    migrate(settings, "upgrade", "head")
+    migrate(settings, "upgrade", "0014_password_only")
     with db.session() as session:
         assert (
             session.execute(
@@ -222,7 +222,7 @@ def test_ineligible_original_case_never_rebased(
                 )
             )
             session.commit()
-    migrate(settings, "upgrade", "head")
+    migrate(settings, "upgrade", "0014_password_only")
     with db.session() as session:
         assert (
             session.execute(
@@ -310,7 +310,7 @@ def test_original_handoff_chain_requires_semantic_ancestry(
             )
         session.commit()
     before = fingerprint(db)
-    migrate(settings, "upgrade", "head", success=variant == "valid")
+    migrate(settings, "upgrade", "0014_password_only", success=variant == "valid")
     if variant != "valid":
         assert fingerprint(db) == before
     else:
@@ -328,6 +328,26 @@ def test_original_handoff_chain_requires_semantic_ancestry(
         from y3management.iam.emergency import Emergency
         from y3management.uow import UnitOfWork
 
+        # Check the historical transition and case lineage across the schema-only upgrade.
+        def history_digests() -> tuple[str, ...]:
+            with db.session() as session:
+                return tuple(
+                    session.execute(
+                        text(
+                            f"SELECT md5(string_agg(row_to_json(t)::text, ',' "
+                            f"ORDER BY row_to_json(t)::text)) FROM {table} t"
+                        )
+                    ).scalar_one()
+                    for table in (
+                        "iam_policy_transitions",
+                        "iam_policy_account_transitions",
+                        "iam_emergency_cases",
+                    )
+                )
+
+        history = history_digests()
+        migrate(settings, "upgrade", "0015_account_lifecycle")
+        assert history_digests() == history
         with UnitOfWork(db, settings).open() as work:
             assert isinstance(work.emergency, Emergency)
             assert work.emergency.legacy_lineage(child["id"], parent["id"]) == parent["id"]
