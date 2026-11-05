@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from y3management.audit.public import (
     Event,
     InitialCompensationSet,
+    OperatorAccountEvent,
     PasswordEmergencyEvent,
     TrainerIdentityEvent,
     TrainerRegistered,
@@ -35,6 +36,19 @@ class Audit:
                 + ")"
             ),
             values,
+        )
+
+    def append_operator(self, event: OperatorAccountEvent) -> None:
+        columns = tuple(asdict(event))
+        self.s.execute(
+            text(
+                "INSERT INTO audit_operator_account_events(id,"
+                + ",".join(columns)
+                + ") VALUES(:id,"
+                + ",".join(":" + k for k in columns)
+                + ")"
+            ),
+            {"id": uuid4(), **asdict(event)},
         )
 
     def append_trainer_identity(self, event: TrainerIdentityEvent) -> None:

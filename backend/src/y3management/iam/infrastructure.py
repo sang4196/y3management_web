@@ -22,6 +22,9 @@ from y3management.iam.public import (
     Caller,
     IdentityTransition,
     LoginProof,
+    OperatorGrant,
+    OperatorScope,
+    OperatorSource,
     PasswordChangeActor,
     PolicyStamp,
     Reservation,
@@ -51,6 +54,9 @@ class IAM:
         self.passwords = passwords
         self.key = key.encode()
         self.mode = mode
+        self._session_window: tuple[datetime, datetime] | None = None
+        self._login_marker: bytes | None = None
+        self._setup_marker: bytes | None = None
         self._upgrades: dict[UUID, str] = {}
 
     def policy(self) -> PolicyStamp:
@@ -127,7 +133,7 @@ class IAM:
     def prepare_master(self, identifier: str, password: str) -> None:
         self._upgrades[UUID(int=0)] = self.passwords.create(password, identifier)
 
-    def preparation(self, token: str | None, nonce: str | None, consume: bool = False) -> None:
+    def preparation(self, token: str | None, nonce: str | None, consume: bool = False) -> datetime:
         row = (
             self.s.execute(
                 text(
@@ -149,6 +155,9 @@ class IAM:
             self.s.execute(
                 text("UPDATE iam_preparations SET consumed=true WHERE id=:id"), {"id": row["id"]}
             )
+
+        deadline: datetime = row["expires_at"]
+        return deadline
 
     def login_subject(self, identifier: str) -> Account | None:
         row = self.s.execute(
@@ -184,6 +193,7 @@ class IAM:
             if row and row["state"] == "ACTIVE" and not row["password_reset_pending"]
             else None
         )
+        scope = self._operator_grant(row["id"]) if row else None
         valid, upgrade = self.passwords.verify(password, encoded)
         if (
             not valid
@@ -200,6 +210,7 @@ class IAM:
             row["security_version"],
             hmac.digest(self.key, encoded.encode(), "sha256"),
             row["trainer_role_epoch"],
+            scope,
             policy=policy,
         )
 
@@ -214,7 +225,7 @@ class IAM:
         self.check_policy(proof.policy)
         self.check_policy(reservation.policy)
         roles = self.account_roles(proof.account_id)
-        if not roles.admin and not roles.trainer_granted:
+        if not roles.admin and not roles.trainer_granted and not roles.operator:
             raise Rejected(401, "invalid_credentials")
         lock = "UPDATE" if proof.account_id in self._upgrades else "SHARE"
         row = (
@@ -232,6 +243,7 @@ class IAM:
             or row["password_reset_pending"]
             or row["security_version"] != proof.security_version
             or row["trainer_role_epoch"] != proof.trainer_role_epoch
+            or self._operator_grant(proof.account_id) != proof.operator_grant
             or not hmac.compare_digest(marker, proof.credential_marker)
         ):
             raise Rejected(401, "invalid_credentials")
@@ -246,7 +258,11 @@ class IAM:
             or not hmac.compare_digest(reservation.key, budget_key)
         ):
             raise Rejected(503, "unavailable")
+        self._login_marker = marker
         if proof.account_id in self._upgrades:
+            self._login_marker = hmac.digest(
+                self.key, self._upgrades[proof.account_id].encode(), "sha256"
+            )
             self.s.execute(
                 text("UPDATE iam_accounts SET password_hash=:h WHERE id=:a"),
                 {"h": self._upgrades.pop(proof.account_id), "a": proof.account_id},
@@ -259,12 +275,14 @@ class IAM:
         ).scalar_one_or_none()
         if slot is None or slot <= now:
             raise Rejected(503, "unavailable")
+        expires = min(slot, now + timedelta(hours=8))
+        self._session_window = (now, expires)
         self.s.execute(
             text(
                 "INSERT INTO "
-                "iam_sessions(id,account_id,digest,csrf,security_version,trainer_role_epoch,"
+                "iam_sessions(id,account_id,digest,csrf,security_version,trainer_role_epoch,operator_version,"
                 "created_at,last_activity,expires_at,revoked,policy_version,login_attempt_id) "
-                "VALUES(:id,:a,:d,:c,:v,:re,:n,:n,:e,false,2,:attempt)"
+                "VALUES(:id,:a,:d,:c,:v,:re,:ov,:n,:n,:e,false,2,:attempt)"
             ),
             {
                 "id": sid,
@@ -273,9 +291,10 @@ class IAM:
                 "c": csrf,
                 "v": proof.security_version,
                 "re": proof.trainer_role_epoch,
+                "ov": proof.operator_grant.scope.version if proof.operator_grant else 0,
                 "attempt": reservation.id,
                 "n": now,
-                "e": min(slot, now + timedelta(hours=8)),
+                "e": expires,
             },
         )
         self.preparation(preauth, nonce, consume=True)
@@ -344,6 +363,8 @@ class IAM:
             or row["revoked"]
             or row["state"] != "ACTIVE"
             or row["security_version"] != row["current_version"]
+            or row["operator_version"]
+            != (roles.operator_grant.scope.version if roles.operator_grant else 0)
             or row["trainer_role_epoch"] != row["current_role_epoch"]
             or row["expires_at"] <= now
             or row["last_activity"] + timedelta(minutes=30) <= now
@@ -351,12 +372,14 @@ class IAM:
             raise Rejected(401, "unauthorized")
         if not roles.admin:
             if audience == "admin":
+                if roles.operator:
+                    raise Rejected(403, "forbidden")
                 if roles.binding is not None:
                     raise Rejected(401, "unauthorized")
                 # A valid former administrator lacks current authorization. Never return
                 # this unsupported principal to management or refresh its session.
                 raise Rejected(403, "forbidden")
-            if not roles.trainer_granted:
+            if not roles.trainer_granted and not roles.operator:
                 raise Rejected(401, "unauthorized")
         account = self._account(hint.account_id)
         if touch:
@@ -364,7 +387,9 @@ class IAM:
                 text("UPDATE iam_sessions SET last_activity=:n WHERE id=:id"),
                 {"n": now, "id": hint.id},
             )
-        caller = Caller(account.id, account.organization_id, account.branch_id, account.master)
+        caller = Caller(
+            account.id, account.organization_id, account.branch_id, account.master, roles.operator
+        )
         return Authentication(
             caller,
             hint.id,
@@ -400,7 +425,7 @@ class IAM:
         if (
             caller.account_id == ident
             or caller.organization_id != roles.account.organization_id
-            or (not roles.admin and roles.binding is None)
+            or (not roles.admin and roles.binding is None and not roles.operator)
         ):
             raise Rejected(404, "not_found")
         return roles
@@ -640,6 +665,7 @@ class IAM:
         if row["state"] != "ACTIVE" or row["recovery_pending"] or row["password_reset_pending"]:
             raise Rejected(401, "unauthorized")
         encoded = str(row["password_hash"])
+        scope = self._operator_grant(ident)
         valid, _ = self.passwords.verify(current_password, encoded)
         if not valid:
             raise Rejected(401, "invalid_credentials")
@@ -649,6 +675,7 @@ class IAM:
             row["security_version"],
             hmac.digest(self.key, encoded.encode(), "sha256"),
             row["trainer_role_epoch"],
+            scope,
             policy=policy,
         )
 
@@ -658,6 +685,8 @@ class IAM:
             "iam_accounts": ("id", "id"),
             "iam_sessions": ("account_id", "id"),
             "iam_admin_grants": ("account_id", "account_id"),
+            "iam_operator_grants": ("account_id", "account_id"),
+            "iam_operator_setup_credentials": ("account_id", "id"),
             "iam_trainer_bindings": ("account_id", "account_id"),
             "iam_trainer_role_grants": ("account_id", "account_id"),
             "iam_login_ids": ("account_id", "login_id"),
@@ -698,7 +727,11 @@ class IAM:
         account["security_version"] += 1
         for session in facts["iam_sessions"]:
             session["revoked"] = True
-        for table in ("iam_credentials", "iam_trainer_setup_credentials"):
+        for table in (
+            "iam_credentials",
+            "iam_trainer_setup_credentials",
+            "iam_operator_setup_credentials",
+        ):
             for credential in facts[table]:
                 credential["consumed"] = True
         return PasswordChangeActor(
@@ -746,6 +779,7 @@ class IAM:
             or row["password_reset_pending"]
             or row["security_version"] != proof.security_version
             or row["trainer_role_epoch"] != proof.trainer_role_epoch
+            or self._operator_grant(proof.account_id) != proof.operator_grant
             or not hmac.compare_digest(marker, proof.credential_marker)
         ):
             raise Rejected(401, "unauthorized")
@@ -770,6 +804,7 @@ class IAM:
             text("UPDATE iam_trainer_setup_credentials SET consumed=true WHERE account_id=:a"),
             {"a": proof.account_id},
         )
+        self._revoke_operator_source(proof.account_id)
         return before, self._account(proof.account_id)
 
     def restore(self, account: Account) -> Account:
@@ -834,6 +869,7 @@ class IAM:
         )
 
     def revoke_management_sources(self, ident: UUID) -> None:
+        self._revoke_operator_source(ident)
         # Installation, Accounts and all affected Sessions are already locked.
         for table in (
             "iam_credentials",
@@ -912,6 +948,7 @@ class IAM:
             TrainerBinding(*row) if row else None,
             bool(grant and grant.granted),
             int(epoch),
+            self._operator_grant(ident),
         )
 
     def lock_login(self, ident: UUID) -> AccountRoles:
@@ -923,13 +960,14 @@ class IAM:
             text("SELECT id FROM iam_sessions WHERE account_id=:a ORDER BY id FOR UPDATE"),
             {"a": ident},
         ).all()
+        self.lock_trainer_credentials(ident)
         return self.account_roles(ident)
 
     def revoke_trainer_only_sessions(self, binding: TrainerBinding) -> int:
         roles = self.account_roles(binding.account_id)
         if roles.binding != binding:
             raise Rejected(409, "conflict")
-        if roles.admin:
+        if roles.admin or roles.operator:
             return 0
         return len(
             self.s.execute(
@@ -987,14 +1025,25 @@ class IAM:
         )
 
     def lock_trainer_credentials(self, ident: UUID) -> None:
-        self.lock_credentials(ident)
-        self.s.execute(
-            text(
-                "SELECT id FROM iam_trainer_setup_credentials WHERE account_id=:a "
-                "ORDER BY id FOR UPDATE"
-            ),
-            {"a": ident},
-        ).all()
+        # Account and every affected session are held before credential/context locks.
+        for table in (
+            "iam_credentials",
+            "iam_mfa_contexts",
+            "iam_recovery_credentials",
+            "iam_reset_credentials",
+            "iam_emergency_credentials",
+            "iam_password_emergency_credentials",
+            "iam_operator_setup_credentials",
+            "iam_trainer_setup_credentials",
+        ):
+            self.s.execute(
+                text(f"SELECT id FROM {table} WHERE account_id=:a ORDER BY id FOR UPDATE"),
+                {"a": ident},
+            ).all()
+        for table in ("iam_operator_grants", "iam_trainer_role_grants", "iam_trainer_bindings"):
+            self.s.execute(
+                text(f"SELECT account_id FROM {table} WHERE account_id=:a FOR UPDATE"), {"a": ident}
+            ).all()
 
     def identity_transition(self, ident: UUID) -> IdentityTransition:
         roles = self.account_roles(ident)
@@ -1321,8 +1370,11 @@ class IAM:
         row = (
             self.s.execute(
                 text(
-                    "SELECT s.expires_at,s.account_id,s.security_version,s.revoked,a.state,"
-                    "s.trainer_role_epoch,a.trainer_role_epoch AS current_role_epoch,"
+                    "SELECT s.created_at,s.last_activity,s.expires_at,s.account_id,"
+                    "s.security_version,s.revoked,a.state,"
+                    "s.trainer_role_epoch,s.operator_version,a.password_hash,"
+                    "a.recovery_pending,a.password_reset_pending,"
+                    "a.trainer_role_epoch AS current_role_epoch,"
                     "a.security_version AS current_version,t.lease_until,t.outcome "
                     "FROM iam_sessions s JOIN iam_accounts a ON a.id=s.account_id "
                     "JOIN iam_attempts t ON t.id=:r AND t.key=:k WHERE s.policy_version=2 AND "
@@ -1333,9 +1385,18 @@ class IAM:
             .mappings()
             .first()
         )
+        grant = self._operator_grant(proof.account_id)
         now = self.now()
         if (
             row is None
+            or (row["created_at"], row["expires_at"]) != self._session_window
+            or row["last_activity"] != row["created_at"]
+            or grant != proof.operator_grant
+            or row["operator_version"] != (grant.scope.version if grant else 0)
+            or row["recovery_pending"]
+            or row["password_reset_pending"]
+            or hmac.digest(self.key, str(row["password_hash"]).encode(), "sha256")
+            != self._login_marker
             or row["account_id"] != proof.account_id
             or row["security_version"] != proof.security_version
             or row["trainer_role_epoch"] != proof.trainer_role_epoch
@@ -1344,6 +1405,7 @@ class IAM:
             or row["state"] != "ACTIVE"
             or row["revoked"]
             or row["expires_at"] <= now
+            or row["lease_until"] != reservation.lease_until
             or row["lease_until"] <= now
             or row["outcome"] != "pending"
         ):
@@ -1359,7 +1421,9 @@ class IAM:
             {"i": sid, "a": account_id, "r": attempt_id},
         )
 
-    def confirm_preparation(self, token: str | None, nonce: str | None) -> None:
+    def confirm_preparation(
+        self, token: str | None, nonce: str | None, *, deadline: datetime | None = None
+    ) -> None:
         row = self.s.execute(
             text(
                 "SELECT consumed,expires_at,csrf FROM iam_preparations WHERE policy_version=2 "
@@ -1370,7 +1434,152 @@ class IAM:
         if (
             row is None
             or not row.consumed
-            or row.expires_at <= self.now()
+            or min(row.expires_at, deadline or row.expires_at) <= self.now()
             or not secrets.compare_digest(row.csrf, nonce or "")
         ):
             raise Rejected(403, "csrf_failed")
+
+    def _operator_grant(self, ident: UUID) -> OperatorGrant | None:
+        row = self.s.execute(
+            text("SELECT branch_id,version,granted FROM iam_operator_grants WHERE account_id=:a"),
+            {"a": ident},
+        ).first()
+        return (
+            OperatorGrant(OperatorScope(row.branch_id, row.version), row.granted) if row else None
+        )
+
+    def _revoke_operator_source(self, ident: UUID) -> None:
+        self.s.execute(
+            text(
+                "UPDATE iam_operator_setup_credentials SET consumed=true "
+                "WHERE account_id=:a AND NOT consumed"
+            ),
+            {"a": ident},
+        )
+
+    def issue_operator(self, caller: Caller, identifier: str, branch: UUID) -> Account:
+        if not caller.master and caller.branch_id != branch:
+            raise Rejected(404, "not_found")
+        ident = uuid4()
+        values = {"a": ident, "o": caller.organization_id, "b": branch, "l": identifier}
+        self.s.execute(
+            text(
+                "INSERT INTO iam_accounts(id,organization_id,login_id,state) "
+                "VALUES(:a,:o,:l,'PENDING_SETUP')"
+            ),
+            values,
+        )
+        self.s.execute(text("INSERT INTO iam_login_ids(login_id,account_id) VALUES(:l,:a)"), values)
+        self.s.execute(
+            text(
+                "INSERT INTO iam_operator_grants(account_id,organization_id,branch_id,"
+                "granted,version) VALUES(:a,:o,:b,true,1)"
+            ),
+            values,
+        )
+        return self._account(ident)
+
+    def operator_target(self, caller: Caller, target: UUID | str) -> AccountRoles:
+        if isinstance(target, str):
+            subject = self.login_subject(login_id(target))
+            if subject is None:
+                raise Rejected(404, "not_found")
+            target = subject.id
+        roles = self.account_roles(target)
+        if (
+            not roles.operator
+            or roles.account.organization_id != caller.organization_id
+            or (not caller.master and caller.branch_id != roles.operator.branch_id)
+        ):
+            raise Rejected(404, "not_found")
+        return roles
+
+    def operator_setup(self, roles: AccountRoles, slot: UUID, reissue: bool) -> Setup:
+        a = roles.account
+        if a.state != "PENDING_SETUP" or not roles.operator or roles.admin:
+            raise Rejected(409, "conflict")
+        if reissue:
+            self._revoke_operator_source(a.id)
+            self.s.execute(
+                text("UPDATE iam_accounts SET row_version=row_version+1 WHERE id=:a"), {"a": a.id}
+            )
+        token = secrets.token_urlsafe(32)
+        expiry = self.s.execute(
+            text("""INSERT INTO iam_operator_setup_credentials
+            (id,purpose,policy_version,organization_id,account_id,branch_id,account_version,
+             security_version,grant_version,digest,expires_at)
+            SELECT s.id,'operator_initial',2,a.organization_id,a.id,g.branch_id,a.row_version,
+             a.security_version,g.version,:d,s.expires_at FROM iam_security_states s,
+             iam_accounts a JOIN iam_operator_grants g ON g.account_id=a.id AND g.granted
+             WHERE a.id=:a AND s.id=:i AND s.kind='credential' AND s.policy_version=2
+             AND s.expires_at>clock_timestamp() RETURNING expires_at"""),
+            {"a": a.id, "d": digest(token), "i": slot},
+        ).scalar_one_or_none()
+        if expiry is None:
+            raise Rejected(503, "unavailable")
+        return Setup(token, expiry)
+
+    def operator_source(self, token: str, consumed: bool) -> OperatorSource:
+        policy = self.policy()
+        row = (
+            self.s.execute(
+                text("""SELECT c.*,a.password_hash FROM iam_operator_setup_credentials c
+            JOIN iam_accounts a ON a.id=c.account_id AND a.organization_id=c.organization_id
+            JOIN iam_operator_grants g ON g.account_id=a.id AND g.granted
+            AND g.version=c.grant_version AND g.branch_id=c.branch_id
+            WHERE c.digest=:d AND c.consumed=:used AND c.purpose='operator_initial'
+            AND c.policy_version=2 AND NOT a.password_reset_pending AND NOT a.recovery_pending
+            AND a.state=:state AND a.row_version=c.account_version+:delta
+            AND a.security_version=c.security_version+:delta"""),
+                {
+                    "d": digest(token),
+                    "used": consumed,
+                    "state": "ACTIVE" if consumed else "PENDING_SETUP",
+                    "delta": int(consumed),
+                },
+            )
+            .mappings()
+            .first()
+        )
+        if row is None:
+            raise Rejected(400, "invalid_setup")
+        if (
+            consumed
+            and hmac.digest(self.key, str(row["password_hash"]).encode(), "sha256")
+            != self._setup_marker
+        ):
+            raise Rejected(400, "invalid_setup")
+        account = self._account(row["account_id"])
+        if account.master or account.branch_id or row["expires_at"] <= self.now():
+            raise Rejected(400, "invalid_setup")
+        return OperatorSource(
+            row["id"],
+            account,
+            OperatorScope(row["branch_id"], row["grant_version"]),
+            row["security_version"],
+            row["expires_at"],
+            policy,
+        )
+
+    def complete_operator(
+        self, token: str, password: str, preauth: str | None, nonce: str | None
+    ) -> OperatorSource:
+        proof = self.operator_source(token, False)
+        encoded = self.passwords.create(password, proof.account.login_id)
+        self._setup_marker = hmac.digest(self.key, encoded.encode(), "sha256")
+        self.lock_login(proof.account.id)
+        self.preparation(preauth, nonce)
+        if self.operator_source(token, False) != proof:
+            raise Rejected(400, "invalid_setup")
+        self.s.execute(
+            text("""UPDATE iam_accounts SET password_hash=:h,state='ACTIVE',
+            row_version=row_version+1,security_version=security_version+1 WHERE id=:a"""),
+            {"h": encoded, "a": proof.account.id},
+        )
+        self._revoke_operator_source(proof.account.id)
+        self.s.execute(
+            text("UPDATE iam_sessions SET revoked=true WHERE account_id=:a"),
+            {"a": proof.account.id},
+        )
+        self.preparation(preauth, nonce, consume=True)
+        return proof

@@ -67,6 +67,63 @@ checks.admin_preserved=(await get(p,'/auth/me')).status===200;
 stage='nojs';const off=await browser.newContext({javaScriptEnabled:false,ignoreHTTPSErrors:false});
 const n=await off.newPage();await n.goto(setup);checks.nojs_disabled=await n.locator('form button').isDisabled();
 checks.nojs_post=await n.locator('form').getAttribute('method')==='post';
+stage='operator';
+await p.goto(cfg.origin+'/operator-accounts');
+await p.locator('#login').fill('operator.native');
+await p.locator('#branch').selectOption(branch.body.id);
+const operatorIssue=await click(p,'button[value=issue]','/admin/operator-accounts');
+const operator=(await operatorIssue.json());
+checks.operator_issue=operatorIssue.status()===201;
+const opPath='/admin/operator-accounts/'+operator.account_id+'/initial-setup';
+await click(p,'button[value=lookup]','/operator-accounts/lookup');
+await p.locator('#delivery a').waitFor({state:'detached'});
+checks.operator_clear=await p.locator('#delivery a').count()===0;
+// Reject an obsolete write and discard an out-of-order read.
+await post(p,opPath,{expected_version:operator.version});
+const conflict=await click(p,'button[value=reissue]',opPath);
+await p.getByText(/현재 상태입니다/).waitFor();
+checks.operator_conflict=conflict.status()===409&&await p.locator('#delivery a').count()===0;
+let unblock,entered;
+const blocked=new Promise(resolve=>{unblock=resolve;});
+const reached=new Promise(resolve=>{entered=resolve;});
+await p.route('**/operator-accounts/lookup',async route=>{
+ const res=await route.fetch();entered();await blocked;await route.fulfill({response:res});
+});
+await p.locator('button[value=lookup]').click();await reached;
+await p.locator('#login').fill('different.operator');
+const done=p.waitForResponse(r=>r.url().endsWith('/operator-accounts/lookup'));unblock();
+await done;await p.unroute('**/operator-accounts/lookup');
+checks.operator_stale_read=await p.locator('button[value=reissue]').isDisabled();
+await p.locator('#login').fill('operator.native');
+await click(p,'button[value=lookup]','/operator-accounts/lookup');
+// A committed response can be lost. Reconcile by UUID and explicitly reissue.
+let sends=0;
+await p.route('**'+opPath,async route=>{
+ sends++;await route.fetch();await route.abort();
+});
+await p.locator('button[value=reissue]').dblclick();
+await p.getByText(/현재 상태입니다/).waitFor();
+checks.operator_lost_ack=sends===1&&await p.locator('#delivery a').count()===0;
+await p.unroute('**'+opPath);
+const fresh=await click(p,'button[value=reissue]',opPath);
+const url=(await fresh.json()).setup_link;
+await r.goto(operator.setup_link);await r.locator('#new-password').fill(cfg.branchPassword);
+checks.operator_old_denied=(await click(r,'form button','/operator-credentials/complete')).status()===400;
+await r.goto(url);await r.waitForFunction(()=>!location.hash);
+await r.locator('#new-password').fill(cfg.branchPassword);
+checks.operator_complete=(await click(r,'form button','/operator-credentials/complete')).status()===204;
+async function operatorLogin(password){
+ await r.goto(cfg.origin+'/login');await r.locator('#identifier').fill('operator.native');
+ await r.locator('#password').fill(password);await click(r,'#password-form button','/auth/login');
+ await r.waitForURL('**/account');await r.getByText(/업무 지점 I1/).waitFor();
+}
+await operatorLogin(cfg.branchPassword);
+checks.operator_branch=(await get(r,'/operator/branches/'+branch.body.id)).status===200;
+checks.operator_denied=(await get(r,'/branches')).status===403;
+await r.locator('#current-password').fill(cfg.branchPassword);await r.locator('#new-password').fill(next);
+checks.operator_password=(await click(r,'#self-password button','/auth/password')).status()===204;
+await r.waitForURL('**/login');await operatorLogin(next);
+checks.operator_logout=(await click(r,'#signout','/auth/logout')).status()===204;
 if(Object.keys(checks).length!==required.length||!required.every(k=>checks[k]===true))throw Error();
 fs.writeFileSync(path.join(R,'browser-results.json'),JSON.stringify({checks,browser:browser.version()}));
 }catch{process.stderr.write('TRAINER_BROWSER_FAILED stage='+stage+'\n');

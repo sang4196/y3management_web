@@ -127,7 +127,7 @@ def test_cutover_retires_authority_preserves_c2_and_never_promotes_staged_hash(
                 "iam_sessions",
             )
         }
-    migrate(settings, "upgrade", "head")
+    migrate(settings, "upgrade", "0014_password_only")
     with db.session() as session:
         for table in ("iam_attempts", "iam_budgets", "audit_events"):
             expression = (
@@ -177,6 +177,63 @@ def test_cutover_retires_authority_preserves_c2_and_never_promotes_staged_hash(
                 text("SELECT state,password_hash FROM iam_accounts WHERE id=:i"), {"i": pending}
             ).one()
         ) == ("PENDING_SETUP", None)
+
+    def retained_rows(*, at_cutover: bool) -> dict[str, str]:
+        # Compare whole rows, including all original columns, without exposing their contents.
+        with db.session() as reader:
+            tables = (
+                reader.execute(
+                    text(
+                        "SELECT tablename FROM pg_tables WHERE schemaname=current_schema() "
+                        "AND tablename <> 'alembic_version' ORDER BY tablename"
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            digests = {}
+            for table in tables:
+                row = "to_jsonb(t)"
+                if at_cutover and table == "iam_sessions":
+                    row += " || jsonb_build_object('operator_version', 0)"
+                if at_cutover and table == "iam_accounts":
+                    row += """ || jsonb_build_object('restore_state',
+                        CASE WHEN state='DISABLED' THEN 'ACTIVE' END)"""
+                quoted = db.engine.dialect.identifier_preparer.quote(table)
+                digests[table] = reader.execute(
+                    text(
+                        f"SELECT md5(COALESCE(jsonb_agg(r ORDER BY r)::text,'[]')) "
+                        f"FROM (SELECT {row} AS r FROM {quoted} t) retained"
+                    )
+                ).scalar_one()
+            return digests
+
+    expected = retained_rows(at_cutover=True)
+    with db.session() as session:
+        assert session.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == (
+            "0014_password_only"
+        )
+        assert set(session.execute(text("SELECT id FROM iam_sessions")).scalars()) == set(
+            session_ids
+        )
+    migrate(settings, "upgrade", "head")
+    new_tables = {
+        "iam_operator_grants",
+        "iam_operator_setup_credentials",
+        "audit_operator_account_events",
+    }
+    with db.session() as session:
+        assert session.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == (
+            "0016_operator_onboarding"
+        )
+        versions = session.execute(text("SELECT id, operator_version FROM iam_sessions")).all()
+        assert {ident: version for ident, version in versions} == {
+            ident: 0 for ident in session_ids
+        }
+        for table in new_tables:
+            assert session.execute(text(f"SELECT count(*) FROM {table}")).scalar_one() == 0
+    empty = hashlib.md5(b"[]", usedforsecurity=False).hexdigest()
+    assert retained_rows(at_cutover=False) == {**expected, **dict.fromkeys(new_tables, empty)}
     with TestClient(create_app(settings, database=db), base_url=ORIGIN) as client:
         for index in range(2):
             client.cookies.set("__Host-y3-auth", raw + str(index))

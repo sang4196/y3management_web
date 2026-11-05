@@ -587,6 +587,12 @@ Traceability: PD-004/007/011/022; PR-002/003/006/030; BR-OPS-001/004/007/008/009
 
 Status: APPROVED
 
+2026-11-05 [OP-2/OP-3](product-decisions.md#review-20261105-operator-onboarding): 미설정 Operator 링크 명시 재발급은
+같은 조직 Master 또는 현재 업무 Branch Admin이 수행한다. 과거 발급 Scope는 권한을 남기지 않는다.
+발급 후 Branch 비활성만으로 유효 기존 링크 사용/허용 재발급을 막지 않으며 비활성 Branch 신규 배정은 계속 불가다.
+최초 설정30분·단회/재발급 시 이전 링크 폐기, 계정·역할·현재 Scope/감사와 Master 전용 전체 계정 관리를 유지한다.
+이전 아래 문장의 최초 설정 재발급/기발급 후 비활성 미정은 이 범위에서 해결됐다.
+
 2026-10-12 사용자 확정(Operator 업무 허용 지점 수 질문의 1번): v1 Operator 역할의 업무 허용 Branch는 한 시점에 하나만 지정한다. Operator는 그 지정된 단일 Branch에서 명시적으로 허용된 업무를 수행하며 같은 계정의 Operator 권한을 여러 Branch에 동시 부여하지 않는다. Branch당 Operator 한 명이라는 1:1 인원 제한을 추가하지 않으며 하나의 Branch에 여러 Operator가 있을 수 있다. 이 결정은 Operator 역할의 업무 Scope이며 기존에 허용된 겸임 역할의 독립적인 관리/PT 권한이나 Trainer Home Branch를 바꾸지 않는다(BR-OPS-011, PD-001/007, PR-001/003/030, ARCH-001, MB-004).
 
 인가 경계: Backend는 검증된 현재 Caller의 Operator 역할/Organization·지정된 단일 업무 Branch와 해당 요청의 실제 업무 Branch를 확인한다. 직접 Branch ID·클라이언트 branch_id/role/선택 지점·과거 업무/발급 지점만으로 다른 Branch의 업무를 수행할 수 없다. 동일 계정에 Operator 권한을 중복 부여하거나 여러 Branch 중 하나를 임의 선택하는 방식으로 단일 지점 제한을 우회하지 않는다. 현재 역할/Scope 철회·축소 이후 후속 요청은 현재 권한을 적용한다. 지정이 없거나 복수 지정된 상태를 유효한 Operator 업무 권한으로 간주하지 않되 구체 계정/역할 저장·활성화 제약과 오류 계약은 후속 Architecture다.

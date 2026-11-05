@@ -139,9 +139,16 @@ def test_migrate_disabled_and_roundtrip(
         )
     original = fingerprint(db)
     migrate(settings, "upgrade", HEAD)
+    with (
+        pytest.raises(ValueError, match="APPLICATION_STARTUP_FAILED"),
+        TestClient(create_app(settings, database=db), base_url=ORIGIN),
+    ):
+        pytest.fail("0016 runtime accepted 0015")
+    migrate(settings, "upgrade", "0016_operator_onboarding")
     with TestClient(create_app(settings, database=db), base_url=ORIGIN):
         with db.session() as session:
             assert current_policy(session).version == 2
+    migrate(settings, "downgrade", HEAD)
     with db.session() as session:
         assert (
             session.execute(text("SELECT restore_state FROM iam_accounts")).scalar_one() == "ACTIVE"
@@ -183,6 +190,10 @@ def test_pending_downgrade_guards(legacy_master: tuple[Settings, Database]) -> N
     before = fingerprint(db)
     migrate(settings, "downgrade", OLD, success=False)
     assert fingerprint(db) == before
+    migrate(settings, "upgrade", "0016_operator_onboarding")
+    current = fingerprint(db)
+    migrate(settings, "downgrade", OLD, success=False)
+    assert fingerprint(db) == current
 
 
 @pytest.mark.parametrize("cycle", ["disable_restore", "rename_back"])
@@ -251,6 +262,23 @@ finally:
     execute_original(old, settings, script.replace("EXPECTED", "True"))
     migrate(settings, "upgrade", HEAD)
     execute_original(old, settings, script.replace("EXPECTED", "False"))
+    directory = tmp_path / "original-0015"
+    directory.mkdir()
+    original_15 = archive_backend(directory, "f54b89fd5991eee52969f7fd6e07fa916f6af9e4")
+    script += """
+from fastapi.testclient import TestClient
+from y3management.application import create_app
+try:
+    with TestClient(create_app(load_settings())):
+        started=True
+except ValueError as error:
+    assert str(error)=="APPLICATION_STARTUP_FAILED"
+    started=False
+assert started==EXPECTED
+"""
+    execute_original(original_15, settings, script.replace("EXPECTED", "True"))
+    migrate(settings, "upgrade", "0016_operator_onboarding")
+    execute_original(original_15, settings, script.replace("EXPECTED", "False"))
 
 
 def test_dual_admin_reset_pending_cycle(trainer: TrainerScene) -> None:

@@ -1,4 +1,16 @@
-# 현재 IAM-015 로컬 인수 완료 — 승인된 계정 수명 정책
+# IAM-016 로컬 인수 완료 — Operator 최초 발급·로그인
+
+2026-11-05 [OP-2/OP-3](../product/product-decisions.md#review-20261105-operator-onboarding) 모두1 승인으로
+현재 업무 지점 관리자 재발급과 기발급 후 지점 비활성의 최초 설정 경계를 확정했다. Operator·Trainer 겸임은
+이미 승인된 정책이며 재확인됐다. [제한 계약](iam-016-operator-onboarding-design.md)의 구현·독립 실행·설계자 인수를 마쳤다.
+Operator 업무 Scope를 관리자 Scope로 승격하지 않고 기존 인증·현재 인가/감사·목적별 원본/GC·수명 보호를 유지한다.
+[실행 결과](iam-016-operator-onboarding-results.md)와 [최소 근거](iam-016-operator-onboarding-review.json)에
+새 fast197·선정PG299 분할(원래 core118+새181)·실제 native1사례33조건을 기록했다.
+두 독립 실패와 교정·동등성/집계 교정·플랫폼 복구·정리를 구분하며 단일299/전체648 성공은 아니다.
+전담 커밋·일반 feature push 뒤 기존 계정 Operator 역할/지점 이동의 대상 상태·조합 결정을 받는다.
+다른 OPEN/전역 PROPOSED/운영 게이트는 유지한다. 아래는 앞선 증분 이력이다.
+
+# IAM-015 로컬 인수 완료 — 승인된 계정 수명 정책
 
 2026-11-05 [LC-1/LC-2](../product/product-decisions.md#review-20261105-account-lifecycle) 모두1 승인으로
 설정 대기 차단/설정 대기 복구와 세 상태 Login ID 변경을 확정했다.

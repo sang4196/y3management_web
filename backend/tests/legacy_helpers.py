@@ -63,15 +63,16 @@ def prepare_password_guard(connection: Connection) -> None:
     """Walk to the actual 0014 shape inside the caller's rollback-only transaction."""
     context = MigrationContext.configure(connection)
     current = context.get_current_revision()
-    if current == "0014_password_only":
-        return
-    assert current == "0015_account_lifecycle"
     scripts = ScriptDirectory.from_config(Config("alembic.ini"))
-    script = scripts.get_revision(current)
-    assert script is not None
     with Operations.context(context):
-        script.module.downgrade()
-        context.stamp(scripts, "0014_password_only")
+        while current != "0014_password_only":
+            assert current in ("0016_operator_onboarding", "0015_account_lifecycle")
+            script = scripts.get_revision(current)
+            assert script is not None
+            script.module.downgrade()
+            assert isinstance(script.down_revision, str)
+            context.stamp(scripts, script.down_revision)
+            current = context.get_current_revision()
 
 
 def assert_revision_loss_guard(db: Database, filename: str, expected: str) -> None:

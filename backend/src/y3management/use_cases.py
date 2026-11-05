@@ -10,6 +10,7 @@ from uuid import UUID
 from y3management.audit.public import (
     Event,
     InitialCompensationSet,
+    OperatorAccountEvent,
     PasswordEmergencyEvent,
     TrainerIdentityEvent,
     TrainerRegistered,
@@ -19,6 +20,7 @@ from y3management.audit.public import (
 from y3management.contracts import CommitPhase, HashAdmissionRejected, Rejected
 from y3management.iam.public import (
     Account,
+    AccountRoles,
     Authentication,
     Caller,
     EmergencyRequest,
@@ -29,6 +31,7 @@ from y3management.iam.public import (
     IdentityTransition,
     LifecycleAccount,
     OperatingRecoveryAuthority,
+    OperatorScope,
     Preparation,
     Reservation,
     ResetState,
@@ -153,7 +156,7 @@ class Service:
                 raise Rejected(409, "logout_required")
         identifier = normalize_login(identifier)
         with self.uow.open() as w:
-            w.iam.preparation(preauth, nonce)
+            preauth_deadline = w.iam.preparation(preauth, nonce)
             w.iam.gc_sessions()
         with self.uow.open(commit_denial=True) as w:
             reservation = w.security.reserve(identifier)
@@ -171,7 +174,7 @@ class Service:
                 with self.uow.open() as security:
                     sid = security.security.allocate("session_slot")
                 roles = w.iam.lock_login(proof.account_id)
-                if roles.admin:
+                if roles.admin or roles.operator:
                     fact = None
                 elif roles.binding is not None and roles.trainer_granted:
                     w.iam.preparation(preauth, nonce)
@@ -183,15 +186,34 @@ class Service:
                 else:
                     raise Rejected(401, "invalid_credentials")
                 token, account = w.iam.login(proof, sid, preauth, nonce, reservation)
-                if fact is not None:
+                if roles.operator:
+                    self._operator_event(
+                        w,
+                        "login",
+                        roles.operator,
+                        account,
+                        account,
+                        Caller(account.id, account.organization_id, None, False, roles.operator),
+                    )
+                elif fact is not None:
                     self._identity_audit(w, "login", w.iam.identity_transition(account.id), fact)
                 else:
                     caller = Caller(
                         account.id, account.organization_id, account.branch_id, account.master
                     )
                     w.audit.append(event("login", caller, account.id))
+                if w.iam.account_roles(account.id) != roles:
+                    raise Rejected(401, "invalid_credentials")
+                if (
+                    fact
+                    and w.workforce.lock_identity(account.organization_id, fact.trainer_id) != fact
+                ):
+                    raise Rejected(401, "invalid_credentials")
                 w.iam.confirm_login(proof, reservation, sid)
-                w.iam.confirm_preparation(preauth, nonce)
+                assert reservation.lease_until
+                w.iam.confirm_preparation(
+                    preauth, nonce, deadline=min(reservation.lease_until, preauth_deadline)
+                )
             with self.uow.open() as security:
                 security.security.finish(reservation, True)
             delivered = True
@@ -283,6 +305,159 @@ class Service:
             w.audit.append(event("branch_create", a.caller, b.id, branch=b))
             w.roles.confirm_actor(actor_snapshot, self_change=False, touch=True)
             return b
+
+    def operator_branch(self, auth: str | None, ident: UUID) -> Branch:
+        with self.uow.open() as w:
+            actor, _ = self._current_principal(w, auth)
+            snapshot = w.roles.snapshot(actor)
+            branch = w.organization.operator_branch(actor.caller, ident)
+            w.roles.confirm_actor(snapshot, self_change=False, touch=True)
+            return branch
+
+    def _operator_event(
+        self,
+        w: Work,
+        kind: str,
+        scope: OperatorScope,
+        before: Account | None,
+        after: Account,
+        actor: Caller | None,
+    ) -> None:
+        role = "CREDENTIAL_HOLDER"
+        actor_branch = None
+        if actor:
+            if actor.master:
+                role = "MASTER"
+            elif actor.branch_id:
+                role, actor_branch = "BRANCH_ADMIN", actor.branch_id
+            elif actor.operator:
+                role, actor_branch = "OPERATOR", actor.operator.branch_id
+            else:
+                raise Rejected(403, "forbidden")
+        w.audit.append_operator(
+            OperatorAccountEvent(
+                kind,
+                after.organization_id,
+                after.id,
+                scope.branch_id,
+                actor.account_id if actor else None,
+                role,
+                actor_branch,
+                before.state if before else None,
+                after.state,
+                before.version if before else None,
+                after.version,
+            )
+        )
+
+    def read_operator(
+        self, auth: str | None, target: str | UUID, nonce: str | None = None
+    ) -> AccountRoles:
+        with self.uow.open() as w:
+            actor = w.iam.authenticate(
+                auth,
+                management=True,
+                touch=False,
+                target=target if isinstance(target, UUID) else None,
+            )
+            snapshot = w.roles.snapshot(actor)
+            if isinstance(target, str):
+                w.iam.csrf(actor, nonce)
+            result = w.iam.operator_target(actor.caller, target)
+            w.roles.confirm_actor(snapshot, self_change=False, touch=True)
+            return result
+
+    def issue_operator(
+        self,
+        auth: str | None,
+        nonce: str | None,
+        *,
+        identifier: str | None = None,
+        branch: UUID | None = None,
+        target: UUID | None = None,
+        expected: int | None = None,
+    ) -> tuple[AccountRoles, Setup]:
+        with self.uow.open() as w:
+            actor = w.iam.authenticate(auth, touch=False)
+            w.iam.csrf(actor, nonce)
+        with self.uow.open() as w:
+            slot = w.security.allocate("credential")
+        try:
+            with self.uow.open() as w:
+                actor = w.iam.authenticate(auth, management=True, target=target, touch=False)
+                w.iam.csrf(actor, nonce)
+                snapshot = w.roles.snapshot(actor)
+                before = None
+                branch_fact = None
+                if target is None:
+                    assert identifier is not None and branch is not None
+                    branch_fact = w.organization.lock_scoped_branch(actor.caller, branch)
+                    w.organization.require_assignable(branch_fact)
+                    account = w.iam.issue_operator(
+                        actor.caller, normalize_login(identifier), branch
+                    )
+                    target_id = account.id
+                else:
+                    target_id = target
+                    w.iam.lock_trainer_credentials(target_id)
+                    before = w.iam.operator_target(actor.caller, target_id).account
+                    if before.version != expected:
+                        raise Rejected(409, "conflict")
+                roles = w.iam.operator_target(actor.caller, target_id)
+                setup = w.iam.operator_setup(roles, slot, before is not None)
+                result = w.iam.operator_target(actor.caller, target_id)
+                assert result.operator
+                self._operator_event(
+                    w,
+                    "issue" if before is None else "reissue",
+                    result.operator,
+                    before,
+                    result.account,
+                    actor.caller,
+                )
+                if branch_fact:
+                    w.organization.confirm_scoped_branch(actor.caller, branch_fact)
+                source = w.iam.operator_source(setup.token, False)
+                if (
+                    source.id != slot
+                    or source.account != result.account
+                    or source.operator != result.operator
+                    or source.expires_at != setup.expires_at
+                ):
+                    raise Rejected(409, "conflict")
+                w.roles.confirm_actor(
+                    snapshot, self_change=False, touch=True, deadline=source.expires_at
+                )
+                return result, setup
+        except Exception:
+            self._release_login_slot(slot)
+            raise
+
+    def complete_operator(
+        self, token: str, password: str, preauth: str | None, nonce: str | None
+    ) -> None:
+        with self.uow.open() as w:
+            preauth_deadline = w.iam.preparation(preauth, nonce)
+        with self.uow.open() as w:
+            proof = w.iam.complete_operator(token, password, preauth, nonce)
+            after = w.iam.operator_source(token, True)
+            self._operator_event(
+                w, "setup_complete", proof.operator, proof.account, after.account, None
+            )
+            final = w.iam.operator_source(token, True)
+            if (
+                final != after
+                or final.security_version != proof.security_version
+                or final.account.version != proof.account.version + 1
+                or final.id != proof.id
+                or final.expires_at != proof.expires_at
+                or final.operator != proof.operator
+                or final.policy != proof.policy
+            ):
+                raise Rejected(400, "invalid_setup")
+            w.iam.confirm_preparation(
+                preauth, nonce, deadline=min(preauth_deadline, proof.expires_at)
+            )
 
     def issue(
         self, auth: str | None, nonce: str | None, identifier: str, branch: UUID
@@ -416,6 +591,8 @@ class Service:
             if roles.admin:
                 resource = "master-accounts" if account.master else "accounts"
                 route = f"/api/v1/admin/{resource}/{ident}/activation"
+            elif roles.operator:
+                route = f"/api/v1/admin/operator-accounts/{ident}/initial-setup"
             elif fact and fact.active and roles.trainer_granted:
                 route = f"/api/v1/admin/trainers/{trainer}/initial-setup"
         return LifecycleAccount(
@@ -423,6 +600,7 @@ class Service:
             trainer_id=trainer,
             trainer_granted=roles.trainer_granted,
             setup_route=route,
+            operator=roles.operator,
         )
 
     def lifecycle_read(
@@ -526,7 +704,8 @@ class Service:
                 raise Rejected(401, "unauthorized")
             snapshot = (
                 w.iam.identity_transition(ident)
-                if fact is not None and not (final.caller.master or final.caller.branch_id)
+                if fact is not None
+                and not (final.caller.master or final.caller.branch_id or final.caller.operator)
                 else None
             )
             password_actor = w.iam.password_change_actor(final, proof) if snapshot is None else None
@@ -535,7 +714,12 @@ class Service:
                 self._identity_audit(w, "password_change", snapshot, fact)
                 w.iam.confirm_identity_transition(snapshot, changed=True, authentication=final)
             else:
-                w.audit.append(event("password_change", final.caller, ident, before, after))
+                if final.caller.operator:
+                    self._operator_event(
+                        w, "password_change", final.caller.operator, before, after, final.caller
+                    )
+                else:
+                    w.audit.append(event("password_change", final.caller, ident, before, after))
                 assert password_actor is not None
                 w.iam.confirm_password_change(password_actor)
 
@@ -549,9 +733,11 @@ class Service:
                 w.iam.csrf(a, nonce)
                 snapshot = (
                     w.iam.identity_transition(a.caller.account_id)
-                    if fact is not None and not (a.caller.master or a.caller.branch_id)
+                    if fact is not None
+                    and not (a.caller.master or a.caller.branch_id or a.caller.operator)
                     else None
                 )
+                operator_actor = w.roles.snapshot(a) if a.caller.operator else None
                 w.iam.logout(a)
                 if snapshot is not None and fact is not None:
                     self._identity_audit(w, "logout", snapshot, fact)
@@ -559,6 +745,13 @@ class Service:
                         snapshot, changed=False, authentication=a, logout=True
                     )
                 else:
+                    if a.caller.operator and operator_actor:
+                        account = w.iam.account_roles(a.caller.account_id).account
+                        self._operator_event(
+                            w, "logout", a.caller.operator, account, account, a.caller
+                        )
+                        w.roles.confirm_actor(operator_actor, self_change=False, logout=True)
+                        return
                     w.audit.append(event("logout", a.caller, a.caller.account_id))
         except Rejected as error:
             if error.status != 401:
@@ -683,7 +876,7 @@ class Service:
         self, token: str, password: str, preauth: str | None, nonce: str | None
     ) -> None:
         with self.uow.open() as w:
-            w.iam.preparation(preauth, nonce)
+            preauth_deadline = w.iam.preparation(preauth, nonce)
         with self.uow.open() as w:
             proof = w.password_reset.prepare_reset(token, password)
             before, after, changes = w.password_reset.complete_reset(proof)
@@ -705,6 +898,10 @@ class Service:
                 )
             )
             w.password_reset.confirm_complete(proof)
+            assert proof.expires_at
+            w.iam.confirm_preparation(
+                preauth, nonce, deadline=min(preauth_deadline, proof.expires_at)
+            )
 
     def emergency_inspect(
         self, authority: OperatingRecoveryAuthority, ident: UUID
@@ -945,12 +1142,16 @@ class Service:
         fact = None
         if a.binding is not None and a.trainer_granted:
             fact = w.workforce.lock_identity(a.caller.organization_id, a.binding.trainer_id)
-            if not fact.active and not (a.caller.master or a.caller.branch_id):
+            if not fact.active and not (a.caller.master or a.caller.branch_id or a.caller.operator):
                 raise Rejected(401, "unauthorized")
         final = w.iam.authenticate(
             auth, management=management, target=target, touch=False, audience="account"
         )
-        if final.binding != a.binding or final.trainer_granted != a.trainer_granted:
+        if (
+            final.binding != a.binding
+            or final.trainer_granted != a.trainer_granted
+            or final.caller != a.caller
+        ):
             raise Rejected(401, "unauthorized")
         return final, fact
 
@@ -1198,11 +1399,14 @@ class Service:
     ) -> tuple[Caller, TrainerIdentityFact | None, TrainerRoleState | None]:
         with self.uow.open() as w:
             a, fact = self._current_principal(w, auth)
+            snapshot = w.roles.snapshot(a) if a.caller.operator else None
             role = (
                 w.roles.state(a.caller.organization_id, a.binding.trainer_id)
                 if a.binding is not None
                 else None
             )
+            if snapshot:
+                w.roles.confirm_actor(snapshot, self_change=False, touch=True)
             return a.caller, fact, role
 
     def trainer_state_operation(self, auth: str | None, operation: UUID) -> TrainerStateResult:

@@ -3,7 +3,7 @@
 import hashlib
 import json
 from dataclasses import asdict
-from datetime import timedelta
+from datetime import datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import text
@@ -28,24 +28,7 @@ class TrainerRoles:
         self.s = iam.s
 
     def lock(self, ident: UUID) -> None:
-        # Account and every affected session are held before credential/context locks.
-        for table in (
-            "iam_credentials",
-            "iam_mfa_contexts",
-            "iam_recovery_credentials",
-            "iam_reset_credentials",
-            "iam_emergency_credentials",
-            "iam_password_emergency_credentials",
-            "iam_trainer_setup_credentials",
-        ):
-            self.s.execute(
-                text(f"SELECT id FROM {table} WHERE account_id=:a ORDER BY id FOR UPDATE"),
-                {"a": ident},
-            ).all()
-        for table in ("iam_trainer_role_grants", "iam_trainer_bindings"):
-            self.s.execute(
-                text(f"SELECT account_id FROM {table} WHERE account_id=:a FOR UPDATE"), {"a": ident}
-            ).all()
+        self.iam.lock_trainer_credentials(ident)
 
     def state(self, organization: UUID, trainer: UUID) -> TrainerRoleState:
         binding = self.iam.trainer_binding(organization, trainer)
@@ -76,7 +59,7 @@ class TrainerRoles:
             and row.password_ready
             and not row.recovery_pending
             and not row.password_reset_pending
-            and roles.admin
+            and (roles.admin or roles.operator)
         )
 
     def lookup(self, organization: UUID, trainer: UUID, identifier: str) -> TrainerRoleCandidate:
@@ -140,7 +123,8 @@ class TrainerRoles:
             self.s.execute(
                 text(
                     "SELECT id,account_id,digest,csrf,security_version,"
-                    "trainer_role_epoch,created_at,last_activity,expires_at,assurance "
+                    "trainer_role_epoch,operator_version,created_at,last_activity,"
+                    "expires_at,assurance "
                     "FROM iam_sessions WHERE id=:i"
                 ),
                 {"i": authentication.session_id},
@@ -151,7 +135,13 @@ class TrainerRoles:
         roles = self.iam.account_roles(ident)
         return hashlib.sha256(
             json.dumps(
-                [dict(account), dict(session), asdict(roles.account), asdict(self.iam.policy())],
+                [
+                    dict(account),
+                    dict(session),
+                    asdict(roles.account),
+                    asdict(roles.operator_grant) if roles.operator_grant else None,
+                    asdict(self.iam.policy()),
+                ],
                 sort_keys=True,
                 default=str,
             ).encode()
@@ -172,10 +162,16 @@ class TrainerRoles:
         )
 
     def confirm_actor(
-        self, snapshot: RoleActorSnapshot, *, self_change: bool, touch: bool = False
+        self,
+        snapshot: RoleActorSnapshot,
+        *,
+        self_change: bool,
+        touch: bool = False,
+        deadline: datetime | None = None,
+        logout: bool = False,
     ) -> None:
         self.iam.check_policy(snapshot.policy)
-        if touch and self_change:
+        if touch and (self_change or logout):
             raise ValueError("Cannot touch a self-revoked session")
         auth = snapshot.authentication
         revoked = self.s.execute(
@@ -186,7 +182,8 @@ class TrainerRoles:
         now = self.iam.now()
         if (
             stable_digest != snapshot.stable_digest
-            or revoked != self_change
+            or revoked != (self_change or logout)
+            or (deadline is not None and deadline <= now)
             or epoch != snapshot.role_epoch + int(self_change)
             or snapshot.expires_at <= now
             or snapshot.last_activity + timedelta(minutes=30) <= now
@@ -297,6 +294,10 @@ class TrainerRoles:
             )
             self.s.execute(
                 text("UPDATE iam_trainer_setup_credentials SET consumed=true WHERE account_id=:a"),
+                {"a": request.account_id},
+            )
+            self.s.execute(
+                text("UPDATE iam_operator_setup_credentials SET consumed=true WHERE account_id=:a"),
                 {"a": request.account_id},
             )
             security = self.s.execute(

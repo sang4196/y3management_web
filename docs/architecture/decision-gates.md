@@ -1,4 +1,13 @@
-# 2026-11-05 IAM-015 현재 게이트
+# 2026-11-05 IAM-016 현재 게이트
+
+[OP-2/OP-3](../product/product-decisions.md#review-20261105-operator-onboarding)로 Operator 최초 설정 재발급의
+현재 관리 Scope/기발급 후 Branch 비활성 사용자 게이트를 해결했다. 기존 겸임/발급 Actor·단일 Scope를 재질문하지 않는다.
+[제한 계약](iam-016-operator-onboarding-design.md)의 구현·독립 실행·설계자 인수를 마쳤다.
+[실행 결과](iam-016-operator-onboarding-results.md)의 새 fast197·승인된 PG299 분할·실제 native33조건과
+원래 실패/교정·재사용 범위를 따른다. 전담 커밋·일반 feature push가 후속이며 다음 상태/조합 결정은 미승인이다.
+기존 Operator 역할 추가/회수·이동 세부/Member·Pass 등은 분리하며 다른 OPEN/전역 PROPOSED/운영 게이트를 닫지 않는다.
+
+# 2026-11-05 IAM-015 게이트 이력
 
 [LC-1/LC-2](../product/product-decisions.md#review-20261105-account-lifecycle)로 설정 대기 차단/복구 및
 세 상태 ID 변경의 사용자 게이트를 해소했다. 다시 묻지 않는다.

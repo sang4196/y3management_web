@@ -1,5 +1,24 @@
 # Product Decisions — 승인 반영
 
+<a id="review-20261105-operator-onboarding"></a>
+## 2026-11-05 승인 — Operator 최초 설정 복구 경계
+
+사용자는 O2/O3 모두1번을 선택했다. 함께 도착한 O1=1은 이미 승인된 Operator·Trainer 겸임의 재확인이다.
+Operator·Trainer 겸임과 각 역할의 독립 Scope는 기존 새 Pass 발급/회원 관리 결정과 시나리오에 명시돼
+있었으며 새로운 허용이나 별도 계정 의무 변경이 아니다. 정책 승인과 실제 구현·검증은 구분한다.
+
+| ID / 질문 | 승인 정책 | 유지 경계 |
+| --- | --- | --- |
+| OP-2 / O2 | PENDING_SETUP Operator의 최초 설정 링크는 같은 Organization Master 또는 대상의 **현재 업무 Branch**를 관리하는 Branch Admin이 명시 재발급할 수 있다. | 최초 발급자·과거 지점 관리자라는 사실만으로 권한을 유지하지 않는다. A4의30분/단회·이전 링크 폐기와 E2 본인 확인/전달을 유지한다. ACTIVE 비밀번호 재설정과 전체 차단/복구·ID 변경은 기존 Master 전용 정책이다. |
+| OP-3 / O3 | 활성 지점에 이미 발급한 Operator의 지점이 설정 전에 비활성화돼도 기존 유효 링크 사용과 허용 관리자의 명시 재발급을 허용한다. | 비활성 지점의 신규 Operator 배정은 계속 차단한다. 계정·현재 역할/Scope·목적/원래 기한·폐기 여부를 확인하며 자동 지점 이동·역할 복원·원본 부활은 없다. |
+
+BR-OPS-011의 한 시점 단일 업무 Branch, Master Organization/Branch Admin 자기 Branch의 신규 발급과
+별도 Master 승인 대기 없음, Operator/Trainer 단독의 계정 발급 금지를 유지한다. 기존 Operator 지점 이동은
+Master 전용이며 Trainer Home Branch와 독립이다. 재발급은 목적별 최초 설정 권한이고 다른 역할의 초기 설정·
+관리자 승격이나 계정 전역 관리 인가를 우회하지 않는다. 관리자 전용 보상·정산·계정 관리 권한은 늘리지 않는다.
+기존 계정의 Operator 역할 추가/회수·이동 상태별 세부, 다른 Product OPEN과 운영 전환은 이번 답변으로 닫지 않는다.
+전체22 OPEN/8 CLOSED·PD1 OPEN/26 CLOSED·전역 모듈 PROPOSED는 유지한다.
+
 <a id="review-20261105-account-lifecycle"></a>
 ## 2026-11-05 승인 — 설정 대기 계정 차단·복구와 Login ID 변경 상태
 

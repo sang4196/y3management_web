@@ -20,5 +20,16 @@
   "logged_out",
   "admin_preserved",
   "nojs_disabled",
-  "nojs_post"
+  "nojs_post",
+  "operator_issue",
+  "operator_clear",
+  "operator_conflict",
+  "operator_stale_read",
+  "operator_lost_ack",
+  "operator_old_denied",
+  "operator_complete",
+  "operator_branch",
+  "operator_denied",
+  "operator_password",
+  "operator_logout"
 ]

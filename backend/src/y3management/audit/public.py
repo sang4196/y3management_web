@@ -67,7 +67,24 @@ class PasswordEmergencyEvent:
     recorded_at: datetime
 
 
+@dataclass(frozen=True)
+class OperatorAccountEvent:
+    kind: str
+    organization_id: UUID
+    account_id: UUID
+    branch_id: UUID
+    actor_id: UUID | None
+    actor_role: str
+    actor_branch: UUID | None
+    before_state: str | None
+    after_state: str
+    before_version: int | None
+    after_version: int
+
+
 class AuditPort(Protocol):
+    def append_operator(self, event: OperatorAccountEvent) -> None: ...
+
     def append_password_emergency(self, event: PasswordEmergencyEvent) -> None: ...
 
     def append_trainer_state(self, event: TrainerStateEvent) -> None: ...

@@ -15,11 +15,24 @@ class PolicyStamp:
 
 
 @dataclass(frozen=True)
+class OperatorScope:
+    branch_id: UUID
+    version: int
+
+
+@dataclass(frozen=True)
+class OperatorGrant:
+    scope: OperatorScope
+    granted: bool
+
+
+@dataclass(frozen=True)
 class Caller:
     account_id: UUID
     organization_id: UUID
     branch_id: UUID | None
     master: bool
+    operator: OperatorScope | None = None
 
 
 @dataclass(frozen=True, repr=False)
@@ -61,6 +74,7 @@ class LifecycleAccount(Account):
     trainer_id: UUID | None = None
     trainer_granted: bool = False
     setup_route: str | None = None
+    operator: OperatorScope | None = None
 
 
 @dataclass(frozen=True, repr=False)
@@ -69,6 +83,7 @@ class LoginProof:
     security_version: int
     credential_marker: bytes
     trainer_role_epoch: int = 0
+    operator_grant: OperatorGrant | None = None
     policy: PolicyStamp = field(kw_only=True)
 
 
@@ -90,6 +105,7 @@ class Reservation:
     id: UUID
     account_id: UUID | None
     security_version: int | None
+    lease_until: datetime | None = None
     policy: PolicyStamp = field(kw_only=True)
 
 
@@ -97,6 +113,13 @@ class Reservation:
 
 
 class IAMPort(Protocol):
+    def issue_operator(self, caller: Caller, identifier: str, branch: UUID) -> Account: ...
+    def operator_target(self, caller: Caller, target: UUID | str) -> AccountRoles: ...
+    def operator_setup(self, roles: AccountRoles, slot: UUID, reissue: bool) -> Setup: ...
+    def operator_source(self, token: str, consumed: bool) -> OperatorSource: ...
+    def complete_operator(
+        self, token: str, password: str, preauth: str | None, nonce: str | None
+    ) -> OperatorSource: ...
     def policy(self) -> PolicyStamp: ...
     def check_policy(self, expected: PolicyStamp) -> None: ...
 
@@ -141,12 +164,16 @@ class IAMPort(Protocol):
         self, sid: UUID, *, attempt_id: UUID, account_id: UUID, policy: PolicyStamp
     ) -> None: ...
     def installation_lock(self) -> None: ...
-    def confirm_preparation(self, token: str | None, nonce: str | None) -> None: ...
+    def confirm_preparation(
+        self, token: str | None, nonce: str | None, *, deadline: datetime | None = None
+    ) -> None: ...
     def confirm_setup(self, token: str) -> None: ...
     def prepare_master(self, identifier: str, password: str) -> None: ...
     def ensure_uninstalled(self) -> None: ...
     def bootstrap(self, organization_id: UUID, identifier: str) -> Account: ...
-    def preparation(self, token: str | None, nonce: str | None, consume: bool = False) -> None: ...
+    def preparation(
+        self, token: str | None, nonce: str | None, consume: bool = False
+    ) -> datetime: ...
     def login_subject(self, identifier: str) -> Account | None: ...
     def verify_login(
         self, identifier: str, password: str, reservation: Reservation
@@ -236,6 +263,8 @@ class ResetProof:
     security_version: int
     generation: int
     trainer_role_epoch: int = 0
+    operator_grant: OperatorGrant | None = None
+    expires_at: datetime | None = None
     policy: PolicyStamp = field(kw_only=True)
 
 
@@ -385,6 +414,12 @@ class AccountRoles:
     binding: TrainerBinding | None
     trainer_granted: bool = False
     trainer_role_epoch: int = 0
+    operator_grant: OperatorGrant | None = None
+
+    @property
+    def operator(self) -> OperatorScope | None:
+        grant = self.operator_grant
+        return grant.scope if grant and grant.granted else None
 
     @property
     def admin(self) -> bool:
@@ -504,7 +539,13 @@ class TrainerRolesPort(Protocol):
     def operation(self, organization: UUID, operation: UUID) -> TrainerRoleResult | None: ...
     def snapshot(self, authentication: Authentication) -> RoleActorSnapshot: ...
     def confirm_actor(
-        self, snapshot: RoleActorSnapshot, *, self_change: bool, touch: bool = False
+        self,
+        snapshot: RoleActorSnapshot,
+        *,
+        self_change: bool,
+        touch: bool = False,
+        deadline: datetime | None = None,
+        logout: bool = False,
     ) -> None: ...
     def change(
         self,
@@ -516,3 +557,13 @@ class TrainerRolesPort(Protocol):
         request: TrainerRoleRequest,
     ) -> tuple[TrainerRoleResult, TrainerRoleChange | None]: ...
     def confirm_change(self, result: TrainerRoleResult, change: TrainerRoleChange) -> None: ...
+
+
+@dataclass(frozen=True)
+class OperatorSource:
+    id: UUID
+    account: Account
+    operator: OperatorScope
+    security_version: int
+    expires_at: datetime
+    policy: PolicyStamp

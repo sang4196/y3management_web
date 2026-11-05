@@ -1,5 +1,11 @@
 # Open Questions / 후속 TODO
 
+2026-11-05 ARCH-002/MB-004 부분 해결: [OP-2/OP-3](product-decisions.md#review-20261105-operator-onboarding)로
+PENDING_SETUP Operator의 현재 업무 Branch 관리자 명시 재발급과 기발급 후 Branch 비활성의 기존 링크
+사용/허용 재발급을 확정했다. 기존 겸임·단일 업무 Scope·신규 배정 차단·Master 전용 전체 계정 관리와
+역할 추가/회수·이동의 잔여 상태 상세를 구분한다. 이 두 선택을 다시 질문하지 않는다.
+구체 저장/공개 계약·동시성·검증과 운영 인수는 별도이며 전체22 OPEN/8 CLOSED는 유지한다.
+
 2026-11-05 ARCH-002 부분 해결: [LC-1/LC-2](product-decisions.md#review-20261105-account-lifecycle) 모두1 승인으로
 PENDING_SETUP 차단→설정 대기 복구와 세 상태 Login ID 변경을 확정했다. 아래 2026-10-31의 두 질문 보류는
 이 범위에서 대체됐으며 재질문하지 않는다. 기존 Master 전용·동일인/역할/업무 독립·명시 재발급·철회와

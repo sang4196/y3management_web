@@ -17,6 +17,7 @@ from y3management.config import Settings
 from y3management.contracts import Rejected
 from y3management.iam.public import (
     Account,
+    AccountRoles,
     EmergencySnapshot,
     HandoffRequest,
     LifecycleAccount,
@@ -205,6 +206,8 @@ def account_json(account: Account) -> dict[str, object]:
         "admin_scope": scope,
     }
     if isinstance(account, LifecycleAccount):
+        if account.operator:
+            result["operator_scope"] = {"branch_id": str(account.operator.branch_id)}
         result.update(
             restore_state=account.restore_state,
             trainer_id=str(account.trainer_id) if account.trainer_id else None,
@@ -333,6 +336,8 @@ def attach(app: FastAPI, settings: Settings) -> None:
                     "branch_id": str(c.branch_id) if c.branch_id else None,
                 }
             )
+        if c.operator:
+            roles.append({"role": "OPERATOR", "branch_id": str(c.operator.branch_id)})
         if trainer is not None and trainer.active:
             roles.append(
                 {
@@ -372,6 +377,57 @@ def attach(app: FastAPI, settings: Settings) -> None:
         service(request).change_password(auth, nonce, body.current_password, body.new_password)
         response = Response(status_code=204)
         clear(response, AUTH)
+        clear(response, PREAUTH)
+        return response
+
+    def operator_json(roles: AccountRoles, setup: Setup | None = None) -> dict[str, object]:
+        assert roles.operator
+        result = account_json(roles.account)
+        result.pop("admin_scope")
+        result["operator_scope"] = {"branch_id": str(roles.operator.branch_id)}
+        if setup:
+            result.update(
+                setup_link=settings.canonical_origin + "/operator-activate#token=" + setup.token,
+                expires_at=setup.expires_at.isoformat(),
+            )
+        return result
+
+    @router.post("/admin/operator-accounts", status_code=201)
+    def issue_operator(request: Request, body: Issue) -> dict[str, object]:
+        return operator_json(
+            *service(request).issue_operator(
+                *write(request), identifier=body.login_id, branch=body.branch_id
+            )
+        )
+
+    @router.post("/admin/operator-accounts/lookup")
+    def lookup_operator(request: Request, body: Lookup) -> dict[str, object]:
+        auth, nonce = write(request)
+        return operator_json(service(request).read_operator(auth, body.login_id, nonce))
+
+    @router.get("/admin/operator-accounts/{ident}")
+    def get_operator(request: Request, ident: UUID) -> dict[str, object]:
+        return operator_json(service(request).read_operator(read(request), ident))
+
+    @router.post("/admin/operator-accounts/{ident}/initial-setup", status_code=201)
+    def reissue_operator(request: Request, ident: UUID, body: Version) -> dict[str, object]:
+        return operator_json(
+            *service(request).issue_operator(
+                *write(request), target=ident, expected=body.expected_version
+            )
+        )
+
+    @router.get("/operator/branches/{ident}")
+    def operator_branch(request: Request, ident: UUID) -> dict[str, object]:
+        return asdict(service(request).operator_branch(read(request), ident))
+
+    @router.post("/auth/operator-credentials/complete", status_code=204)
+    def complete_operator(request: Request, body: Complete) -> Response:
+        _, nonce = write(request)
+        service(request).complete_operator(
+            body.setup_token, body.new_password, request.cookies.get(PREAUTH), nonce
+        )
+        response = Response(status_code=204)
         clear(response, PREAUTH)
         return response
 
@@ -794,12 +850,33 @@ p,li{overflow-wrap:anywhere}h1{font-size:1.6rem}""",
 
     app.include_router(router)
 
+    @app.get("/operator-accounts", response_class=HTMLResponse)
+    def operator_accounts_page(request: Request) -> str:
+        caller = service(request).me(read(request))
+        if not caller.master and not caller.branch_id:
+            raise Rejected(403, "forbidden")
+        return """<!doctype html><html lang="ko"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>운영자 계정</title>
+<h1>운영자 계정</h1><form id="operator" method="post">
+<label>로그인 ID <input id="login" required></label>
+<label>업무 지점 <select id="branch"></select></label>
+<button value="lookup" disabled>현재 상태 조회</button>
+<button value="issue" disabled>새 계정 발급</button>
+<button value="reissue" disabled>초기 설정 링크 재발급</button></form>
+<p role="status" id="result"></p><div id="delivery"></div>
+<script src="/operator-accounts.js"></script></html>"""
+
+    @app.get("/operator-accounts.js")
+    def operator_accounts_script() -> Response:
+        return Response(OPERATOR_ACCOUNTS_JS, media_type="application/javascript")
+
+    @app.get("/operator-activate", response_class=HTMLResponse)
     @app.get("/trainer-activate", response_class=HTMLResponse)
     def trainer_activation_page(request: Request) -> str:
         return """<!doctype html><html lang="ko"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>최초 비밀번호 설정</title>
-<h1>최초 비밀번호 설정</h1><form id="trainer-setup" method="post" action="/trainer-activate">
+<h1>최초 비밀번호 설정</h1><form id="trainer-setup" method="post" >
 <label>새 비밀번호
 <input id="new-password" type="password" autocomplete="new-password" required></label>
 <button disabled>설정</button></form><p id="result" role="status"></p><a href="/login">로그인</a>
@@ -832,23 +909,41 @@ async function post(path,body){const nonce=await csrf();const r=await fetch('/ap
 {method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':nonce},
 body:JSON.stringify(body)});
 if(!r.ok)throw Error();return r;}
-form.addEventListener('submit',async e=>{e.preventDefault();
-form.querySelector('button').disabled=true;
+let generation=0;
+const button=form.querySelector('button');
+function resetSetup(){
+ setupToken=new URLSearchParams(location.hash.slice(1)).get('token');
+ history.replaceState(null,'',location.pathname);generation++;
+ form.reset();form.hidden=false;button.disabled=!setupToken;out.textContent='';
+}
+if(form.id==='trainer-setup'){
+ addEventListener('hashchange',resetSetup);
+ addEventListener('pagehide',()=>{generation++;setupToken=null;form.reset();button.disabled=true;});
+}
+form.addEventListener('submit',async e=>{e.preventDefault();if(button.disabled)return;
+const seq=generation;button.disabled=true;
 try{const password=document.getElementById('new-password').value;
-if(form.id==='trainer-setup'){await post('/auth/trainer-credentials/complete',
-{setup_token:setupToken,new_password:password});setupToken=null;form.hidden=true;
+if(form.id==='trainer-setup'){await post(location.pathname==='/operator-activate'?
+'/auth/operator-credentials/complete':'/auth/trainer-credentials/complete',
+{setup_token:setupToken,new_password:password});if(seq!==generation)return;setupToken=null;form.hidden=true;
 out.textContent='설정했습니다. 로그인해 주세요.';}
 else{await post('/auth/password',
 {current_password:document.getElementById('current-password').value,
 new_password:password});location.href='/login';}
-}catch{out.textContent='처리하지 못했습니다. 현재 상태와 입력을 확인해 주세요.';}
-finally{form.querySelector('button').disabled=false;}});
-form.querySelector('button').disabled=false;
+}catch{if(seq===generation)
+ out.textContent='처리하지 못했습니다. 현재 상태와 입력을 확인해 주세요.';}
+finally{if(seq===generation){form.reset();button.disabled=form.id==='trainer-setup'&&!setupToken;}}});
+button.disabled=form.id==='trainer-setup'&&!setupToken;
 const logout=document.getElementById('signout');if(logout){logout.disabled=false;
 logout.addEventListener('click',async()=>{try{await post('/auth/logout',{});location.href='/login';}
 catch{out.textContent='로그아웃하지 못했습니다.';}});
 fetch('/api/v1/auth/me').then(async r=>{if(!r.ok)throw Error();
-document.getElementById('identity').textContent=JSON.stringify(await r.json(),null,2);})
+const profile=await r.json();
+document.getElementById('identity').textContent=JSON.stringify(profile,null,2);
+const op=profile.roles.find(role=>role.role==='OPERATOR');if(op){
+const branch=await fetch('/api/v1/operator/branches/'+op.branch_id);if(!branch.ok)throw Error();
+const data=await branch.json();
+document.getElementById('identity').append('\n업무 지점 '+data.code+' '+data.name);}})
 .catch(()=>{out.textContent='로그인이 필요합니다.';});}
 """,
             media_type="application/javascript",
@@ -939,9 +1034,14 @@ const r=await fetch('/api/v1'+path,{method:'POST',headers:{'Content-Type':'appli
 if(flow==='login'){
 const current=await fetch('/api/v1/auth/me');if(!current.ok)throw Error();
 const identity=await current.json();
-if(identity.roles.length===1&&identity.roles[0].role==='TRAINER'){
+if(identity.roles.some(role=>role.role==='OPERATOR')||
+(identity.roles.length===1&&identity.roles[0].role==='TRAINER')){
 location.href='/account';return;}
 out.textContent='로그인되었습니다.';
+if(identity.roles.some(role=>role.role==='ADMIN')){
+ document.getElementById('operator-link')?.remove();
+ const link=document.createElement('a');link.id='operator-link';link.href='/operator-accounts';
+ link.textContent='운영자 계정';out.after(link);}
 const old=document.getElementById('lifecycle-link');if(old)old.remove();
 if(identity.capabilities.includes('accounts:manage')){
  const link=document.createElement('a');link.id='lifecycle-link';link.href='/account-lifecycle';
@@ -1521,6 +1621,7 @@ function display(account){
  const roles=[];
  if(account?.admin_scope)
   roles.push(account.admin_scope.kind==='ORGANIZATION'?'Master':'Branch Admin');
+ if(account?.operator_scope)roles.push('Operator');
  if(account?.trainer_granted)roles.push('Trainer');
  el('state').textContent=account?[account.login_id,roles.join(' + ')||'현재 역할 없음',
   account.state,
@@ -1566,7 +1667,8 @@ async function change(kind){
  writing=true;display(before);el('message').textContent='';
  let next=null,secret='',message='';
  try{
-  const setup=kind==='setup',trainer=setup&&before.setup_route.endsWith('/initial-setup');
+  const setup=kind==='setup';
+  const trainer=setup&&before.setup_route.startsWith('/api/v1/admin/trainers/');
   const body=trainer?{operation_id:crypto.randomUUID(),expected_account_version:before.version}:
    {expected_version:before.version};
   if(kind==='status')body.status='DISABLED';
@@ -1598,3 +1700,132 @@ for(const [id,action] of [['disable','status'],['restore','restore'],['rename','
  ['setup','setup']])el(id).onclick=()=>change(action);
 window.addEventListener('pagehide',()=>{generation++;writing=false;target=null;display(null);});
 })();"""
+
+OPERATOR_ACCOUNTS_JS = r"""'use strict';
+const form = document.querySelector('form');
+const login = document.querySelector('#login');
+const branch = document.querySelector('#branch');
+const status = document.querySelector('#result');
+const delivery = document.querySelector('#delivery');
+const base = '/api/v1/admin/operator-accounts';
+let generation = 0;
+let selected = null;
+let writing = false;
+
+function controls() {
+  login.disabled = branch.disabled = writing;
+  for (const button of form.querySelectorAll('button')) {
+    button.disabled = writing ||
+      (button.value === 'reissue' && selected?.state !== 'PENDING_SETUP') ||
+      (button.value === 'issue' && !branch.value);
+  }
+}
+function clearSelection() {
+  generation++;
+  selected = null;
+  status.textContent = '';
+  delivery.replaceChildren();
+  controls();
+}
+function show(account) {
+  selected = account;
+  status.textContent = account.login_id + ' · ' + account.state + ' · 버전 ' + account.version;
+}
+async function json(response) {
+  if (!response.ok) throw Error();
+  return response.json();
+}
+async function post(url, body) {
+  const preparation = await json(await fetch('/api/v1/auth/csrf', {
+    headers: {'X-Y3-Client': 'operator'}
+  }));
+  return json(await fetch(url, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRF-Token': preparation.csrf_token},
+    body: JSON.stringify(body)
+  }));
+}
+async function readAccount(id) {
+  const account = await json(await fetch(base + '/' + id));
+  if (account.account_id !== id) throw Error();
+  return account;
+}
+function lookup(identifier) {
+  return post(base + '/lookup', {login_id: identifier});
+}
+
+form.addEventListener('input', clearSelection);
+addEventListener('pagehide', () => {
+  writing = false;
+  clearSelection();
+});
+form.addEventListener('submit', async event => {
+  event.preventDefault();
+  if (writing || !event.submitter || event.submitter.disabled) return;
+  const action = event.submitter.value;
+  const previous = selected;
+  const identifier = login.value;
+  writing = action !== 'lookup';
+  clearSelection();
+  const request = generation;
+  try {
+    if (action === 'lookup') {
+      const account = await lookup(identifier);
+      if (request === generation) show(account);
+      return;
+    }
+    const result = action === 'issue'
+      ? await post(base, {login_id: identifier, branch_id: branch.value})
+      : await post(base + '/' + previous.account_id + '/initial-setup', {
+          expected_version: previous.version
+        });
+    if (request !== generation) return;
+    const id = action === 'reissue' ? previous.account_id : result.account_id;
+    const account = await readAccount(id);
+    if (request !== generation) return;
+    show(account);
+    if (account.account_id === result.account_id && account.version === result.version &&
+        account.state === 'PENDING_SETUP' && result.setup_link) {
+      const link = document.createElement('a');
+      link.href = result.setup_link;
+      link.textContent = '최초 설정 링크';
+      delivery.append(link);
+    }
+  } catch {
+    if (request !== generation) return;
+    status.textContent = '처리 결과를 확인할 수 없습니다.';
+    if (writing) {
+      try {
+        const current = action === 'reissue'
+          ? await readAccount(previous.account_id)
+          : await lookup(identifier);
+        if (request === generation) {
+          show(current);
+          status.append(' · 현재 상태입니다. 링크가 필요하면 명시적으로 재발급하세요.');
+        }
+      } catch {
+        // The exact-ID lookup also failed. No secret or prior selection is retained.
+      }
+    }
+  } finally {
+    if (request === generation) {
+      writing = false;
+      controls();
+    }
+  }
+});
+
+async function loadBranches() {
+  try {
+    for (let offset = 0; ; offset += 100) {
+      const page = await json(await fetch('/api/v1/branches?offset=' + offset + '&limit=100'));
+      for (const item of page.items) branch.add(new Option(item.name, item.id));
+      if (!page.items.length || offset + page.items.length >= page.total) break;
+    }
+  } catch {
+    status.textContent = '지점을 불러올 수 없습니다.';
+  }
+  controls();
+}
+loadBranches();
+"""

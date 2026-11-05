@@ -35,6 +35,7 @@ class Security:
             ("iam_preparations", None),
             ("iam_credentials", "source_id"),
             ("iam_trainer_setup_credentials", None),
+            ("iam_operator_setup_credentials", None),
             ("iam_recovery_credentials", "recovery_id"),
             ("iam_reset_credentials", None),
             ("iam_emergency_credentials", "emergency_id"),
@@ -95,6 +96,7 @@ class Security:
           AND NOT EXISTS (SELECT 1 FROM iam_preparations p WHERE p.id=s.id)
           AND NOT EXISTS (SELECT 1 FROM iam_credentials c WHERE c.id=s.id)
           AND NOT EXISTS (SELECT 1 FROM iam_trainer_setup_credentials t WHERE t.id=s.id)
+          AND NOT EXISTS (SELECT 1 FROM iam_operator_setup_credentials t WHERE t.id=s.id)
           AND NOT EXISTS (SELECT 1 FROM iam_password_emergency_credentials p WHERE p.id=s.id)
           AND NOT EXISTS (SELECT 1 FROM iam_emergency_credentials e WHERE e.id=s.id)
           AND NOT EXISTS (SELECT 1 FROM iam_reset_credentials r WHERE r.id=s.id)
@@ -151,6 +153,7 @@ class Security:
                 "DELETE FROM iam_security_states s WHERE id=:id "
                 "AND NOT EXISTS (SELECT 1 FROM iam_credentials c WHERE c.id=s.id) "
                 "AND NOT EXISTS (SELECT 1 FROM iam_trainer_setup_credentials t WHERE t.id=s.id) "
+                "AND NOT EXISTS (SELECT 1 FROM iam_operator_setup_credentials t WHERE t.id=s.id) "
                 "AND NOT EXISTS (SELECT 1 FROM iam_recovery_credentials r WHERE r.id=s.id) "
                 "AND NOT EXISTS (SELECT 1 FROM iam_reset_credentials r WHERE r.id=s.id) "
                 "AND NOT EXISTS (SELECT 1 FROM iam_password_emergency_credentials p WHERE "
@@ -256,6 +259,7 @@ class Security:
         )
         if pending + failed >= 5:
             raise Rejected(429, "try_later", 1)
+        lease_until = now + timedelta(seconds=30)
         expires = now + timedelta(minutes=16)
         ident = self._allocate("attempt", expires)
         self.s.execute(
@@ -264,17 +268,19 @@ class Security:
                 "iam_attempts(id,key,outcome,lease_until,finished_at,policy_version) "
                 "VALUES(:id,:k,'pending',:lease,NULL,2)"
             ),
-            {"id": ident, "k": key, "lease": now + timedelta(seconds=30)},
+            {"id": ident, "k": key, "lease": lease_until},
         )
         self.s.execute(
             text("UPDATE iam_security_states SET expires_at=GREATEST(expires_at,:e) WHERE id=:id"),
             {"id": state_id, "e": expires},
         )
-        return Reservation(key, ident, subject.id, subject.security_version, policy=self.policy)
+        return Reservation(
+            key, ident, subject.id, subject.security_version, lease_until, policy=self.policy
+        )
 
     def finish(self, reservation: Reservation, success: bool) -> None:
         check_policy(self.s, reservation.policy)
-        now = self._guard()
+        self._guard()
         row = self.s.execute(
             text(
                 "SELECT outcome,lease_until FROM iam_attempts WHERE policy_version=2 AND id=:i "
@@ -282,7 +288,13 @@ class Security:
             ),
             {"i": reservation.id, "k": reservation.key},
         ).first()
-        if row is None or row.outcome != "pending" or row.lease_until <= now:
+        now = self.now()
+        if (
+            row is None
+            or row.outcome != "pending"
+            or row.lease_until <= now
+            or row.lease_until != reservation.lease_until
+        ):
             raise Rejected(503, "unavailable")
         self.s.execute(
             text("UPDATE iam_attempts SET outcome=:o,finished_at=:n WHERE id=:i"),

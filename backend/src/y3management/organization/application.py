@@ -43,6 +43,11 @@ class Organization:
             raise Rejected(422, "invalid_request")
         return self._repo.list_branches(caller.organization_id, self._scope(caller), offset, limit)
 
+    def operator_branch(self, caller: Caller, ident: UUID) -> Branch:
+        if caller.operator is None or caller.operator.branch_id != ident:
+            raise Rejected(404, "not_found")
+        return self._repo.get_branch(caller.organization_id, caller.operator.branch_id, ident)
+
     def get_branch(self, caller: Caller, branch_id: UUID) -> Branch:
         return self._repo.get_branch(caller.organization_id, self._scope(caller), branch_id)
 

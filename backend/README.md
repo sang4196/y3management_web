@@ -320,14 +320,14 @@ WSL 이전 후 실제 검증 결과는 [WSL migration](../docs/architecture/wsl-
 
 ## IAM-014 비밀번호 전용 개발 실행
 
-현재 v1의 Master·Branch Admin·Trainer 및 혼합 역할은 ID/비밀번호로 로그인한다.
+현재 v1의 Master·Branch Admin·Operator·Trainer 및 혼합 역할은 ID/비밀번호로 로그인한다.
 IAM을 켤 때 `Y3_IAM_MODE=password`를 명시한다. 과거 `s1_password`/`mfa` 모드는
 거부하며 설정 누락에 따른 fallback은 없다. production 거부는 유지한다.
 정책은 [IAM-014](../docs/architecture/iam-014-password-only-design.md), 전환·보존 계약은
 [상세 계약](../docs/architecture/iam-014-password-only-transition.md)을 따른다.
 
-새 전용 빈 DB에는 기존 명시 migration 절차로 `0015_account_lifecycle`까지 적용한다.
-현재 runtime은 정확한 0015와 기존 0014 대상 policy 2 전이를 함께 확인한다.
+새 전용 빈 DB에는 기존 명시 migration 절차로 `0016_operator_onboarding`까지 적용한다.
+현재 runtime은 정확한 0016과 기존 0014 대상 policy 2 전이를 함께 확인한다.
 기존 DB 전환은 별도 승인·유지보수 작업이다. 구 앱·CLI·GC를 중지하고 원본 backup과
 대상을 확인한 뒤 같은 ProcessGuard를 획득한다. 자동 원본 DB 전환이나 프로세스 종료는 없다.
 앱/CLI와 각 UoW는 revision·설치 정책 marker 일치를 검사하며 구 source/session은 소비하지 않는다.
@@ -335,6 +335,11 @@ IAM을 켤 때 `Y3_IAM_MODE=password`를 명시한다. 과거 `s1_password`/`mfa
 버전 증가 UPDATE를 반복하지 않는다. 기존 13 revision과 durable 감사·키·사건 기록을 보존한다.
 데이터가 있는 0014의 downgrade는 DDL 전에 거부한다. 모든 업무/auth/audit 표가 비고
 전환 집계도 전부 0인 전역 빈 상태만 0013 왕복을 허용한다. 행을 지워 조건을 만들지 않는다.
+
+Master와 현재 관리 지점의 Branch Admin은 `/operator-accounts`에서 Operator를 발급한다.
+수신자는 최초 설정 링크에서 비밀번호를 정한 뒤 `/login`으로 로그인한다. 응답 유실 시
+정확한 ID로 상태를 확인하고 미설정 계정만 명시적으로 재발급한다. 개발 검사는
+`tests/test_operator_onboarding.py`와 기존 HTTPS `tests/test_iam_trainer_browser.py`를 사용한다.
 
 최초 Master는 `bootstrap-initial-master`의 보호된 TTY에서 비밀번호를 입력해 준비한다.
 `--enrollment-file`은 제거됐다. `/login`에서 비밀번호로 로그인하며 추가 Master/Branch Admin은

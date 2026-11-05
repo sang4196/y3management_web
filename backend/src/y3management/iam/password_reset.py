@@ -26,9 +26,13 @@ class PasswordReset:
 
     @staticmethod
     def _reset_supported(roles: AccountRoles) -> bool:
-        return roles.admin or (
-            roles.binding is not None
-            and roles.binding.organization_id == roles.account.organization_id
+        return (
+            roles.admin
+            or roles.operator is not None
+            or (
+                roles.binding is not None
+                and roles.binding.organization_id == roles.account.organization_id
+            )
         )
 
     def _reset_target(self, caller: Caller, ident: UUID) -> Account:
@@ -193,7 +197,8 @@ class PasswordReset:
         if hint is None:
             raise Rejected(401, "invalid_reset")
         account = self._reset_account(hint.account_id, lock=False)
-        self.reset_source(hint.id, account, lock=False)
+        source = self.reset_source(hint.id, account, lock=False)
+        scope = self.iam.account_roles(hint.account_id).operator_grant
         # Bounded Argon2 with no business row locks; final proof revalidation below.
         self.iam._upgrades[hint.account_id] = self.iam.passwords.create(
             password, account["login_id"]
@@ -204,6 +209,8 @@ class PasswordReset:
             account["security_version"],
             account["reset_generation"],
             account["trainer_role_epoch"],
+            scope,
+            source["expires_at"],
             policy=policy,
         )
 
@@ -215,9 +222,12 @@ class PasswordReset:
             text("SELECT id FROM iam_sessions WHERE account_id=:a ORDER BY id FOR UPDATE"),
             {"a": proof.account_id},
         ).all()
-        self.reset_source(proof.source_id, account, lock=True)
+        self.iam.lock_trainer_credentials(proof.account_id)
+        source = self.reset_source(proof.source_id, account, lock=True)
         if (
-            proof.security_version != account["security_version"]
+            source["expires_at"] != proof.expires_at
+            or proof.operator_grant != self.iam.account_roles(proof.account_id).operator_grant
+            or proof.security_version != account["security_version"]
             or proof.generation != account["reset_generation"]
             or proof.trainer_role_epoch != account["trainer_role_epoch"]
         ):
@@ -239,13 +249,15 @@ class PasswordReset:
 
     def confirm_complete(self, proof: ResetProof) -> None:
         self.iam.check_policy(proof.policy)
+        if proof.operator_grant != self.iam.account_roles(proof.account_id).operator_grant:
+            raise Rejected(401, "invalid_reset")
         valid = self.s.execute(
             text(
                 "SELECT 1 FROM iam_reset_credentials WHERE id=:i "
                 "AND account_id=:a AND policy_version=2 AND consumed AND "
-                "expires_at>clock_timestamp()"
+                "expires_at=:deadline AND expires_at>clock_timestamp()"
             ),
-            {"i": proof.source_id, "a": proof.account_id},
+            {"i": proof.source_id, "a": proof.account_id, "deadline": proof.expires_at},
         ).first()
         if valid is None:
             raise Rejected(401, "invalid_reset")

@@ -1,5 +1,10 @@
 # 기능 요구사항 — 승인된 제품 기준
 
+2026-11-05 PR-001/021/026/030의 Operator 최초 설정은 [OP-2/OP-3](product-decisions.md#review-20261105-operator-onboarding)를 따른다.
+PENDING_SETUP 명시 재발급은 현재 같은 조직 Master/업무 Branch Admin 범위이며, 기발급 후 Branch 비활성만으로
+기존 유효 링크 사용·허용 재발급을 막지 않는다. 비활성 지점 신규 배정/다른 역할 인가 우회는 불가하고
+ACTIVE reset 등 전체 계정 관리는 계속 Master 전용이다. 기존 Operator·Trainer 겸임과 독립 Scope는 유지한다.
+
 2026-11-05 계정 관리 수용 기준: [LC-1/LC-2](product-decisions.md#review-20261105-account-lifecycle).
 PR-001/021/027/030의 같은 조직 Master 전용 계정 관리는 설정 대기 차단·설정 대기 복구 및
 세 계정 상태의 Login ID 변경을 포함한다. 복구 후 옛 링크를 부활시키거나 자동 재발급하지 않는다.

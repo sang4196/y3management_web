@@ -1,5 +1,11 @@
 # Product Specification — Architecture Input Baseline
 
+2026-11-05 최신 부분 승인: [Operator 최초 설정 복구 OP-2/OP-3](product-decisions.md#review-20261105-operator-onboarding).
+현재 업무 지점의 허용 관리자 재발급과, 기발급 후 지점 비활성 시 기존 유효 링크/명시 재발급을 허용한다.
+기존 Operator·Trainer 겸임/독립 Scope·신규 배정 제한과 [LC-1/LC-2](product-decisions.md#review-20261105-account-lifecycle)는 유지한다.
+이는 정책 기준이며 현재 구현/인수 단계는 [Architecture README](../architecture/README.md)에서 확인한다.
+아래 날짜별 코드/검증 서술은 당시 이력이며 최신 코드 상태를 덮어쓰지 않는다.
+
 2026-10-31 최신 승인: [Passkey 완전 제거·아이디/비밀번호 로그인](product-decisions.md#review-20261031-password-only).
 모든 지원 v1 Actor/겸임은 비밀번호만으로 로그인하며 관리자 MFA 의무·Passkey 등록/관리/분실 재등록은 대체됐다.
 기존 계정/현재 Role·Scope/CSRF·세션/암호·실패 제한·Master 보호·비상 암호 복구는 유지한다.
