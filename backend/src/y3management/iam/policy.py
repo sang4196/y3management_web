@@ -14,7 +14,7 @@ def current_policy(session: Session) -> PolicyStamp:
       WHERE i.id=1 AND i.auth_policy_version=2 AND p.from_version=1 AND p.to_version=2
       AND p.target_schema_revision='0014_password_only'
       AND (SELECT array_agg(version_num::text) FROM alembic_version)
-          = ARRAY['0016_operator_onboarding']""")
+          = ARRAY['0017_operator_management']""")
     ).first()
     if row is None:
         raise Rejected(503, "authentication_policy_unavailable")

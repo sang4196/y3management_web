@@ -37,23 +37,48 @@ def test_reset_authorization_and_other_organization(
         login_password(first, password)
         with closing(TestClient(first.app, base_url=ORIGIN)) as second:
             ident = provision(first, second, password)
-            # Existing management is still Branch Admin-only for real Master target.
-            for suffix, body in [
-                ("/activation", {"expected_version": 2}),
-                ("/restore", {"expected_version": 2}),
-            ]:
-                assert (
-                    call(first, "/admin/accounts/" + ident + suffix, csrf(first), body).status_code
-                    == 404
-                )
+            # IAM-015 (LC-1/LC-2): general lifecycle aliases support another Master;
+            # activation keeps its original Branch Admin-only contract.
+            lifecycle = "/api/v1/admin/account-lifecycle/" + ident
+            before_response = first.get(lifecycle)
+            assert before_response.status_code == 200
+            before = before_response.json()
+            assert before["state"] == "ACTIVE" and before["login_id"] == "second.master"
+            unchanged = {key: before[key] for key in ("version", "state", "login_id")}
+            assert (
+                call(
+                    first,
+                    "/admin/accounts/" + ident + "/activation",
+                    csrf(first),
+                    {"expected_version": before["version"]},
+                ).status_code
+                == 404
+            )
+            assert (
+                call(
+                    first,
+                    "/admin/accounts/" + ident + "/restore",
+                    csrf(first),
+                    {"expected_version": before["version"]},
+                ).status_code
+                == 409
+            )
+            after_restore = first.get(lifecycle)
+            assert after_restore.status_code == 200
+            assert {key: after_restore.json()[key] for key in unchanged} == unchanged
+            assert second.get("/api/v1/auth/me").status_code == 200
             assert (
                 first.patch(
                     "/api/v1/admin/accounts/" + ident + "/login-id",
                     headers={"Origin": ORIGIN, "X-CSRF-Token": csrf(first)},
-                    json={"expected_version": 2, "login_id": "rename.master"},
+                    json={"expected_version": before["version"], "login_id": "second.master"},
                 ).status_code
-                == 404
+                == 200
             )
+            after_noop = first.get(lifecycle)
+            assert after_noop.status_code == 200
+            assert {key: after_noop.json()[key] for key in unchanged} == unchanged
+            assert second.get("/api/v1/auth/me").status_code == 200
             assert (
                 second.get("/api/v1/admin/accounts/" + ident + "/password-reset").status_code == 404
             )

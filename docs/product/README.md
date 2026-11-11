@@ -1,5 +1,10 @@
 # Product Specification — Architecture Input Baseline
 
+2026-11-11 최신 부분 승인: [Operator 역할 관리·이동 OP-4/OP-5/OP-6](product-decisions.md#review-20261111-operator-management).
+기존 모든 계정 유형/관리자 본인의 Operator 추가, 처음 부여/회수/같은 지점 재부여의 계정 상태,
+Master의 모든 계정 상태 지점 이동을 확정했다. 독립 역할/상태·기존 E5/G5/OP-2/OP-3와 다른 OPEN은 유지한다.
+정책 승인과 [현재 구현·인수 단계](../architecture/README.md)는 구분한다.
+
 2026-11-05 최신 부분 승인: [Operator 최초 설정 복구 OP-2/OP-3](product-decisions.md#review-20261105-operator-onboarding).
 현재 업무 지점의 허용 관리자 재발급과, 기발급 후 지점 비활성 시 기존 유효 링크/명시 재발급을 허용한다.
 기존 Operator·Trainer 겸임/독립 Scope·신규 배정 제한과 [LC-1/LC-2](product-decisions.md#review-20261105-account-lifecycle)는 유지한다.

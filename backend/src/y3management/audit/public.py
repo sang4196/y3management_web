@@ -83,6 +83,8 @@ class OperatorAccountEvent:
 
 
 class AuditPort(Protocol):
+    def append_operator_role(self, event: OperatorRoleEvent) -> None: ...
+
     def append_operator(self, event: OperatorAccountEvent) -> None: ...
 
     def append_password_emergency(self, event: PasswordEmergencyEvent) -> None: ...
@@ -176,3 +178,22 @@ class TrainerStateEvent:
     before_version: int
     after_version: int
     recorded_at: datetime
+
+
+@dataclass(frozen=True)
+class OperatorRoleEvent:
+    organization_id: UUID
+    operation_id: UUID
+    account_id: UUID
+    actor_id: UUID
+    actor_role: str
+    actor_branch: UUID | None
+    kind: str
+    before_granted: bool
+    after_granted: bool
+    before_branch: UUID | None
+    after_branch: UUID
+    before_version: int
+    after_version: int
+    account_state: str
+    account_version: int

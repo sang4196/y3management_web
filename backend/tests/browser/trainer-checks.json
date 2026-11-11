@@ -31,5 +31,22 @@
   "operator_branch",
   "operator_denied",
   "operator_password",
-  "operator_logout"
+  "operator_logout",
+  "role_lookup",
+  "role_lost_ack",
+  "role_receipt_current",
+  "role_regrant",
+  "role_move",
+  "role_stale_read",
+  "role_self",
+  "role_self_revoked",
+  "role_admin_landing",
+  "role_self_receipt",
+  "role_conflict",
+  "role_conflict_clear",
+  "role_actor_switch",
+  "role_other_actor_receipt",
+  "role_actor_send_race",
+  "role_actor_pending",
+  "role_actor_late_read"
 ]

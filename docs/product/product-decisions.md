@@ -1,5 +1,24 @@
 # Product Decisions — 승인 반영
 
+<a id="review-20261111-operator-management"></a>
+## 2026-11-11 승인 — 기존 계정 Operator 역할 관리와 지점 이동
+
+사용자는 후속 O4/O5/O6에 모두1번을 선택했다. 아래 대상 유형·상태 정책만 승인했으며 구현/검증 완료 선언이 아니다.
+E5의 역할별 현재 관리 Scope와 G5의 Master 전용 이동·활성 목적 지점 조건은 그대로 적용한다.
+
+| ID / 질문 | 승인 정책 | 유지 경계 |
+| --- | --- | --- |
+| OP-4 / O4 | 같은 Organization의 기존 Master·Branch Admin·Trainer·역할 없는 계정 모두에 Operator 역할을 추가할 수 있다. 허용 관리자 본인도 포함한다. | Master는 조직, Branch Admin은 추가할 Operator 업무 지점의 현재 관리 범위에서 **Operator 역할만** 변경한다. 대상의 독립 관리 Scope·Trainer Home/업무 상태·기타 역할은 보존하며 관리자 승격/전체 계정 관리 위임이 아니다. |
+| OP-5 / O5 | 처음 부여는 ACTIVE·비밀번호 설정 완료·암호 재설정 대기 아님에 허용한다. 회수는 모든 계정 상태에 허용한다. 같은 지점 재부여는 ACTIVE/PENDING_SETUP에 허용하고 DISABLED는 제외한다. | 역할0의 ACTIVE/암호 보유를 현재 로그인 가능과 혼동하지 않는다. 다른 현재 계정/인증 조건·지점 배정 제한은 유지한다. 회수/재부여로 계정 차단·암호/reset 상태·Trainer 활성/역할을 복원하거나 Master 전용 지점 이동을 우회하지 않는다. |
+| OP-6 / O6 | 유효 Operator 업무 지점 이동은 PENDING_SETUP·DISABLED·암호 재설정 대기를 포함한 모든 계정 상태에서 같은 조직 Master가 수행할 수 있다. | 활성 목적 지점만 허용하고 비활성 출발지는 재활성화할 필요 없다. 계정 상태/복구 목적지·다른 역할/Scope·Trainer Home·업무/과거 이력을 보존한다. 옛 인증·링크를 폐기하고 필요한 링크는 기존 목적별 권한으로 별도 명시 재발급한다. |
+
+지정 Branch는 한 시점 하나이며 회수한 grant/업무 이력·계정/암호를 삭제하거나 자동 DISABLED 처리하지 않는다.
+현재 역할0 로그인 거부·변경 후 현재 Scope 적용·옛 인증 부활 금지·중요 변경 감사/실패 원자성은 유지한다.
+회수/재부여의 Actor는 Operator의 현재/보존 업무 지점으로 확인하며 다른 역할 지점·최초 발급자 권한으로 대체하지 않는다.
+Master 전용 전체 계정 차단/복구·ID 변경·관리자 reset과 독립 보상/정산 인가는 그대로다.
+구체 명령/최소 조회·원래 기한/잠금·receipt·typed 감사·저장/검증은 Architecture 대상이다.
+ARCH-002/MB-004의 이 유형/상태 부분만 해결하며 다른22 OPEN/8 CLOSED·PD1 OPEN/26 CLOSED·전역 PROPOSED를 닫지 않는다.
+
 <a id="review-20261105-operator-onboarding"></a>
 ## 2026-11-05 승인 — Operator 최초 설정 복구 경계
 

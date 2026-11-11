@@ -59,20 +59,28 @@ def legacy_master(
     return settings, db
 
 
-def prepare_password_guard(connection: Connection) -> None:
+def prepare_revision_guard(connection: Connection, target: str) -> None:
     """Walk to the actual 0014 shape inside the caller's rollback-only transaction."""
     context = MigrationContext.configure(connection)
     current = context.get_current_revision()
     scripts = ScriptDirectory.from_config(Config("alembic.ini"))
     with Operations.context(context):
-        while current != "0014_password_only":
-            assert current in ("0016_operator_onboarding", "0015_account_lifecycle")
+        while current != target:
+            assert current in (
+                "0017_operator_management",
+                "0016_operator_onboarding",
+                "0015_account_lifecycle",
+            )
             script = scripts.get_revision(current)
             assert script is not None
             script.module.downgrade()
             assert isinstance(script.down_revision, str)
             context.stamp(scripts, script.down_revision)
             current = context.get_current_revision()
+
+
+def prepare_password_guard(connection: Connection) -> None:
+    prepare_revision_guard(connection, "0014_password_only")
 
 
 def assert_revision_loss_guard(db: Database, filename: str, expected: str) -> None:
@@ -91,6 +99,8 @@ def assert_revision_loss_guard(db: Database, filename: str, expected: str) -> No
     with db.engine.connect() as connection:
         transaction = connection.begin()
         try:
+            if filename == "0016_operator_onboarding.py":
+                prepare_revision_guard(connection, "0016_operator_onboarding")
             if filename == "0014_password_only.py":
                 prepare_password_guard(connection)
             with pytest.raises((ValueError, DBAPIError), match=expected):

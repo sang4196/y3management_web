@@ -218,13 +218,15 @@ def test_cutover_retires_authority_preserves_c2_and_never_promotes_staged_hash(
         )
     migrate(settings, "upgrade", "head")
     new_tables = {
+        "iam_operator_role_operations",
+        "audit_operator_role_events",
         "iam_operator_grants",
         "iam_operator_setup_credentials",
         "audit_operator_account_events",
     }
     with db.session() as session:
         assert session.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == (
-            "0016_operator_onboarding"
+            "0017_operator_management"
         )
         versions = session.execute(text("SELECT id, operator_version FROM iam_sessions")).all()
         assert {ident: version for ident, version in versions} == {

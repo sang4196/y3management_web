@@ -71,10 +71,20 @@ def test_current_operator_onboarding(trainer: TrainerScene) -> None:
         current = call(admin, BASE + "/lookup", csrf(admin), {"login_id": t.login}).json()
         assert current["version"] == 1 and "setup_link" not in current
         replacement = source(
-            call(master, path + "/initial-setup", csrf(master), {"expected_version": 1})
+            call(
+                master,
+                path + "/initial-setup",
+                csrf(master),
+                {"expected_version": 1, "expected_operator_version": 1},
+            )
         )
         assert (
-            call(admin, path + "/initial-setup", csrf(admin), {"expected_version": 1}).status_code
+            call(
+                admin,
+                path + "/initial-setup",
+                csrf(admin),
+                {"expected_version": 1, "expected_operator_version": 1},
+            ).status_code
             == 409
         )
 
@@ -151,7 +161,7 @@ def test_current_operator_onboarding(trainer: TrainerScene) -> None:
                 admin,
                 path + "/initial-setup",
                 csrf(admin),
-                {"expected_version": disabled.json()["version"]},
+                {"expected_version": disabled.json()["version"], "expected_operator_version": 1},
             ).status_code
             == 409
         )
@@ -191,7 +201,10 @@ def test_two_scopes_source_gc_and_schema_loss_guard(
         assert home_admin.get("/api/v1" + path).status_code == 404
         assert (
             call(
-                home_admin, path + "/initial-setup", csrf(home_admin), {"expected_version": 1}
+                home_admin,
+                path + "/initial-setup",
+                csrf(home_admin),
+                {"expected_version": 1, "expected_operator_version": 1},
             ).status_code
             == 404
         )
@@ -499,7 +512,12 @@ def test_current_branch_admin_after_issuer_moves_and_expired_gc(
         login_password(issuer, t.password, "workforce.branch")
         assert issuer.get("/api/v1" + path).status_code == 404
         assert (
-            call(issuer, path + "/initial-setup", csrf(issuer), {"expected_version": 1}).status_code
+            call(
+                issuer,
+                path + "/initial-setup",
+                csrf(issuer),
+                {"expected_version": 1, "expected_operator_version": 1},
+            ).status_code
             == 404
         )
         with db.engine.begin() as conn:
@@ -561,14 +579,22 @@ def test_current_branch_admin_after_issuer_moves_and_expired_gc(
             patch.setattr(Audit, "append_operator", fail_audit)
             assert (
                 call(
-                    replacement, path + "/initial-setup", csrf(replacement), {"expected_version": 1}
+                    replacement,
+                    path + "/initial-setup",
+                    csrf(replacement),
+                    {"expected_version": 1, "expected_operator_version": 1},
                 ).status_code
                 == 409
             )
         row = master.get("/api/v1" + path).json()
         assert row["version"] == 1 and "setup_link" not in row
         new_source = source(
-            call(replacement, path + "/initial-setup", csrf(replacement), {"expected_version": 1})
+            call(
+                replacement,
+                path + "/initial-setup",
+                csrf(replacement),
+                {"expected_version": 1, "expected_operator_version": 1},
+            )
         )
         assert (
             call(
@@ -617,6 +643,9 @@ def test_migration_waits_for_operator_issue(
         # Observe the actual revision independently of the CLI's process exclusion.
         with t.base.db.engine.connect() as conn:
             waiters.append(conn.execute(text("SELECT pg_backend_pid()")).scalar_one())
+            from tests.legacy_helpers import prepare_revision_guard
+
+            prepare_revision_guard(conn, "0016_operator_onboarding")
             with Operations.context(MigrationContext.configure(conn)):
                 with pytest.raises(ValueError, match="OPERATOR_HISTORY_PRESENT"):
                     script.module.downgrade()
@@ -642,7 +671,7 @@ def test_migration_waits_for_operator_issue(
     with t.base.db.session() as reader:
         assert (
             reader.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-            == "0016_operator_onboarding"
+            == "0017_operator_management"
         )
         assert (
             reader.execute(text("SELECT count(*) FROM audit_operator_account_events")).scalar_one()
@@ -685,7 +714,7 @@ def test_prepared_operator_reset_c3_and_lifecycle_rename(
         master,
         BASE + "/" + ident + "/initial-setup",
         csrf(master),
-        {"expected_version": renamed.json()["version"]},
+        {"expected_version": renamed.json()["version"], "expected_operator_version": 1},
     )
     assert (
         call(
@@ -857,7 +886,7 @@ def test_downgrade_serializes_trainer_issue_cleanup(
     assert counts(trainer) == (1, 1, 1, 1)
     with db.session() as reader:
         assert reader.scalar(text("SELECT version_num FROM alembic_version")) == (
-            "0016_operator_onboarding"
+            "0017_operator_management"
         )
     credential = source(issued)
     assert trainer.complete(credential).status_code == 204

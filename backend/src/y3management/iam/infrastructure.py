@@ -425,7 +425,7 @@ class IAM:
         if (
             caller.account_id == ident
             or caller.organization_id != roles.account.organization_id
-            or (not roles.admin and roles.binding is None and not roles.operator)
+            or (not roles.admin and roles.binding is None and roles.operator_grant is None)
         ):
             raise Rejected(404, "not_found")
         return roles

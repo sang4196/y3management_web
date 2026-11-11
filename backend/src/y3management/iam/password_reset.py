@@ -28,7 +28,7 @@ class PasswordReset:
     def _reset_supported(roles: AccountRoles) -> bool:
         return (
             roles.admin
-            or roles.operator is not None
+            or roles.operator_grant is not None
             or (
                 roles.binding is not None
                 and roles.binding.organization_id == roles.account.organization_id

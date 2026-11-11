@@ -11,6 +11,7 @@ from y3management.audit.public import (
     Event,
     InitialCompensationSet,
     OperatorAccountEvent,
+    OperatorRoleEvent,
     PasswordEmergencyEvent,
     TrainerIdentityEvent,
     TrainerRegistered,
@@ -30,6 +31,19 @@ class Audit:
         self.s.execute(
             text(
                 "INSERT INTO audit_password_emergency_events ("
+                + ",".join(values)
+                + ") VALUES ("
+                + ",".join(":" + k for k in values)
+                + ")"
+            ),
+            values,
+        )
+
+    def append_operator_role(self, event: OperatorRoleEvent) -> None:
+        values = asdict(event)
+        self.s.execute(
+            text(
+                "INSERT INTO audit_operator_role_events ("
                 + ",".join(values)
                 + ") VALUES ("
                 + ",".join(":" + k for k in values)

@@ -5,7 +5,7 @@ from typing import Annotated, Literal, cast
 from urllib.parse import urlsplit
 from uuid import UUID
 
-from fastapi import APIRouter, FastAPI, Query, Request
+from fastapi import APIRouter, FastAPI, Header, Query, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
@@ -21,6 +21,7 @@ from y3management.iam.public import (
     EmergencySnapshot,
     HandoffRequest,
     LifecycleAccount,
+    OperatorCommand,
     Setup,
     TrainerRoleRequest,
 )
@@ -207,7 +208,10 @@ def account_json(account: Account) -> dict[str, object]:
     }
     if isinstance(account, LifecycleAccount):
         if account.operator:
-            result["operator_scope"] = {"branch_id": str(account.operator.branch_id)}
+            result["operator_scope"] = {
+                "branch_id": str(account.operator.branch_id),
+                "version": account.operator.version,
+            }
         result.update(
             restore_state=account.restore_state,
             trainer_id=str(account.trainer_id) if account.trainer_id else None,
@@ -215,6 +219,31 @@ def account_json(account: Account) -> dict[str, object]:
             setup_route=account.setup_route,
         )
     return result
+
+
+class OperatorReissue(Version):
+    expected_operator_version: Annotated[int, Field(strict=True, gt=0)]
+
+
+class OperatorLookup(Lookup):
+    branch_id: UUID | None = None
+
+
+class OperatorRoleInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    operation_id: UUID
+    expected_account_version: Annotated[int, Field(strict=True, gt=0)]
+    expected_operator_version: Annotated[int, Field(strict=True, ge=0)]
+    desired_granted: Annotated[bool, Field(strict=True)]
+    branch_id: UUID | None = None
+
+
+class OperatorMoveInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    operation_id: UUID
+    expected_account_version: Annotated[int, Field(strict=True, gt=0)]
+    expected_operator_version: Annotated[int, Field(strict=True, gt=0)]
+    branch_id: UUID
 
 
 def cookie(response: Response, name: str, value: str) -> None:
@@ -384,13 +413,88 @@ def attach(app: FastAPI, settings: Settings) -> None:
         assert roles.operator
         result = account_json(roles.account)
         result.pop("admin_scope")
-        result["operator_scope"] = {"branch_id": str(roles.operator.branch_id)}
+        result["operator_scope"] = {
+            "branch_id": str(roles.operator.branch_id),
+            "version": roles.operator.version,
+        }
         if setup:
             result.update(
                 setup_link=settings.canonical_origin + "/operator-activate#token=" + setup.token,
                 expires_at=setup.expires_at.isoformat(),
             )
         return result
+
+    ExpectedOperatorActor = Annotated[UUID, Header(alias="X-Y3-Expected-Actor")]
+
+    @router.post("/admin/operator-roles/lookup")
+    def operator_role_lookup(
+        request: Request, body: OperatorLookup, expected_actor: ExpectedOperatorActor
+    ) -> object:
+        auth, nonce = write(request)
+        return service(request).operator_candidate(
+            auth, body.login_id, body.branch_id, nonce, expected_actor=expected_actor
+        )
+
+    @router.get("/admin/operator-roles/{ident}")
+    def operator_role_state(
+        request: Request,
+        ident: UUID,
+        expected_actor: ExpectedOperatorActor,
+        branch_id: UUID | None = None,
+    ) -> object:
+        return service(request).operator_candidate(
+            read(request), ident, branch_id, expected_actor=expected_actor
+        )
+
+    @router.post("/admin/operator-roles/{ident}/changes")
+    def operator_role_change(
+        request: Request,
+        ident: UUID,
+        body: OperatorRoleInput,
+        expected_actor: ExpectedOperatorActor,
+    ) -> object:
+        return service(request).change_operator(
+            *write(request),
+            OperatorCommand(
+                body.operation_id,
+                ident,
+                body.expected_account_version,
+                body.expected_operator_version,
+                "role",
+                body.branch_id,
+                body.desired_granted,
+            ),
+            expected_actor=expected_actor,
+        )
+
+    @router.post("/admin/operator-roles/{ident}/branch")
+    def operator_role_move(
+        request: Request,
+        ident: UUID,
+        body: OperatorMoveInput,
+        expected_actor: ExpectedOperatorActor,
+    ) -> object:
+        return service(request).change_operator(
+            *write(request),
+            OperatorCommand(
+                body.operation_id,
+                ident,
+                body.expected_account_version,
+                body.expected_operator_version,
+                "move",
+                body.branch_id,
+                True,
+            ),
+            expected_actor=expected_actor,
+        )
+
+    @router.get("/admin/operator-role-operations/{operation}")
+    def operator_role_operation(
+        request: Request, operation: UUID, expected_actor: ExpectedOperatorActor
+    ) -> object:
+        return service(request).operator_operation(
+            read(request), operation, expected_actor=expected_actor
+        )
 
     @router.post("/admin/operator-accounts", status_code=201)
     def issue_operator(request: Request, body: Issue) -> dict[str, object]:
@@ -410,10 +514,13 @@ def attach(app: FastAPI, settings: Settings) -> None:
         return operator_json(service(request).read_operator(read(request), ident))
 
     @router.post("/admin/operator-accounts/{ident}/initial-setup", status_code=201)
-    def reissue_operator(request: Request, ident: UUID, body: Version) -> dict[str, object]:
+    def reissue_operator(request: Request, ident: UUID, body: OperatorReissue) -> dict[str, object]:
         return operator_json(
             *service(request).issue_operator(
-                *write(request), target=ident, expected=body.expected_version
+                *write(request),
+                target=ident,
+                expected=body.expected_version,
+                expected_operator=body.expected_operator_version,
             )
         )
 
@@ -857,7 +964,8 @@ p,li{overflow-wrap:anywhere}h1{font-size:1.6rem}""",
             raise Rejected(403, "forbidden")
         return """<!doctype html><html lang="ko"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>운영자 계정</title>
-<h1>운영자 계정</h1><form id="operator" method="post">
+<h1>운영자 계정</h1><a href="/operator-roles">기존 계정 역할·지점 관리</a>
+<form id="operator" method="post">
 <label>로그인 ID <input id="login" required></label>
 <label>업무 지점 <select id="branch"></select></label>
 <button value="lookup" disabled>현재 상태 조회</button>
@@ -865,6 +973,28 @@ p,li{overflow-wrap:anywhere}h1{font-size:1.6rem}""",
 <button value="reissue" disabled>초기 설정 링크 재발급</button></form>
 <p role="status" id="result"></p><div id="delivery"></div>
 <script src="/operator-accounts.js"></script></html>"""
+
+    @app.get("/operator-roles", response_class=HTMLResponse)
+    def operator_roles_page(request: Request) -> str:
+        service(request).branches(read(request), 0, 1)
+        return """<!doctype html><html lang="ko"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Operator 역할 관리</title><h1>Operator 역할·업무 지점</h1>
+<a href="/operator-accounts">신규 계정 발급</a> <a href="/account">내 계정</a>
+<form id="role-lookup"><label>현재 로그인 ID <input id="role-login" required></label>
+<label>최초 업무 지점 <select id="role-branch" required></select></label>
+<button id="role-find" disabled>조회</button></form>
+<pre id="role-current"></pre><button id="role-grant" disabled>부여·재부여</button>
+<button id="role-revoke" disabled>역할 회수</button>
+<label>이동 목적지 <select id="role-destination"></select></label>
+<button id="role-move" disabled>지점 이동</button>
+<button id="role-reconcile" disabled>마지막 요청 확인</button>
+<p id="role-message" role="status"></p><a href="/login">다시 로그인</a>
+<script src="/operator-roles.js"></script></html>"""
+
+    @app.get("/operator-roles.js")
+    def operator_roles_script() -> Response:
+        return Response(OPERATOR_ROLES_JS, media_type="application/javascript")
 
     @app.get("/operator-accounts.js")
     def operator_accounts_script() -> Response:
@@ -1034,8 +1164,8 @@ const r=await fetch('/api/v1'+path,{method:'POST',headers:{'Content-Type':'appli
 if(flow==='login'){
 const current=await fetch('/api/v1/auth/me');if(!current.ok)throw Error();
 const identity=await current.json();
-if(identity.roles.some(role=>role.role==='OPERATOR')||
-(identity.roles.length===1&&identity.roles[0].role==='TRAINER')){
+if(!identity.roles.some(role=>role.role==='ADMIN')&&(identity.roles.some(role=>role.role==='OPERATOR')||
+(identity.roles.length===1&&identity.roles[0].role==='TRAINER'))){
 location.href='/account';return;}
 out.textContent='로그인되었습니다.';
 if(identity.roles.some(role=>role.role==='ADMIN')){
@@ -1668,9 +1798,11 @@ async function change(kind){
  let next=null,secret='',message='';
  try{
   const setup=kind==='setup';
+  const operator=setup&&before.setup_route.startsWith('/api/v1/admin/operator-accounts/');
   const trainer=setup&&before.setup_route.startsWith('/api/v1/admin/trainers/');
   const body=trainer?{operation_id:crypto.randomUUID(),expected_account_version:before.version}:
    {expected_version:before.version};
+  if(operator)body.expected_operator_version=before.operator_scope.version;
   if(kind==='status')body.status='DISABLED';
   if(kind==='login-id')body.login_id=el('new-id').value;
   const response=await request(setup?before.setup_route:'/api/v1/admin/accounts/'+id+'/'+kind,
@@ -1683,7 +1815,9 @@ async function change(kind){
    const applied=await response.json();
    next=await read(id);
    const version=trainer?applied.operation.committed_account_version:applied.version;
-   if(setup&&next.version===version&&next.setup_route===before.setup_route)
+   if(setup&&next.version===version&&next.setup_route===before.setup_route&&
+      (!operator||(next.operator_scope?.version===applied.operator_scope?.version&&
+       next.operator_scope?.branch_id===applied.operator_scope?.branch_id)))
     secret=applied.setup_link||'';
    message=secret?'최초 설정 링크가 발급되었습니다.':'현재 계정 상태를 확인해 주세요.';
   }
@@ -1777,7 +1911,8 @@ form.addEventListener('submit', async event => {
     const result = action === 'issue'
       ? await post(base, {login_id: identifier, branch_id: branch.value})
       : await post(base + '/' + previous.account_id + '/initial-setup', {
-          expected_version: previous.version
+          expected_version: previous.version,
+          expected_operator_version: previous.operator_scope.version
         });
     if (request !== generation) return;
     const id = action === 'reissue' ? previous.account_id : result.account_id;
@@ -1785,6 +1920,8 @@ form.addEventListener('submit', async event => {
     if (request !== generation) return;
     show(account);
     if (account.account_id === result.account_id && account.version === result.version &&
+        account.operator_scope.version === result.operator_scope.version &&
+        account.operator_scope.branch_id === result.operator_scope.branch_id &&
         account.state === 'PENDING_SETUP' && result.setup_link) {
       const link = document.createElement('a');
       link.href = result.setup_link;
@@ -1829,3 +1966,124 @@ async function loadBranches() {
 }
 loadBranches();
 """
+
+OPERATOR_ROLES_JS = r"""(()=>{'use strict';
+const el=id=>document.getElementById('role-'+id),base='/api/v1/admin/operator-roles';
+let selected=null,writing=false,generation=0,actor=null,pending=null;
+function controls(){
+ el('login').disabled=el('branch').disabled=el('destination').disabled=writing;
+ el('find').disabled=writing||!actor;
+ el('grant').disabled=writing||!selected?.can_grant;
+ el('revoke').disabled=writing||!selected?.can_revoke;
+ el('move').disabled=writing||!selected?.can_move||!el('destination').value;
+ el('reconcile').disabled=writing||!pending||pending.actor!==actor;
+}
+function show(row){
+ selected=row;
+ el('current').textContent=row?row.login_id+' · '+row.state+' · '+row.branch_id+
+  ' · Operator '+(row.operator_grant?.granted?'유효':'없음')+
+  ' · 버전 '+(row.operator_grant?.scope.version||0):'';
+ controls();
+}
+function clear(){generation++;show(null);el('message').textContent='';}
+async function json(response){if(!response.ok)throw Error(String(response.status));
+ return response.json();}
+function invalidateActor(){
+ generation++;actor=null;writing=false;savePending(null);show(null);
+ el('message').textContent='로그인 계정이 바뀌었습니다. 화면을 새로 열어 주세요.';
+}
+async function verifyActor(expected,allowSignedOut=false){
+ const response=await fetch('/api/v1/auth/me');
+ if(response.status===401&&allowSignedOut&&expected&&actor===expected)return;
+ const me=await json(response);
+ if(!expected||actor!==expected||me.account_id!==expected){invalidateActor();throw Error('actor');}
+}
+async function post(path,body,expected){
+ await verifyActor(expected);
+ const csrf=await json(await fetch('/api/v1/auth/csrf',{headers:{'X-Y3-Client':'operator-role'}}));
+ return fetch(path,{method:'POST',headers:{'Content-Type':'application/json',
+  'X-CSRF-Token':csrf.csrf_token,'X-Y3-Expected-Actor':expected},body:JSON.stringify(body)});
+}
+async function current(id,branch,expected){
+ await verifyActor(expected);
+ return json(await fetch(base+'/'+id+'?branch_id='+encodeURIComponent(branch),
+  {headers:{'X-Y3-Expected-Actor':expected}}));
+}
+el('login').oninput=clear;el('branch').onchange=clear;
+el('destination').onchange=controls;
+el('lookup').onsubmit=async event=>{
+ event.preventDefault();if(writing)return;clear();const mine=generation,owner=actor;
+ try{const row=await json(await post(base+'/lookup',
+  {login_id:el('login').value,branch_id:el('branch').value},owner));
+  await verifyActor(owner);if(mine===generation&&owner===actor)show(row);
+ }catch{if(mine===generation)el('message').textContent='현재 관리 가능한 계정을 확인해 주세요.';}
+};
+function savePending(value){pending=value;
+ if(value)sessionStorage.setItem('y3-operator-operation',JSON.stringify(value));
+ else sessionStorage.removeItem('y3-operator-operation');controls();}
+async function change(action){
+ if(writing||!selected)return;
+ const before=selected,mine=++generation,owner=actor;
+ const body={operation_id:crypto.randomUUID(),expected_account_version:before.account_version,
+  expected_operator_version:before.operator_grant?.scope.version||0,
+  branch_id:action==='move'?el('destination').value:before.branch_id};
+ if(action!=='move')body.desired_granted=action==='grant';
+ writing=true;show(null);el('message').textContent='처리 중';
+ savePending({operation:body.operation_id,actor:owner,account:before.account_id});
+ try{
+  const path=base+'/'+before.account_id+(action==='move'?'/branch':'/changes');
+  const response=await post(path,body,owner);
+  if(mine!==generation)return;
+  if(!response.ok){await verifyActor(owner);
+   if(mine!==generation)return;
+   el('message').textContent=response.status===409?
+   '충돌했습니다. 최신 상태를 다시 조회해 주세요.':
+   '결과를 확인할 수 없습니다. 재로그인 또는 마지막 요청 확인을 이용해 주세요.';return;}
+  const receipt=await response.json();
+  await verifyActor(owner,receipt.reauthentication_required);
+  if(mine!==generation)return;
+  if(receipt.reauthentication_required){
+   el('message').textContent='본인 변경이 저장됐습니다. 다시 로그인한 뒤 마지막 요청을 확인하세요.';
+   return;
+  }
+  const row=await current(before.account_id,body.branch_id,owner);
+  await verifyActor(owner);
+  if(mine!==generation)return;
+  show(row);el('message').textContent='요청 결과를 확인했습니다. 표시된 값은 현재 상태입니다.';
+ }catch{if(mine===generation)el('message').textContent=
+  '응답이 확인되지 않았습니다. 자동 재시도하지 않습니다. 마지막 요청을 확인해 주세요.';
+ }finally{if(mine===generation){writing=false;controls();}}
+}
+el('grant').onclick=()=>change('grant');el('revoke').onclick=()=>change('revoke');
+el('move').onclick=()=>change('move');
+el('reconcile').onclick=async()=>{
+ if(writing||!pending||pending.actor!==actor)return;
+ const mine=++generation,owner=actor,saved=pending;writing=true;show(null);
+ try{await verifyActor(owner);const receipt=await json(await fetch(
+  '/api/v1/admin/operator-role-operations/'+saved.operation,
+  {headers:{'X-Y3-Expected-Actor':owner}}));
+  await verifyActor(owner);
+  if(mine!==generation)return;
+  if(pending!==saved||receipt.current.account_id!==saved.account)throw Error();
+  show(receipt.current);el('message').textContent='확정 요청 버전 '+receipt.committed_version+
+   ' · '+(receipt.changed?'변경 저장':'변경 없음')+' · 위 표시는 현재 상태입니다.';
+ }catch{if(mine===generation)el('message').textContent=
+  '현재 권한으로 요청 결과를 확인할 수 없습니다. 현재 계정을 조회해 주세요.';
+ }finally{if(mine===generation){writing=false;controls();}}
+};
+addEventListener('pagehide',()=>{generation++;selected=null;writing=false;});
+(async()=>{try{
+ const me=await json(await fetch('/api/v1/auth/me'));actor=me.account_id;
+ for(let offset=0;;offset+=100){
+  const page=await json(await fetch('/api/v1/branches?offset='+offset+'&limit=100'));
+  for(const branch of page.items){el('branch').add(new Option(branch.name,branch.id));
+   el('destination').add(new Option(branch.name,branch.id));}
+  if(!page.items.length||offset+page.items.length>=page.total)break;
+ }
+ try{const saved=JSON.parse(sessionStorage.getItem('y3-operator-operation')||'null');
+  if(saved&&saved.actor===actor&&typeof saved.operation==='string'&&typeof saved.account==='string')
+   pending=saved;
+ }catch{savePending(null);}
+ controls();
+}catch{el('message').textContent='로그인과 관리 권한을 확인해 주세요.';}})();
+})();"""

@@ -370,6 +370,8 @@ class EmergencyPasswordProof:
     policy: PolicyStamp
     password_hash: str = field(repr=False)
 
+    operator_grant: OperatorGrant | None = field(default=None, kw_only=True)
+
 
 @dataclass(frozen=True)
 class HandoffRequest:
@@ -567,3 +569,68 @@ class OperatorSource:
     security_version: int
     expires_at: datetime
     policy: PolicyStamp
+
+
+@dataclass(frozen=True)
+class OperatorCandidate:
+    account_id: UUID
+    login_id: str
+    state: str
+    password_ready: bool
+    account_version: int
+    operator_grant: OperatorGrant | None
+    branch_id: UUID
+    can_grant: bool
+    can_revoke: bool
+    can_move: bool
+
+
+@dataclass(frozen=True)
+class OperatorCommand:
+    operation_id: UUID
+    account_id: UUID
+    expected_account_version: int
+    expected_operator_version: int
+    action: Literal["role", "move"]
+    branch_id: UUID | None
+    desired_granted: bool
+
+
+@dataclass(frozen=True)
+class OperatorResult:
+    operation_id: UUID
+    changed: bool
+    granted: bool
+    committed_version: int
+    committed_branch: UUID
+    current: OperatorCandidate
+    reauthentication_required: bool
+
+
+@dataclass(frozen=True, repr=False)
+class OperatorTransitionProof:
+    account_id: UUID
+    expected_digest: bytes
+
+
+@dataclass(frozen=True)
+class OperatorMutation:
+    before: OperatorCandidate
+    after: OperatorCandidate
+    kind: str
+    proof: OperatorTransitionProof
+
+
+class OperatorRolesPort(Protocol):
+    def actor_proof(self, ident: UUID) -> OperatorTransitionProof: ...
+    def verify_actor(self, proof: OperatorTransitionProof) -> None: ...
+
+    def lookup(self, caller: Caller, identifier: str) -> UUID: ...
+    def candidate(self, caller: Caller, ident: UUID, branch: UUID | None) -> OperatorCandidate: ...
+    def replay(self, caller: Caller, command: OperatorCommand) -> OperatorResult | None: ...
+    def operation(self, caller: Caller, operation: UUID) -> OperatorResult: ...
+    def change(
+        self, caller: Caller, command: OperatorCommand
+    ) -> tuple[OperatorResult, OperatorMutation | None]: ...
+    def confirm(self, mutation: OperatorMutation) -> None: ...
+    def confirm_self(self, snapshot: RoleActorSnapshot, mutation: OperatorMutation) -> None: ...

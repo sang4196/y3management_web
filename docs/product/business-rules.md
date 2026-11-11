@@ -587,6 +587,11 @@ Traceability: PD-004/007/011/022; PR-002/003/006/030; BR-OPS-001/004/007/008/009
 
 Status: APPROVED
 
+2026-11-11 [OP-6](product-decisions.md#review-20261111-operator-management): 유효 Operator의 Master 전용 이동은
+최초 설정 대기/차단/reset 대기를 포함한 모든 계정 상태에 허용한다. 활성 목적 지점/같은 조직 조건은 유지한다.
+계정 상태·복구 목적지·다른 역할/Scope·Trainer Home·과거 이력은 보존하며 옛 인증·링크 폐기 후 필요한 링크만
+기존 목적별 권한으로 명시 재발급한다. 아래의 이동 대상 계정 상태 미정은 이 범위에서 해결됐다.
+
 2026-11-05 [OP-2/OP-3](product-decisions.md#review-20261105-operator-onboarding): 미설정 Operator 링크 명시 재발급은
 같은 조직 Master 또는 현재 업무 Branch Admin이 수행한다. 과거 발급 Scope는 권한을 남기지 않는다.
 발급 후 Branch 비활성만으로 유효 기존 링크 사용/허용 재발급을 막지 않으며 비활성 Branch 신규 배정은 계속 불가다.
@@ -973,6 +978,13 @@ Traceability: C11; PR-006/007/010/031; BR-010; BR-PAY-003/004/014/015; NFR-012. 
 
 <a id="br-ops-019"></a>
 ## BR-OPS-019 — 기존 계정의 Operator·Trainer 역할 추가/회수
+
+2026-11-11 [OP-4/OP-5](product-decisions.md#review-20261111-operator-management): Operator 추가는 같은 조직의
+Master/Branch Admin/Trainer/role0와 허용 관리자 본인까지 포함한다. 첫 부여 ACTIVE/암호 설정 완료/reset 대기 아님,
+회수 모든 계정 상태, 같은 업무 지점 재부여 ACTIVE/PENDING_SETUP·DISABLED 제외다.
+E5의 대상 Operator 지점 현재 인가와 독립 관리자/Trainer 역할·Home/상태·계정/암호/이력을 보존한다.
+역할0 로그인 금지와 Master 전용 전체 계정 관리·지점 이동을 유지하며 기술 저장/철회/감사·검증은 별도다.
+아래의 Operator 대상 유형/계정 상태 미정은 이 승인 범위에서 대체된다.
 
 상태: APPROVED-TO-BE
 

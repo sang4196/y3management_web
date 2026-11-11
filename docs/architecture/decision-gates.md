@@ -1,4 +1,12 @@
-# 2026-11-05 IAM-016 현재 게이트
+# 2026-11-12 IAM-017 현재 게이트
+
+[OP-4/OP-5/OP-6](../product/product-decisions.md#review-20261111-operator-management)으로 대상 유형/상태·본인 역할 관리와
+유효 Operator의 모든 계정 상태 이동 사용자 게이트를 해결했다. E5/G5/OP-2/OP-3와 현재 독립 Scope는 재질문하지 않는다.
+[제한 계약](iam-017-operator-management-design.md)의 개발자 ACK·독립 기술 진입·제한 구현·동결·독립 실행·설계자 로컬 인수를 마쳤다.
+[결과](iam-017-operator-management-results.md)의 fast197·명시 동등성 분할PG380(282+98)·HTTPS2사례에 한정한다.
+회수된 grant의 다른 지점 이동·다른 역할/Member/PT·운영과 전역 PROPOSED를 임의 승인하지 않는다.
+
+# 2026-11-05 IAM-016 게이트 이력
 
 [OP-2/OP-3](../product/product-decisions.md#review-20261105-operator-onboarding)로 Operator 최초 설정 재발급의
 현재 관리 Scope/기발급 후 Branch 비활성 사용자 게이트를 해결했다. 기존 겸임/발급 Actor·단일 Scope를 재질문하지 않는다.

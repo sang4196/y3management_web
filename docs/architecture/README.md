@@ -1,3 +1,15 @@
+# IAM-017 로컬 인수 완료 — Operator 역할 관리·지점 이동
+
+2026-11-11 사용자 [OP-4/OP-5/OP-6](../product/product-decisions.md#review-20261111-operator-management) 모두1을 반영했다.
+기존 계정 유형/상태·본인 역할 관리와 모든 계정 상태의 Master 유효 Operator 이동을 확정했다.
+2026-11-12 [제한 계약](iam-017-operator-management-design.md)의 구현·독립 실행·설계자 로컬 인수를 마쳤다.
+현재 지점 인가·독립 역할·원래 목적/기한·role0 관리·typed 감사/receipt·0017 보존/잠금을 연결했다.
+[실행 결과](iam-017-operator-management-results.md)와 [최소 근거](iam-017-operator-management-review.json)는
+새 fast197·선정PG380 분할(동등성 승인282+새98, native2 포함)·실제 HTTPS5manifest를 기록한다.
+사전 검토 보완·테스트 준비 실패·기존 LC15 검사 불일치/단일 함수 교정과 자원 정리를 구분한다.
+전체695PG/단일 최종380 실행은 아니다. 회수된 Operator의 다른 지점 재배정은 이번 승인 범위 밖이며
+후속 사용자 결정 대상이다. 다른 OPEN/전역 PROPOSED/원본 DB 전환·운영 게이트는 유지한다. 아래는 앞선 인수 이력이다.
+
 # IAM-016 로컬 인수 완료 — Operator 최초 발급·로그인
 
 2026-11-05 [OP-2/OP-3](../product/product-decisions.md#review-20261105-operator-onboarding) 모두1 승인으로

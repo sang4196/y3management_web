@@ -1,5 +1,11 @@
 # 기능 요구사항 — 승인된 제품 기준
 
+2026-11-11 PR-001/021/026/030의 기존 계정 Operator 관리는 [OP-4/OP-5/OP-6](product-decisions.md#review-20261111-operator-management)를 따른다.
+같은 조직의 모든 기존 계정 유형/허용 관리자 본인을 포함하되 처음 부여는 ACTIVE/암호 준비/reset 대기 아님,
+회수는 모든 상태, 같은 지점 재부여는 ACTIVE/PENDING_SETUP이며 차단은 제외한다.
+Master의 유효 Operator 이동은 모든 계정 상태/활성 목적지에 허용하며 상태·다른 역할/Home을 보존하고 옛 인증/링크를 폐기한다.
+목적별 명시 재발급·현재 Scope·감사/실패 원자성을 유지한다. 실제 코드/검증 완료 표시는 별도다.
+
 2026-11-05 PR-001/021/026/030의 Operator 최초 설정은 [OP-2/OP-3](product-decisions.md#review-20261105-operator-onboarding)를 따른다.
 PENDING_SETUP 명시 재발급은 현재 같은 조직 Master/업무 Branch Admin 범위이며, 기발급 후 Branch 비활성만으로
 기존 유효 링크 사용·허용 재발급을 막지 않는다. 비활성 지점 신규 배정/다른 역할 인가 우회는 불가하고

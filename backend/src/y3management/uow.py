@@ -14,12 +14,14 @@ from y3management.database import Database
 from y3management.iam.emergency import Emergency
 from y3management.iam.handoff import Handoff
 from y3management.iam.infrastructure import IAM
+from y3management.iam.operators import OperatorRoles
 from y3management.iam.password_reset import PasswordReset
 from y3management.iam.passwords import Passwords
 from y3management.iam.public import (
     EmergencyPort,
     HandoffPort,
     IAMPort,
+    OperatorRolesPort,
     PasswordResetPort,
     SecurityPort,
     TrainerRolesPort,
@@ -45,6 +47,7 @@ class Work:
     handoff: HandoffPort
     workforce: WorkforcePort
     roles: TrainerRolesPort
+    operators: OperatorRolesPort
 
 
 class UnitOfWork:
@@ -85,6 +88,7 @@ class UnitOfWork:
                     Handoff(Emergency(iam)),
                     Workforce(WorkforceRepository(session)),
                     TrainerRoles(iam),
+                    OperatorRoles(iam),
                 )
                 try:
                     yield work

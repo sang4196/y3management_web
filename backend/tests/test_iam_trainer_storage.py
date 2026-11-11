@@ -82,7 +82,7 @@ def test_identity_history_blocks_downgrade(
     with trainer.base.db.session() as s:
         assert (
             s.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-            == "0016_operator_onboarding"
+            == "0017_operator_management"
         )
 
 

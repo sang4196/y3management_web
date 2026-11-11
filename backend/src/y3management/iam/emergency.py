@@ -429,6 +429,7 @@ class Emergency:
         policy = self.iam.policy()
         source = self.source(token)
         account = self.target(source["account_id"], source["organization_id"])
+        operator_grant = self.iam.account_roles(account["id"]).operator_grant
         encoded = self.iam.passwords.create(password, account["login_id"])
         return EmergencyPasswordProof(
             source["id"],
@@ -442,6 +443,7 @@ class Emergency:
             source["expires_at"],
             policy,
             encoded,
+            operator_grant=operator_grant,
         )
 
     def complete_password(self, proof: EmergencyPasswordProof) -> EmergencyChange:
@@ -449,7 +451,8 @@ class Emergency:
         self.iam.check_policy(proof.policy)
         source = self.source_id(proof.source_id, lock=True)
         if (
-            source["case_id"] != proof.case_id
+            self.iam.account_roles(proof.account_id).operator_grant != proof.operator_grant
+            or source["case_id"] != proof.case_id
             or source["account_id"] != proof.account_id
             or source["organization_id"] != proof.organization_id
             or source["expires_at"] != proof.expires_at
@@ -481,7 +484,10 @@ class Emergency:
 
     def confirm_complete(self, proof: EmergencyPasswordProof) -> None:
         self.iam.check_policy(proof.policy)
-        if proof.expires_at <= self.iam.now():
+        if (
+            proof.expires_at <= self.iam.now()
+            or self.iam.account_roles(proof.account_id).operator_grant != proof.operator_grant
+        ):
             raise Rejected(401, "invalid_recovery")
 
     def event(

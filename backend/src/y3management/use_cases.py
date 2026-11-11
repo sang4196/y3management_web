@@ -11,6 +11,7 @@ from y3management.audit.public import (
     Event,
     InitialCompensationSet,
     OperatorAccountEvent,
+    OperatorRoleEvent,
     PasswordEmergencyEvent,
     TrainerIdentityEvent,
     TrainerRegistered,
@@ -31,6 +32,9 @@ from y3management.iam.public import (
     IdentityTransition,
     LifecycleAccount,
     OperatingRecoveryAuthority,
+    OperatorCandidate,
+    OperatorCommand,
+    OperatorResult,
     OperatorScope,
     Preparation,
     Reservation,
@@ -193,7 +197,13 @@ class Service:
                         roles.operator,
                         account,
                         account,
-                        Caller(account.id, account.organization_id, None, False, roles.operator),
+                        Caller(
+                            account.id,
+                            account.organization_id,
+                            account.branch_id,
+                            account.master,
+                            roles.operator,
+                        ),
                     )
                 elif fact is not None:
                     self._identity_audit(w, "login", w.iam.identity_transition(account.id), fact)
@@ -306,6 +316,128 @@ class Service:
             w.roles.confirm_actor(actor_snapshot, self_change=False, touch=True)
             return b
 
+    def operator_candidate(
+        self,
+        auth: str | None,
+        target: UUID | str,
+        branch: UUID | None,
+        nonce: str | None = None,
+        *,
+        expected_actor: UUID,
+    ) -> OperatorCandidate:
+        if isinstance(target, str):
+            with self.uow.open() as w:
+                actor = w.iam.authenticate(auth, touch=False)
+                if actor.caller.account_id != expected_actor:
+                    raise Rejected(409, "actor_changed")
+                w.iam.csrf(actor, nonce)
+                ident = w.operators.lookup(actor.caller, normalize_login(target))
+        else:
+            ident = target
+        with self.uow.open() as w:
+            actor = w.iam.authenticate(auth, management=True, target=ident, touch=False)
+            if actor.caller.account_id != expected_actor:
+                raise Rejected(409, "actor_changed")
+            snapshot = w.roles.snapshot(actor)
+            result = w.operators.candidate(actor.caller, ident, branch)
+            if isinstance(target, str) and result.login_id != normalize_login(target):
+                raise Rejected(404, "not_found")
+            w.organization.lock_scoped_branch(actor.caller, result.branch_id)
+            w.roles.confirm_actor(snapshot, self_change=False, touch=True)
+            return result
+
+    def operator_operation(
+        self, auth: str | None, operation: UUID, *, expected_actor: UUID
+    ) -> OperatorResult:
+        with self.uow.open() as w:
+            actor = w.iam.authenticate(auth, touch=False)
+            if actor.caller.account_id != expected_actor:
+                raise Rejected(409, "actor_changed")
+            ident = w.operators.operation(actor.caller, operation).current.account_id
+        with self.uow.open() as w:
+            actor = w.iam.authenticate(auth, management=True, target=ident, touch=False)
+            if actor.caller.account_id != expected_actor:
+                raise Rejected(409, "actor_changed")
+            snapshot = w.roles.snapshot(actor)
+            result = replace(
+                w.operators.operation(actor.caller, operation), reauthentication_required=False
+            )
+            w.roles.confirm_actor(snapshot, self_change=False, touch=True)
+            return result
+
+    def change_operator(
+        self,
+        auth: str | None,
+        nonce: str | None,
+        command: OperatorCommand,
+        *,
+        expected_actor: UUID,
+    ) -> OperatorResult:
+        with self.uow.open() as w:
+            actor = w.iam.authenticate(
+                auth, management=True, target=command.account_id, touch=False
+            )
+            if actor.caller.account_id != expected_actor:
+                raise Rejected(409, "actor_changed")
+            w.iam.csrf(actor, nonce)
+            snapshot = w.roles.snapshot(actor)
+            actor_proof = w.operators.actor_proof(actor.caller.account_id)
+            w.roles.lock(command.account_id)
+            before = w.operators.candidate(actor.caller, command.account_id, command.branch_id)
+            if command.action == "move":
+                w.iam.require_master(actor.caller)
+            replay = w.operators.replay(actor.caller, command)
+            if replay is not None:
+                w.operators.verify_actor(actor_proof)
+                w.roles.confirm_actor(snapshot, self_change=False)
+                return replay
+            branch = command.branch_id if command.action == "move" else before.branch_id
+            assert branch is not None
+            fact = w.organization.lock_scoped_branch(actor.caller, branch)
+            grant = before.operator_grant
+            changing_assignment = (command.action == "move" and branch != before.branch_id) or (
+                command.action == "role"
+                and command.desired_granted
+                and not (grant and grant.granted)
+            )
+            if changing_assignment:
+                w.organization.require_assignable(fact)
+            w.roles.confirm_actor(snapshot, self_change=False)
+            w.operators.verify_actor(actor_proof)
+            result, mutation = w.operators.change(actor.caller, command)
+            if mutation:
+                after = mutation.after
+                old = before.operator_grant
+                new = after.operator_grant
+                assert new is not None
+                w.audit.append_operator_role(
+                    OperatorRoleEvent(
+                        actor.caller.organization_id,
+                        command.operation_id,
+                        command.account_id,
+                        actor.caller.account_id,
+                        "MASTER" if actor.caller.master else "BRANCH_ADMIN",
+                        None if actor.caller.master else actor.caller.branch_id,
+                        mutation.kind,
+                        bool(old and old.granted),
+                        new.granted,
+                        old.scope.branch_id if old else None,
+                        new.scope.branch_id,
+                        old.scope.version if old else 0,
+                        new.scope.version,
+                        after.state,
+                        after.account_version,
+                    )
+                )
+                w.operators.confirm(mutation)
+            w.organization.confirm_scoped_branch(actor.caller, fact)
+            if mutation and actor.caller.account_id == command.account_id:
+                w.operators.confirm_self(snapshot, mutation)
+            else:
+                w.operators.verify_actor(actor_proof)
+                w.roles.confirm_actor(snapshot, self_change=False, touch=mutation is not None)
+            return result
+
     def operator_branch(self, auth: str | None, ident: UUID) -> Branch:
         with self.uow.open() as w:
             actor, _ = self._current_principal(w, auth)
@@ -376,6 +508,7 @@ class Service:
         branch: UUID | None = None,
         target: UUID | None = None,
         expected: int | None = None,
+        expected_operator: int | None = None,
     ) -> tuple[AccountRoles, Setup]:
         with self.uow.open() as w:
             actor = w.iam.authenticate(auth, touch=False)
@@ -400,8 +533,13 @@ class Service:
                 else:
                     target_id = target
                     w.iam.lock_trainer_credentials(target_id)
-                    before = w.iam.operator_target(actor.caller, target_id).account
-                    if before.version != expected:
+                    target_roles = w.iam.operator_target(actor.caller, target_id)
+                    before = target_roles.account
+                    if (
+                        before.version != expected
+                        or target_roles.operator is None
+                        or target_roles.operator.version != expected_operator
+                    ):
                         raise Rejected(409, "conflict")
                 roles = w.iam.operator_target(actor.caller, target_id)
                 setup = w.iam.operator_setup(roles, slot, before is not None)

@@ -1,5 +1,10 @@
 # 사용자 및 역할
 
+2026-11-11 [OP-4/OP-5/OP-6](product-decisions.md#review-20261111-operator-management): 같은 조직의 기존 Master·Branch Admin·
+Trainer·role0 및 허용 관리자 본인도 상태 조건을 만족하면 Operator를 겸할 수 있다. 각 관리 Scope·Operator 단일 업무 지점·
+Trainer Home/업무 상태는 독립이다. Operator 추가로 관리자 권한이나 보상 조회를 부여하지 않는다.
+역할 부여/회수·재부여와 Master 업무 지점 이동의 상태 조건은 위 승인 표를 따른다. Member 로그인 Future Scope는 유지한다.
+
 2026-10-31 [PW-1–PW-6](product-decisions.md#review-20261031-password-only): Master·Branch Admin·Operator·Trainer 및
 겸임의 인증수단은 아이디·비밀번호뿐이다. 관리자 Passkey 등록/사용을 요구하지 않는다.
 Actor별 발급/차단/reset/업무 권한과 현재 Scope, 무역할/차단/Trainer 비활성 제한은 유지하며 Member는 v1 로그인 Actor가 아니다.

@@ -1,5 +1,10 @@
 # Open Questions / 후속 TODO
 
+2026-11-11 ARCH-002/MB-004 부분 해결: [OP-4/OP-5/OP-6](product-decisions.md#review-20261111-operator-management) 모두1 승인으로
+기존 계정 Operator 추가의 유형/본인 허용, 첫 부여/회수/같은 지점 재부여 상태와 Master 지점 이동의 계정 상태를 확정했다.
+이 세 선택을 다시 질문하지 않는다. 기존 E5/G5·독립 Scope/상태·목적별 원본과 OP-2/OP-3를 유지한다.
+저장/인가·최소 공개·동시성/검증과 잔여 업무/운영 게이트는 별도이며 전체22 OPEN/8 CLOSED는 유지한다.
+
 2026-11-05 ARCH-002/MB-004 부분 해결: [OP-2/OP-3](product-decisions.md#review-20261105-operator-onboarding)로
 PENDING_SETUP Operator의 현재 업무 Branch 관리자 명시 재발급과 기발급 후 Branch 비활성의 기존 링크
 사용/허용 재발급을 확정했다. 기존 겸임·단일 업무 Scope·신규 배정 차단·Master 전용 전체 계정 관리와
