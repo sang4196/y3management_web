@@ -144,7 +144,7 @@ def test_migrate_disabled_and_roundtrip(
         TestClient(create_app(settings, database=db), base_url=ORIGIN),
     ):
         pytest.fail("0016 runtime accepted 0015")
-    migrate(settings, "upgrade", "0017_operator_management")
+    migrate(settings, "upgrade", "0018_withdrawn_operator_move")
     with TestClient(create_app(settings, database=db), base_url=ORIGIN):
         with db.session() as session:
             assert current_policy(session).version == 2
@@ -190,7 +190,7 @@ def test_pending_downgrade_guards(legacy_master: tuple[Settings, Database]) -> N
     before = fingerprint(db)
     migrate(settings, "downgrade", OLD, success=False)
     assert fingerprint(db) == before
-    migrate(settings, "upgrade", "0017_operator_management")
+    migrate(settings, "upgrade", "0018_withdrawn_operator_move")
     current = fingerprint(db)
     migrate(settings, "downgrade", OLD, success=False)
     assert fingerprint(db) == current
@@ -277,7 +277,7 @@ except ValueError as error:
 assert started==EXPECTED
 """
     execute_original(original_15, settings, script.replace("EXPECTED", "True"))
-    migrate(settings, "upgrade", "0017_operator_management")
+    migrate(settings, "upgrade", "0018_withdrawn_operator_move")
     execute_original(original_15, settings, script.replace("EXPECTED", "False"))
 
 

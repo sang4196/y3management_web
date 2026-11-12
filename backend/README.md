@@ -326,8 +326,8 @@ IAM을 켤 때 `Y3_IAM_MODE=password`를 명시한다. 과거 `s1_password`/`mfa
 정책은 [IAM-014](../docs/architecture/iam-014-password-only-design.md), 전환·보존 계약은
 [상세 계약](../docs/architecture/iam-014-password-only-transition.md)을 따른다.
 
-새 전용 빈 DB에는 기존 명시 migration 절차로 `0017_operator_management`까지 적용한다.
-현재 runtime은 정확한 0017과 기존 0014 대상 policy 2 전이를 함께 확인한다.
+새 전용 빈 DB에는 기존 명시 migration 절차로 `0018_withdrawn_operator_move`까지 적용한다.
+현재 runtime은 정확한 0018과 기존 0014 대상 policy 2 전이를 함께 확인한다.
 0016은 Operator 신규 발급 도입 당시의 역사적 revision이며 현재 runtime의 실행 대상이 아니다.
 기존 DB 전환은 별도 승인·유지보수 작업이다. 구 앱·CLI·GC를 중지하고 원본 backup과
 대상을 확인한 뒤 같은 ProcessGuard를 획득한다. 자동 원본 DB 전환이나 프로세스 종료는 없다.
@@ -345,7 +345,10 @@ Master와 현재 관리 지점의 Branch Admin은 `/operator-accounts`에서 Ope
 기존 계정의 Operator 부여·회수·같은 지점 재부여는 `/operator-roles`의 정확한 ID 조회로
 관리한다. Master는 같은 조직 범위, Branch Admin은 현재/보존 Operator 업무 지점 범위만
 관리하며, 단일 업무 지점 이동은 Master만 활성 목적지로 수행한다. 관리자 관리 지점과
-Trainer Home은 이동하지 않는다. 이 화면은 제한된 관리 UI이며 일반 계정 목록을 제공하지 않는다.
+Trainer Home은 이동하지 않는다. 회수된 Operator도 보존 grant가 있으면 모든 계정 상태에서
+이동할 수 있으며 회수·차단·reset 대기를 그대로 유지한다. 비활성 출발지는 허용하고 새 목적지는
+활성 지점이어야 한다. 재부여와 필요한 링크 재발급은 새 현재 지점에서 별도로 수행한다.
+이 화면은 제한된 관리 UI이며 일반 계정 목록을 제공하지 않는다.
 순수 Operator 회수 후 역할0인 계정은 로그인할 수 없지만 계정·암호·grant 이력은 보존하며
 기존 Master 수명/재설정 관리 대상에 남는다. 본인 역할·지점의 실제 변경은 기존 세션을
 폐기하므로 다시 로그인한다. 응답 유실은 자동 재전송하지 않고 같은 Actor로 재인증한 뒤
@@ -358,8 +361,12 @@ Operator 초기 설정 재발급은 `expected_version`(계정)과 `expected_oper
 이 헤더는 해당 API만의 문맥 전제이며 인증된 현재 Actor와 다르면 처리 전 409다.
 권한은 계속 실제 Caller로 검사한다. 화면은
 조회·쓰기·대사 전후 로그인 Actor를 재대조하고 계정이 바뀌면 선택·pending 사용을 중단한다.
-현재 공개 설계·상태별 허용 조건은 [IAM-017](../docs/architecture/iam-017-operator-management-design.md)을
-따른다. 현재 구현·검증 상태와 범위는 위 IAM-017 설계 및 인수 기록을 따른다.
+기본 명령 계약은 [IAM-017](../docs/architecture/iam-017-operator-management-design.md),
+회수 상태 이동은 [IAM-018](../docs/architecture/iam-018-withdrawn-operator-move-design.md)을 따른다.
+새 0018은 이동 감사의 전후 granted 동일 조건만 확장한다. 회수 이동 감사 또는
+`action=move/granted=false` receipt(같은 지점 no-op 포함)가 있으면 17로 downgrade할 수 없다.
+일반 회수 grant/회수 이력만으로는 이 downgrade를 막지 않는다. 이력을 삭제해 내려가지 않는다.
+원래 0001–0017은 유지하며 원래17 runtime과 현재18 runtime은 서로의 revision을 거부한다.
 이 안내 갱신 자체는 추가 실행 검증을 뜻하지 않는다.
 
 최초 Master는 `bootstrap-initial-master`의 보호된 TTY에서 비밀번호를 입력해 준비한다.

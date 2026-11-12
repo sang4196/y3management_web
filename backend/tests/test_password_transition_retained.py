@@ -226,7 +226,7 @@ def test_cutover_retires_authority_preserves_c2_and_never_promotes_staged_hash(
     }
     with db.session() as session:
         assert session.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == (
-            "0017_operator_management"
+            "0018_withdrawn_operator_move"
         )
         versions = session.execute(text("SELECT id, operator_version FROM iam_sessions")).all()
         assert {ident: version for ident, version in versions} == {

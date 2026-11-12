@@ -1,4 +1,15 @@
-# 2026-11-12 IAM-017 현재 게이트
+# 2026-11-12 IAM-018 현재 게이트
+
+[OP-7](../product/product-decisions.md#review-20261112-withdrawn-operator-move)=1로 회수된 Operator의 Master 전용
+업무 지점 변경 사용자 게이트를 해결했다. 모든 계정 상태/활성 목적지·회수/차단·독립 역할/Home 보존 및
+기존 OP-5/OP-6 현재 인가·철회·명시 재발급을 유지한다. 재질문하거나 자동 재부여/차단 해제를 추가하지 않는다.
+[IAM-018 제한 계약](iam-018-withdrawn-operator-move-design.md)의 기술 진입·구현·동결·새 독립 실행·설계자 로컬 인수를 마쳤다.
+[결과](iam-018-withdrawn-operator-move-results.md)의 fast197·선정PG104 단일 실행/실제 HTTPS54조건에 한정한다.
+전체728PG·운영 인수가 아니며 0001–0017/다른 Product OPEN·전역 PROPOSED·원본 DB 전환 게이트는 유지한다.
+후속 Trainer Home Branch 이동의 대상 Trainer/연결 계정 상태는 BR-OPS-013의 미결정 범위다. Master 전용·즉시 적용·
+독립 역할/관계/보상 보존·새 필수 사유를 추가하지 않는 기존 규칙과 Architecture 대상 철회 방식을 재질문하지 않는다.
+
+# 2026-11-12 IAM-017 게이트 이력
 
 [OP-4/OP-5/OP-6](../product/product-decisions.md#review-20261111-operator-management)으로 대상 유형/상태·본인 역할 관리와
 유효 Operator의 모든 계정 상태 이동 사용자 게이트를 해결했다. E5/G5/OP-2/OP-3와 현재 독립 Scope는 재질문하지 않는다.

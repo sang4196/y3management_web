@@ -429,7 +429,7 @@ def test_downgrade_waits_for_actual_state_writer_and_preserves_history(
             with t.base.db.session() as reader:
                 assert (
                     reader.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                    == "0017_operator_management"
+                    == "0018_withdrawn_operator_move"
                 )
                 assert (
                     reader.execute(text("SELECT active FROM workforce_trainers")).scalar_one()

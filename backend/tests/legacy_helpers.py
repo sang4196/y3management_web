@@ -60,13 +60,14 @@ def legacy_master(
 
 
 def prepare_revision_guard(connection: Connection, target: str) -> None:
-    """Walk to the actual 0014 shape inside the caller's rollback-only transaction."""
+    """Walk to the actual requested revision shape inside the caller's rollback-only transaction."""
     context = MigrationContext.configure(connection)
     current = context.get_current_revision()
     scripts = ScriptDirectory.from_config(Config("alembic.ini"))
     with Operations.context(context):
         while current != target:
             assert current in (
+                "0018_withdrawn_operator_move",
                 "0017_operator_management",
                 "0016_operator_onboarding",
                 "0015_account_lifecycle",
@@ -99,6 +100,8 @@ def assert_revision_loss_guard(db: Database, filename: str, expected: str) -> No
     with db.engine.connect() as connection:
         transaction = connection.begin()
         try:
+            if filename == "0017_operator_management.py":
+                prepare_revision_guard(connection, "0017_operator_management")
             if filename == "0016_operator_onboarding.py":
                 prepare_revision_guard(connection, "0016_operator_onboarding")
             if filename == "0014_password_only.py":

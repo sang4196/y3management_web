@@ -1,3 +1,13 @@
+# IAM-018 로컬 인수 완료 — 회수된 Operator의 업무 지점 변경
+
+2026-11-12 [OP-7](../product/product-decisions.md#review-20261112-withdrawn-operator-move)=1을 승인받았다.
+Master는 회수된 Operator도 모든 계정 상태에서 활성 지점으로 변경하며 회수/차단·다른 역할/Home을 유지한다.
+[제한 계약](iam-018-withdrawn-operator-move-design.md)의 기술 진입·구현·동결·새 독립 실행·설계자 로컬 인수를 마쳤다.
+[실행 결과](iam-018-withdrawn-operator-move-results.md)와 [최소 근거](iam-018-withdrawn-operator-move-review.json)는
+fast197·선정PG104 단일 실행(실제 HTTPS/native1사례·54조건 포함), 소스 불변/소유 자원 정리와 초기 검사 보완을 기록한다.
+전체728PG 중624개는 미실행이다. 기존 OP-5/OP-6·다른 OPEN/전역 PROPOSED·원본 DB/운영 게이트는 유지한다.
+다음 Trainer Home Branch 이동의 대상 Trainer/연결 계정 상태는 BR-OPS-013의 남은 사용자 결정이며 이번에 구현하지 않았다.
+
 # IAM-017 로컬 인수 완료 — Operator 역할 관리·지점 이동
 
 2026-11-11 사용자 [OP-4/OP-5/OP-6](../product/product-decisions.md#review-20261111-operator-management) 모두1을 반영했다.

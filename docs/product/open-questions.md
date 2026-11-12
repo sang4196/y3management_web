@@ -1,5 +1,11 @@
 # Open Questions / 후속 TODO
 
+2026-11-12 ARCH-002/MB-004 부분 해결: [OP-7](product-decisions.md#review-20261112-withdrawn-operator-move)=1로
+회수된 Operator의 Master 전용 업무 지점 변경을 허용했다. 모든 계정 상태/활성 목적 지점,
+회수·차단 상태·다른 역할/Home 보존과 기존 OP-5/OP-6의 인가·철회·명시 재발급·감사를 유지한다.
+이 경계를 다시 질문하지 않는다. 구체 migration/계약·구현·독립 검증과 다른 업무/운영 게이트는 별도이며
+전체22 OPEN/8 CLOSED는 유지한다. 아래 OP-6의 유효 역할 범위는 이 부분에서 확장됐다.
+
 2026-11-11 ARCH-002/MB-004 부분 해결: [OP-4/OP-5/OP-6](product-decisions.md#review-20261111-operator-management) 모두1 승인으로
 기존 계정 Operator 추가의 유형/본인 허용, 첫 부여/회수/같은 지점 재부여 상태와 Master 지점 이동의 계정 상태를 확정했다.
 이 세 선택을 다시 질문하지 않는다. 기존 E5/G5·독립 Scope/상태·목적별 원본과 OP-2/OP-3를 유지한다.

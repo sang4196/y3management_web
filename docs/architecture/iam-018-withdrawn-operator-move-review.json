@@ -1,0 +1,1127 @@
+{
+  "schema_version": 1,
+  "increment": "IAM-018",
+  "status": "DESIGNER_LOCAL_ACCEPTANCE_PASS_FRESH_SINGLE_SELECTED_RUN",
+  "local_date": "2026-11-12",
+  "timezone": "Asia/Seoul",
+  "reviewed_at_utc": "2026-11-12T12:34:07.549700+00:00",
+  "parent": "7b64f5731ed993f5f8473a1476f27fb6c4931513",
+  "branch": "codex/iam-withdrawn-operator-move",
+  "approved_product": "docs/product/product-decisions.md#review-20261112-withdrawn-operator-move",
+  "contract": "docs/architecture/iam-018-withdrawn-operator-move-design.md",
+  "contract_sha256_during_entry_and_execution": "f34c92f08ad18bb4ae155f28cd23cfdcd8571e3f3bd89aa1fcb9e76401c51f1b",
+  "source": {
+    "tested_count": 289,
+    "backend_count": 183,
+    "raw_map_encoding": "SHA256 of UTF-8 sorted lines: per-file raw SHA256, two spaces, repo-relative path, newline",
+    "tested_raw_map_sha256": "9e262c8876d4a3feb4df52e9effc10afbb40ae48e38142e879d15e5f85e1a420",
+    "backend_raw_map_sha256": "5b18cd6d14e61e059041d640e46d56dbb916af017434e3a2f9cca50b18b38e8d",
+    "tested_files": {
+      ".gitignore": "1e39cc09ba70ee1d8cb90c93bb156ef8ff1553ae3922e6dfb2d0b8649218b08e",
+      "AGENTS.md": "b729058462d36fec6abfd509db5f0df2334cf4c728be6fd88a7ba21fbadc8ab9",
+      "README.md": "edd1982977d66095139d677a5d0cefe92cd0c6c7c638c03eee1c9a33abae6fe1",
+      "backend/.env.example": "63b8064cf6d44c8258b788107786643b52e7eb16aa3229418bdb243c8e54180e",
+      "backend/.python-version": "861b3dd8083d28f336ef70f6755bc399538ddad627b1d095820ca34cb953cf14",
+      "backend/README.md": "a62d5b772b1c51d2af76d96469ccc557bdb4afa2563047da69f982c3e2213801",
+      "backend/alembic.ini": "c8dff3ed8c5474c2959696e1460714e7dbef8a5e982050a9fb177e08cedf53b3",
+      "backend/alembic/env.py": "09b623c13c8a9dd6de9d4caf2bb52d4e87a15cf675f87c0b80a0b22a66a85ac3",
+      "backend/alembic/script.py.mako": "67042994cfc495007c508ccae15e44d21057d90222461630f9bc04d3657f5f6d",
+      "backend/alembic/versions/.gitkeep": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "backend/alembic/versions/0001_iam_s1.py": "b3d402d8c2b48873f88a693429b5cc92f5a295d9681871d5ad799c178033ad1f",
+      "backend/alembic/versions/0002_iam_restore.py": "4322aa7d7a10ea56915927c3efe91c36f771741aaf92e5770a6fe2d8b0a7a5d1",
+      "backend/alembic/versions/0003_iam_password.py": "f207d7f0938e17713f78d7e46cbd806137d5e1c488ae6a6dd5f5c7c4ec90762a",
+      "backend/alembic/versions/0004_iam_login_id.py": "07144bab1120b2d9a5f00ec4a2d40e3fb218b0c5b202c742051df25f454e3937",
+      "backend/alembic/versions/0005_iam_mfa.py": "52950c64e4011ff72f4a542c4c9b50d5dfa81579087ab1bf16c987a739b59a2b",
+      "backend/alembic/versions/0006_iam_mfa_management.py": "2534c339c4be0cbcda8306ee0c719b0aa8a51cd3c88a81ff36b21cbc9b7c5f42",
+      "backend/alembic/versions/0007_iam_password_reset.py": "10d17079e948a047ed978b1258a3cae3feb7b085ca7da2ee5da3f26aa718ffd4",
+      "backend/alembic/versions/0008_iam_emergency_recovery.py": "5a74acb38eb400a538327ea1ae5f4cbb20447d3b7eeff7eb65b65b58c7c81729",
+      "backend/alembic/versions/0009_iam_emergency_handoff.py": "3b8b459fdb050a2c27b9cc03d37628c3d8866d7c1f61cd2bed31c9d7991d6061",
+      "backend/alembic/versions/0010_workforce_initial_registration.py": "84afd92af6608aef01c30909058aabec454c0fc6d32587df302c0e435de645c6",
+      "backend/alembic/versions/0011_iam_trainer_login.py": "d3276fd7fd34705a1da37a391735eb48e8fea3883ad2d30ba1701eb9f4ea6216",
+      "backend/alembic/versions/0012_iam_trainer_roles.py": "684a26a4f4dbe5ad14049ef0e35204241ec7dae8930227e7386b8f53cf466830",
+      "backend/alembic/versions/0013_workforce_trainer_state.py": "d5bfc9e19a5288bc0e9d951dd146dba5fdff31bb258b9f4f81b575ed46e2da25",
+      "backend/alembic/versions/0014_password_only.py": "c8909b77448ace6409baf5f8d7741850d90a9795f02e6c0bc7928b016f1bac81",
+      "backend/alembic/versions/0015_account_lifecycle.py": "1e1c3af8281a07c1c4b3e93762ce16fe85dc08ff46ad1569933b2a73f9e2a89c",
+      "backend/alembic/versions/0016_operator_onboarding.py": "2c02ab759c497b873a45a3a78f2b38a896c5c3a6f715077fd0c2244aa404053f",
+      "backend/alembic/versions/0017_operator_management.py": "34671d9c8724c79a2d1a490d1715eddb208b5dfa1139c5b34c14702c65c51de4",
+      "backend/alembic/versions/0018_withdrawn_operator_move.py": "9533627ae827f0e111c5f6e38be66f0fad1067fb4ac9ffd147d21ae51a4f4615",
+      "backend/check.ps1": "abb1d8216d924c10a68e24bb73ad61eaf743d1a6ef2f68d64ff0ee6853ee5b4c",
+      "backend/check.sh": "913aca1b14811d52295d6145924464990665689158368d3024e4a769ac8e4b44",
+      "backend/compose.yaml": "057759a9125dc93d4b8b7a3e31dcee9fdbc338cec814ae76eff2b31ab63725e4",
+      "backend/logging.json": "7fe0601cf723ffd729ee970482bc5e6395a0358c64aea60f42f634e9acd2dfcf",
+      "backend/pyproject.toml": "56f44ce34fcebd8f2eb16d19f1c319d7053acf65c23247a4c0449a6f0db9b05a",
+      "backend/src/y3management/__init__.py": "8cbacc38f76fad94d97347b932b70ae2a7e917e1c382faa1136ba1ee781665c8",
+      "backend/src/y3management/application.py": "e7f94b7acfe0160a5edf265d448f7eca86cc6aec663fd0092511dce1956944ef",
+      "backend/src/y3management/audit/__init__.py": "447d8ce612052ba9911099dbd8b29fcc0bf649c190efa7e89c1c478c7de42996",
+      "backend/src/y3management/audit/infrastructure.py": "47a900eab7fb02b9ce1d7b4180fe66c30bcdbab898ef7c174e001d41abea623b",
+      "backend/src/y3management/audit/public.py": "1d1aff1391dd19e6b762e3ade5d07ce7c248aebecba682b38b8310612326fe2d",
+      "backend/src/y3management/cli.py": "829006627ffe32dbd4a0cdcbccf17171d3c2357f60941a72fde4832577877935",
+      "backend/src/y3management/config.py": "c94ab15342d1b479c4a5c4e6e309ab2e1862a22dbd8185a92d09fc481c4796d4",
+      "backend/src/y3management/contracts.py": "b6fb628c7332c26d1ffc04f72f62b40adc65458b49e5e3144b7fe383e991b5a0",
+      "backend/src/y3management/database.py": "c502567c5025cd527efdaebd3a7c278ed8505507ab19570ea89c8feb0047bb33",
+      "backend/src/y3management/http.py": "b5ec2d0af34002dfdeba14496755241027ee319d14c56fcf3b9fcab9ef10ffd6",
+      "backend/src/y3management/iam/__init__.py": "447d8ce612052ba9911099dbd8b29fcc0bf649c190efa7e89c1c478c7de42996",
+      "backend/src/y3management/iam/data/LANGUAGE-SOURCES.md": "cc1f825fdaea0f26833093acef223157751dcf8ab17c90b37dbe54df5addacab",
+      "backend/src/y3management/iam/data/SECLISTS-LICENSE": "3dbdc93d5f8829de0941744841730a09c106d0732e5ae0e98ca1d77be7ded66c",
+      "backend/src/y3management/iam/data/SOURCE-README.md": "49b7d00632c09b24bfa7c21bace2164b72815f0e50344604dd63ed66db2dbd37",
+      "backend/src/y3management/iam/data/artifact-manifest.json": "770d4b7aa4d5f75744d5e9b0e8036ad1964ea6747f4768eac490f4cedf95e445",
+      "backend/src/y3management/iam/data/blocked-sha256.txt": "0e44ccea3096de7725f495080d1e8b4e624e7ba794d1dff133905c2f38f5bfae",
+      "backend/src/y3management/iam/data/public-example-provenance.json": "d04107b4e645f128effc550835df4cb96c54d72145ffc59f8e6c4462d143a368",
+      "backend/src/y3management/iam/data/seeds.txt": "d674c8719634c9ea2dc88990833ada6884789c0e447edddac067e67398c9bc90",
+      "backend/src/y3management/iam/data/source-manifest.json": "a3d9e0db191b0c9070957b6459e4a5cedec6b8926419225c6a718fe910ad4eaf",
+      "backend/src/y3management/iam/emergency.py": "6715feeba09bb484f6e2c2fec2c40b819d433eac06084c506bf4566e7e8d4af3",
+      "backend/src/y3management/iam/handoff.py": "6289649c5d1fb10deb29d6f6f6ec991276b051f597565acbd3d22c0e30cab7ef",
+      "backend/src/y3management/iam/infrastructure.py": "10a7068ae4eb53478c64c10036283bc3e8116888679e497d864aca3b50f98ac7",
+      "backend/src/y3management/iam/operators.py": "79c2bbbe6a534b0c6357614e31aa52d64a36b46d5f32c55aa15c8f4ad617d1f6",
+      "backend/src/y3management/iam/password_reset.py": "e53e66a84bb9f7e243ea82a6cf4aee5473f459f04316c8961d109764b841b720",
+      "backend/src/y3management/iam/passwords.py": "b592df3d9b9ae9d2a31ac04340a5091b7189a3d0c9ce4e32bedb6d1f0cc5fc56",
+      "backend/src/y3management/iam/policy.py": "0069d322ad3c19d9862e2df6c3782bcbe105e5ec9240e4097a28c6a806a83a94",
+      "backend/src/y3management/iam/public.py": "c9fbc621db97ec0694865df898b81ead84f1211e3f6d510778d95aad981d12ef",
+      "backend/src/y3management/iam/roles.py": "561936e5f60b57fda776bce6614580f668e3430be3aba4fa6b28644f61fcd565",
+      "backend/src/y3management/iam/security.py": "ec25319e81f59a9beeed5eb29bb812dc06fd8427e43cf604901bd8dd2f291052",
+      "backend/src/y3management/main.py": "043f955bf1959ce02cc09a8487607c3ca10ab661a045658e0b161e6207888eed",
+      "backend/src/y3management/operating.py": "127196df249cab52f8355fe1ba9ae059163d26d7a44ed6fd9afa83be9b31f246",
+      "backend/src/y3management/organization/__init__.py": "447d8ce612052ba9911099dbd8b29fcc0bf649c190efa7e89c1c478c7de42996",
+      "backend/src/y3management/organization/application.py": "ad1305919274f9cc9680c7134d1dc5ce6963bcb2b706d7e241bcad5f9e941506",
+      "backend/src/y3management/organization/infrastructure.py": "8505d1ec6ac48a66171854761fe5b5e859af260cbfe0d7c9efdc8f28a332d361",
+      "backend/src/y3management/organization/public.py": "7efd50bfe5d147f2dfc03708c7211884ce1a95d967e6a9da2448b6810ac2f4f0",
+      "backend/src/y3management/ownership.py": "08b39878e755567dda122c68d5dc54c11a8a92e7d1ff9f82219e56dd07e83916",
+      "backend/src/y3management/runtime.py": "18dd015be1ab4b76a402fda827ee0e9de910cc68c064aff142a4c8d9487bcf97",
+      "backend/src/y3management/uow.py": "37bcbc96ce6a3b99868f58662c983ad85887435e268966984c5c938f2b524348",
+      "backend/src/y3management/use_cases.py": "ab3e976cccbcf398945ef78774033b8e11945114daac2c23df8e86277fc83c99",
+      "backend/src/y3management/workforce/__init__.py": "754fccdc4ed205dfebc989581aaa7bdd6b9209ebbefac651381f421121e6e6bb",
+      "backend/src/y3management/workforce/application.py": "2a2bf1412774e0ad420c669f40e3508622d2552018d64b815162419812b27056",
+      "backend/src/y3management/workforce/infrastructure.py": "41ee6e3070699cc1ee257dfb8936575aae3d23a16b2cad29b001793a637670cf",
+      "backend/src/y3management/workforce/public.py": "4a37a7808dc175fb05a164c3025cccac36f270db8a9c6295ee776c085ebfc23c",
+      "backend/src/y3management/workforce/validation.py": "889163021df3b02094832b493e715e33acba2ab28b9fcf82787343a765e265b8",
+      "backend/tests/__init__.py": "238b2ab9051bda8c786c28ec95bf32708a59f54b06829cda74fd9134b87f4cc5",
+      "backend/tests/browser/emergency-checks.json": "ff595f301fbe0965141dd9feeea0069395436fc83a84f977102946c58dde8620",
+      "backend/tests/browser/emergency.cjs": "2119cb1c6cd16ee6943880cd2d78c12da0bb57598f8c63a5bfae8dfafc6d6791",
+      "backend/tests/browser/handoff-checks.json": "f13d201d37b367032839da2b9ab062e4f179c21aeb8997ad8354dd45e064f567",
+      "backend/tests/browser/handoff.cjs": "02051b2182e9dafc7294ad5ba7da3ae4ebb76b95f95d35efb54154726225311c",
+      "backend/tests/browser/management-checks.json": "6db997abac4eb1f953f12cb9e29684098283e7ff83383a57727d2467054bc501",
+      "backend/tests/browser/management.cjs": "308d513ddb3592ee0b637ef8ccd8da7c3b8de2834e0aaa13fe169b4483e2720f",
+      "backend/tests/browser/master-management-checks.json": "d1eaa108f90eb52a8ccbfdddd95a45cea594521c06687933d0efb2f8a16ab88c",
+      "backend/tests/browser/master-management.cjs": "a9d72a8f698be572f45b85ddd2a29f7a136c96ed4427f1483d0fa0a1a28bae85",
+      "backend/tests/browser/password-management-checks.json": "5cc0303376e3a2fd6f8337e1d615101eb4155caba9653def31449096e492c4e9",
+      "backend/tests/browser/password-management.cjs": "eb1a45cc25c21945d4e1fb68f21c0ae97f3aba5b7b4962976f548ecb4f9aa52d",
+      "backend/tests/browser/required-checks.json": "a9f0262f0825c64c0e9fbcc72d98d63895b0906c4da946fc6b217b675454d002",
+      "backend/tests/browser/reset-checks.json": "b7d84e9877c7489f0a7e262aa85144558d5b445be3e85d5bccbf6a52976ea5d6",
+      "backend/tests/browser/reset.cjs": "be398aa69029e242618cfec645519bd32b6f61629ce9eb3ea58bc708765b793f",
+      "backend/tests/browser/s1.cjs": "31ccd590df75363bd63ede990afd5dd1042c3f605846070453d8930f7140de3a",
+      "backend/tests/browser/trainer-checks.json": "f462d80c9af4e0baeaeefaa65522f0debc1d75118b3f2bfe578db6554d83002f",
+      "backend/tests/browser/trainer-roles-checks.json": "5adddd79a332042b875f37978eba0fc4df8e27e7c4af6c53439e744a1f795ee0",
+      "backend/tests/browser/trainer-roles.cjs": "38dee53361a83533be02a42b31e4b1f176fe5e0636f391a8a5d26e45b2d79054",
+      "backend/tests/browser/trainer.cjs": "779220dcd13609e55ee679678196395eab12fae8dc2e986e31e9a2b29c567f88",
+      "backend/tests/browser/workforce-checks.json": "82cd5b428bc6c1cb19bf182f96c2457397827e2678e049e6183f165fa00fec56",
+      "backend/tests/browser/workforce.cjs": "99816ac3470e0af7d4dfddaf8a899b31a18a0086f8c4e3f7795a9b34be9ffd88",
+      "backend/tests/browser_result.py": "1fb866877c8b3e2dd6af0fc88431371fd7628d516940712f694e97a8c0f045cf",
+      "backend/tests/conftest.py": "ffa91a2e3c07db0b93425233bbf0d7ec2c7b87e8c6729da637d0aa417eba6750",
+      "backend/tests/historical_backend.py": "8389adffe83117dc8b360cd3de2fe533905340c9ee66fc410a966ccbd2285de0",
+      "backend/tests/legacy_helpers.py": "310d7c6092359f4f24dc0db17da18dfb523161ab9013278598737c639a442a93",
+      "backend/tests/password_helpers.py": "68e1b56cadbd88ffd4ecadf5f9a4ef3178906fd57b688e41db8f1323aa1a18b9",
+      "backend/tests/test_account_lifecycle.py": "8a9a009ca586e04aeddf8682702ab76f4f3855c25ee96e17e9d811f47d42f84d",
+      "backend/tests/test_admin_actor_clock.py": "cf57e8fddc799744ed78161426bacef7a099268e061fab3c5d5e04024a6d8c76",
+      "backend/tests/test_application.py": "d489b1487acb783643a89c5f0fe09d61e544fc817099d192b067ca11186cf7ec",
+      "backend/tests/test_browser_result.py": "5ab1a631bc568fd60e0c12997bfd0b50c0a36bdd1989f58a9bd6dc4d1767c9ce",
+      "backend/tests/test_database.py": "620d674c99d2f06bbfd735db8446f99646b2ef8600b31d27d184acdc3d273f42",
+      "backend/tests/test_driver_failure.py": "661b8f8a02da7fca5d78c8dd6c524c81c1371bcc8d2d8ec50fdaf5255ef539bb",
+      "backend/tests/test_iam.py": "1e20b56b33845cb0acd1da3f2cafd76bb35302b908273149b293e20d4536bbff",
+      "backend/tests/test_iam_browser.py": "5e349c29b6550c800a1f90d5f4f249a03dcc2f990932fa5c696079f560e6239e",
+      "backend/tests/test_iam_emergency.py": "b16d541e58cc653e837005d1f10cb6752da43dbdd456a83778baa7e20ebbfd30",
+      "backend/tests/test_iam_emergency_browser.py": "4be4717d48c714b1dc1d93e8012ccef179a48c48da6b8910c770bd4c0f5b97f0",
+      "backend/tests/test_iam_emergency_files.py": "2383fe0cae91a342743d040193c6e7448c4f981f017fec2d2e91a54b65684ca8",
+      "backend/tests/test_iam_emergency_handoff.py": "700f51feaaff9be39ca5cb33270768c00b81af04b998aa018ef8313c6fa3a544",
+      "backend/tests/test_iam_emergency_handoff_browser.py": "94ee7921032e0a9563137367549e9349909657d26e0e1cdda7429efff1c70770",
+      "backend/tests/test_iam_emergency_handoff_integrity.py": "1d599dfff049225f2336e71829d8c4993769f45000d75903a355e7e05d1ca3ef",
+      "backend/tests/test_iam_emergency_handoff_races.py": "f0c6d0145f599f7a6ed05d8577672c4f8ec4ba9465ec31b923f6fe4c068e53ee",
+      "backend/tests/test_iam_emergency_integrity.py": "463f5e3af7095cd7fa63a2f7aeba2e7ef360fac4774348e56a25feaedf0a7118",
+      "backend/tests/test_iam_master_management.py": "1e9e4f32efb045d65cfb4ac5b4722e0c3454f8a8ed0477a2e0a72068a26594c6",
+      "backend/tests/test_iam_master_management_guards.py": "196e5659fd304a8ad8ae0386d78771aa231b0d3074f2525a80d0da9b24517fb2",
+      "backend/tests/test_iam_master_management_races.py": "17eb539ccdab8f2fcc169865f7d3eb2122bec434f89e1b544a3c09db38ac82ec",
+      "backend/tests/test_iam_master_privacy.py": "f44e3b1f1ad5e416bc3f75aff96dc1a59215644710881b636d0ed5b019c96193",
+      "backend/tests/test_iam_mfa_install.py": "475583be92fa403443822f62368ecf27ac75882c07c81d5232a2163f0b78f9a9",
+      "backend/tests/test_iam_mfa_management.py": "cdf7ac251683ae53ceef5f3a2eb7a6d2e6fbe42b5f3911a322235606a82a5965",
+      "backend/tests/test_iam_mfa_management_gc.py": "f328fc436344c39687fc480241fe74a93bfdb3b86e14b930a60b587ab64d63ed",
+      "backend/tests/test_iam_mfa_management_migration.py": "4c1eee3eabd1f3ee5a78919997b6ee548fc18e9fffca99972c796269999510f8",
+      "backend/tests/test_iam_mfa_security.py": "a75c9708db4080a22874927c4760b2eced80d294a729f358f3af42d0c6ff0ac5",
+      "backend/tests/test_iam_password_reset.py": "426c3d706db8e130286e0c69973e24e65e0bfd79e8528d599a4a63e802309e94",
+      "backend/tests/test_iam_password_reset_authorization.py": "2fc3f9a71d6ea8d951c274af23a8db46980766c407df9633e714c30a642ec53e",
+      "backend/tests/test_iam_password_reset_edges.py": "393d29cc8654ea6de1dd1b32beef8740f51d265c461e161d90b08a6497538877",
+      "backend/tests/test_iam_password_reset_races.py": "c94d9590f6a867e011490cecd5d986af61e7c83865ad92bb4b7534837638e002",
+      "backend/tests/test_iam_password_reset_storage.py": "c0a636c49339eed754d772a3926b0bd3c1cbed559f6e80c3c4b2b12b3405499b",
+      "backend/tests/test_iam_policy.py": "68a4376fbd3170ffec058ef3c9022bfcb3ffc84129ae19fd1c417ffb2f8081d1",
+      "backend/tests/test_iam_s2.py": "a26caa317544b314bd38054dc66ef9bc87b82c1c1341bddbd3f8c8e41ec6140f",
+      "backend/tests/test_iam_s2b.py": "fc7a9d968cb4e6f69430df355395281acf51cff8d45bb3f3e8084bee239a4c84",
+      "backend/tests/test_iam_s2c.py": "f9704123e676303b240ecc2b38dede3e7b5e1f048f33df04e71ba597fbcbe85d",
+      "backend/tests/test_iam_trainer.py": "159ebdf883b4923fadd030c81af852d8820066742fbb280bdb9a4e50d363771b",
+      "backend/tests/test_iam_trainer_audience.py": "61d544b0fb2d8f2e7e5b826326cffc121a638b087a1f533642002320babc09a8",
+      "backend/tests/test_iam_trainer_browser.py": "97371a8cd34c34ff2c60d7db2c93d489d621db0b96714502bf1696af20a8ddb6",
+      "backend/tests/test_iam_trainer_dispatch.py": "8945a61f76e8358986ff497a6638dae015525257f041d284137208a87715e50d",
+      "backend/tests/test_iam_trainer_guards.py": "506e9f365d026f06f0b96df65ff398a56b71a35d41ce7a08e62d784ea413a0fa",
+      "backend/tests/test_iam_trainer_policy.py": "044290b1df7fe511dc889c71e8ca5aa22e9f68b8be33b59060413ced58d301b2",
+      "backend/tests/test_iam_trainer_races.py": "2cdf5e092c0af9f874a1d61bccbdc17039751c6907daf10744bfc5dcd82a7703",
+      "backend/tests/test_iam_trainer_reset.py": "2b9b884d0aa1ebfc1315485a127472fc6328b69f15936cdd5b169210466b0243",
+      "backend/tests/test_iam_trainer_reset_causal.py": "aba956484b9b08373d7797dc587f4809dbf28716e1267484e2053782ce7ef95b",
+      "backend/tests/test_iam_trainer_reset_clock.py": "ff8efa770bfa3ad8c448df618c07496f1b6a97ba61d1b4dde8b83200fc77d8df",
+      "backend/tests/test_iam_trainer_reset_edges.py": "ed1f95e172092739a4fc5560e3770454ed50d85f6524839bc65db7e2ccd4cbda",
+      "backend/tests/test_iam_trainer_reset_privacy.py": "d1aa03e297e206724e8516177de3641d8253afd176ea81f448c6afad7d03e358",
+      "backend/tests/test_iam_trainer_review.py": "fd9db8dea770cda2e85d79216e4594b01b154e278e4d75102d2e2ef712131a69",
+      "backend/tests/test_iam_trainer_roles.py": "6ab815f21bbbc6dd88899c6a227393a045cbd65c4d610908c0d6d56ace1a25e1",
+      "backend/tests/test_iam_trainer_roles_browser.py": "f4c3ba41b7196e00a17e747907867b4dee497bcb9069ab973aa61678baff13e0",
+      "backend/tests/test_iam_trainer_roles_causal.py": "ad7558bbfe6def382d14efd1119a4f5cc9ebe71f23b25c9e18ac3d34b6b61074",
+      "backend/tests/test_iam_trainer_roles_races.py": "f8b782d58f538499980b856f1d997eb1da27890e08244219d813307a788fa03f",
+      "backend/tests/test_iam_trainer_roles_security.py": "238528839cdba8e1f376d162e88fcec6aec6a2f324bb22e1dd81586d1d05b3ff",
+      "backend/tests/test_iam_trainer_roles_storage.py": "8c466dc3e383b7d251df34b5de1da8c42dd106584cac1bd8438c9aab3b613ed5",
+      "backend/tests/test_iam_trainer_storage.py": "b903a386eb4e2072070811187372a752fa7cdf89c7830814be79d3757a5c7a3c",
+      "backend/tests/test_mfa_management_policy.py": "4ff79c756c2a914270d9248e6c37e5ee1badb1dcaec1cc5ac53ee90ec70a8d4f",
+      "backend/tests/test_mfa_policy.py": "1a493d852f9a7327f8f96a00dfd10a57af1410b4cd5b2b2b621314325b60f1b5",
+      "backend/tests/test_operator_management.py": "05c3c30affb4db4b0d546774b079c4eb0d0e863b29b8bad86096fea8d1715d7a",
+      "backend/tests/test_operator_onboarding.py": "ce5b4674a079efd531c4d2555ae2dd08e4c7bb6baa29cdb49aec6f78ec83e5b9",
+      "backend/tests/test_operator_withdrawn_move.py": "45564a0ff8b6fffe9f33f483a09797782c1d98fdc4a34aba04e5576b8a53f6cf",
+      "backend/tests/test_password_recipient_deadlines.py": "f898ab9cf52ee76bbd660f3d96f9098473e2006cb0dfdeadf1d2808dbf14229b",
+      "backend/tests/test_password_reset_policy.py": "463002504a2a343133c945d0d39bc07eea1a7e604c21bff4b9c80498068dddca",
+      "backend/tests/test_password_runtime.py": "56d22ce074e1542f5e1dec9f24e4c4dfbc928915800b3f7a3afdf925af773928",
+      "backend/tests/test_password_transition.py": "eacd4ebee92dca1c020498a9a55924d8038e5c374115869500cfaf7093d9eaa9",
+      "backend/tests/test_password_transition_flow.py": "221220d789f74e1557535abc80325bcbf3852e6711267a9c48954db03d557748",
+      "backend/tests/test_password_transition_legacy.py": "9e3927b4f4d4f330c7495deb7098342dea92811f9323a3eb97644f1f2634fb0e",
+      "backend/tests/test_password_transition_retained.py": "5b9d35834447522bb1edde9d46d78519f91477168a4baedd391a117508f9fde7",
+      "backend/tests/test_postgres.py": "9adb607898f7388f51d981a3f71c03801f2460f108483ea606ff403efefd0e4f",
+      "backend/tests/test_postgres_gate.py": "174e5373ad289d854c14d315cb4e4e6ea1cf0ce955e77fb6914be878d7a8f2c6",
+      "backend/tests/test_qa_cleanup.py": "c31d12f9f935997f607b8f91852796ccd13f514133b57dbedf1f5c550151802f",
+      "backend/tests/test_settings.py": "07d9ade228c4c8d8efd3889254036315a56adc931cda6c1c3b942b123be02fbc",
+      "backend/tests/test_workforce.py": "13b12219bd548dce52d72f366aeeb15a229e647cd502c20d3f190f3d5dbc4bf4",
+      "backend/tests/test_workforce_browser.py": "4f705040966fd1bd16cb5b01748040038478c9325afb3daac4b4d74c115e838d",
+      "backend/tests/test_workforce_guards.py": "a744db169d2904a6137eb81c1cd26bb57666f56fe06934ba12fb0586c0542f84",
+      "backend/tests/test_workforce_integrity.py": "e26e7248739d8e151e79ab6c47ec824fcb711bcbfde13f7ec3546a1b15c90102",
+      "backend/tests/test_workforce_policy.py": "0da96d977d0ddf6e15dbecfd736b81535701ac81628014522f9c819f40fcd779",
+      "backend/tests/test_workforce_state.py": "28001501fb600c8e84279baeb0ca045eb06369a97c050b49da8269db577d5ae2",
+      "backend/tests/test_workforce_state_causal.py": "7626b390ff0bca4a54b41c1e96c65d209c4fb87e74fa99176e40671ee180f57f",
+      "backend/tests/test_workforce_state_races.py": "4e4880bbe6501462208b43f57385d1fca17ff009ea51a201f8718758bc7667f7",
+      "backend/tests/test_workforce_state_security.py": "d98b2b428e1bba5653a8d4c3c3e5a06484da9e5c5292473c10c3f844caad59b2",
+      "backend/tests/test_workforce_state_storage.py": "bf125b0a0e9b662aa2a44d23a975a9cb8eb23da8e2afc522acc8ca7a9b5c28ec",
+      "backend/tests/workforce_state_seed.py": "11f05f38f0173f6a863cf18081464d6e8d2a156b8e1a762aeed488e4be9715da",
+      "backend/tools/build_password_corpus.py": "dbf12d1249af7681dcb8fcfd384358b4a178688bc9842199fb407dba365974f3",
+      "backend/uv.lock": "1365098bd3876d84ad808fe0e463b76d66681c20dc3c0c3f5e7cae84bc56ba2e",
+      "docs/analysis/01-system-overview.md": "b6d79b00348f9abec75fefb3b829638d42e881ca7be378e91b4a661f0d7407fa",
+      "docs/analysis/02-domain-model.md": "5c6722049335ba998c2d32da3dee0a80b59c41b59715af3e59a91d2aefebff19",
+      "docs/analysis/03-feature-inventory.md": "7bdbdd3b2b0394faf7872f2a95c6a38a1ec5b20e0c0b7f7e058d69fcc1b9633b",
+      "docs/analysis/04-screen-inventory.md": "d6fe3351af765a293c7c2d9767bc5c51c88855172035387964e7290105d101d9",
+      "docs/analysis/05-database-model.md": "f8165ca05e144252fa85a790e59771f39e755e4e324b3469e5763d5251039f3c",
+      "docs/analysis/06-business-flows.md": "6ee66dbb476546c84569d2bba171c7017ef7e271a2023fb3472c73f3c2fa68fc",
+      "docs/analysis/07-business-rules.md": "a0306cc79e939f3bb3cc7a12eceb4ebec2cb35b504d2f0fcabd8971737c51412",
+      "docs/analysis/08-auth-and-permissions.md": "c53224373809da55356ff91923a47d84b786c2f1457dc45a1443ab45a058a5d5",
+      "docs/analysis/09-external-integrations.md": "74259bc93bc8a14c6c6f3f71135f025da25084f3ff02990238e387065ee729c7",
+      "docs/analysis/10-web-migration-considerations.md": "1432723831bfd0bcaed8802b90ccd7908a4a0e3ac4271c08037056d7a4eea9e5",
+      "docs/analysis/11-risks-and-unknowns.md": "b4fd4ed154be3a6e14a60fb8be273bcb2ebdb8033072cde5447c6bcc03fc40bd",
+      "docs/analysis/12-glossary.md": "276df8ed262b078675399aea9fede1921ff995ad1d025ef4075071a02ab00fa6",
+      "docs/analysis/README.md": "f3a3de12a2a8b52ca0f58e0d0050989a938748241e65a1bc9ae473afb9d6532e",
+      "docs/analysis/verification-report.md": "c847f9bb057a50475257d86a9f0e77217c0dd3eb68bd5d97f229a243f247b1ac",
+      "docs/architecture/README.md": "b6e95ff0c25a1a60ee26a3aa5f1118b157c5d5ca7fa8eebfc212c8c21997641b",
+      "docs/architecture/data-and-transactions.md": "bc4d9fddb4b9c2c71bd42ec8b2320ace8e80124cc24a6afd477c9e75196f7746",
+      "docs/architecture/decision-gates.md": "8b3b4a0332fa55eab1b7d9082205de073f1338c777ed05fc21379f0653544405",
+      "docs/architecture/foundation-001.md": "c209d6c5fd75444483b3e76fe2dfe13d80814ae891bc176691fb79a2870d4b4e",
+      "docs/architecture/foundation-002.md": "a486dffac83da69ca08570cea9ad3ac184dc4aadcd847701435faeef0f264e10",
+      "docs/architecture/iam-001-decision-pack.md": "d651769f76d9c1e10a35c38cb2d39fb1fd82b8a6809170b8e4db45a035737055",
+      "docs/architecture/iam-001-design.md": "3df8d0765d9017b12614a29b171f2277e5a81457000acd82bba899259c01e3fc",
+      "docs/architecture/iam-001-preflight.md": "ab5474b4ac3fc99eb53479ee8d0120fbf2de58c3055fec083d2a73c2fb7dabea",
+      "docs/architecture/iam-001-s1-results.md": "84450727e7fdebdd9ac08bd5b117d7e8f3f982543c21c6fb93936afb2d5b99de",
+      "docs/architecture/iam-001-s1-review.json": "930eccc056645afe5a07b79d2d15ac6a1cf572a7f7ff7ae939f5222a259eacff",
+      "docs/architecture/iam-002-restore-results.md": "bd97b374a2fd7bc83f6b2b48c0fb3f13519b7170793c93472ed44bc41a24f817",
+      "docs/architecture/iam-002-restore-review.json": "26b55c7c0b9fb8e1f3c80e44e9fdbe73ce4094b055d9f102226e9bd7a4bf8eb3",
+      "docs/architecture/iam-003-password-change-results.md": "109aa72fda6a77aa5337f2652ff4781ceea87761356b202d839f399b9d7228cd",
+      "docs/architecture/iam-003-password-change-review.json": "ab71e084db51da2c0915e96f47db38c060a44592529ea4faf78e11a91bf04fce",
+      "docs/architecture/iam-004-login-id-design.md": "79169a57732fd82e5ecdda6d0d955a0d54671b96cd222095e8752c6f6a1311e7",
+      "docs/architecture/iam-004-login-id-results.md": "d52c9bd3d92de8792fccc78b0218141344ff01cb1820fa459d9a12f66a633b09",
+      "docs/architecture/iam-004-login-id-review.json": "433baab794ccdb2e01b39d82a036a13b64bd0752601a953237636b276132f6bc",
+      "docs/architecture/iam-005-mfa-a-design.md": "89a365399478f697a33c4b4545bb2f572076f4228c01faa80177a91020d557fd",
+      "docs/architecture/iam-005-mfa-a-results.md": "d6ab7ccbb87e32fedf89d7a871a984262b9ce97efa8b846f03e349901a3d8c66",
+      "docs/architecture/iam-005-mfa-a-review.json": "e194723111c7101ba5e92e14452a822a25081286e0092e94b96356b763d498a0",
+      "docs/architecture/iam-006-mfa-management-design.md": "9b7407ca0ea6064d965c0b8d57d52196bafa6ac3d4d5d3a3b07bbeed47630a2f",
+      "docs/architecture/iam-006-mfa-management-results.md": "fe57557a9b926de9608461a37bc08f0c374a80d9cadbf705edd1747fbde5ca9e",
+      "docs/architecture/iam-007-password-reset-design.md": "3feb955c3926307ab1eec28aeec704096cd8fd7cb46eae152473f8d5f7470b40",
+      "docs/architecture/iam-007-password-reset-results.md": "c2922592780fe0078ca04831db68554991ec23f2341c11e984075c520ed98ef3",
+      "docs/architecture/iam-007-password-reset-review.json": "f12dd187b7524f30517de510df5a91ad3b95930c566472ef7c990a52e004ca06",
+      "docs/architecture/iam-008-master-management-design.md": "e9060f6a70253634e50b279d7975c112c5b82c97e89680e0327d6be005c172a5",
+      "docs/architecture/iam-008-master-management-results.md": "3e668e0c9ab57a736ebaecca8fc727fa359e015570c09ca5a762a2beb0e03878",
+      "docs/architecture/iam-008-master-management-review.json": "037e12b6a77bc00824261209e280c48ad01732330b2fb5e08b80204f7e3c4ce5",
+      "docs/architecture/iam-009-emergency-recovery-design.md": "c3d736e96396a57929e5cf5b2c3865c2f2c737a050084bf91736f92a7ecbd5fa",
+      "docs/architecture/iam-009-emergency-recovery-results.md": "0f7d36dfa8b27e177d7bf6a821a2445518e5da1dc9d21015987718afa9c41b67",
+      "docs/architecture/iam-009-emergency-recovery-review.json": "8fd77b143845234598eadebf53c8d9343beba3c6cc1f5d781eafb981504d11ce",
+      "docs/architecture/iam-010-emergency-handoff-design.md": "d79927634ec7cc532039639029c385f6197978b81f1f25544568bc63452c29d0",
+      "docs/architecture/iam-010-emergency-handoff-results.md": "c4088a5c5ecd6d957f58fd7abf36fa26e9b443f8a1df4404b75b2e8534a4067f",
+      "docs/architecture/iam-010-emergency-handoff-review.json": "1159183dbabfb44c984b245036f96357df0911c24579ee831be9d2adce19b123",
+      "docs/architecture/iam-011-trainer-login-design.md": "3369d6d412eb1e9ca002aefa46e17383842da397351593c6d4200d9da3b8f6ab",
+      "docs/architecture/iam-011-trainer-login-results.md": "04381f3e6c700265db10fdb3700cd943075268947cd4c98ba5b516c9f4210649",
+      "docs/architecture/iam-011-trainer-login-review.json": "7adcfd871a36448b8a15b4be4e664b05c21ec2fd419cd5775903610031430557",
+      "docs/architecture/iam-012-trainer-roles-design.md": "768aa3eb6a55802092ad56a9e11840fdd95e21c25fda56b1cf225bfe93c927ad",
+      "docs/architecture/iam-012-trainer-roles-results.md": "9c2017a48b160a05e505d79dc5ad841ef3e259bd49727e07a2614b9076115b35",
+      "docs/architecture/iam-012-trainer-roles-review.json": "b19c0dd6f7050a96a49a6b5018ce148c9ef87fe1b8f0d3498cb72496fe0b0b0a",
+      "docs/architecture/iam-013-trainer-password-reset-design.md": "8f12a817a2092c3ec58e2039694cd12896499d5c6019e88ce7e2fc2611b32ab8",
+      "docs/architecture/iam-013-trainer-password-reset-results.md": "6ae3d0be86dd234f70968c1406bfe38aec27a03111d1c2f8a5372210da3323ef",
+      "docs/architecture/iam-013-trainer-password-reset-review.json": "5bb36910121983e62f9869cba8aa6cf403b7f506d97f5d165fb5a0cdbb9882bf",
+      "docs/architecture/iam-014-password-only-design-review.json": "ec57da51547a2220c67b1d2b6590966283da92ddae70776b27c2393b830d9ead",
+      "docs/architecture/iam-014-password-only-design.md": "aba70573139409d6e7c75b63f5c90d4a5f2109907306adb9156e33a9b852097a",
+      "docs/architecture/iam-014-password-only-results.md": "7708330cb9d7ae8651410425bc0bd2329dd93ad11de56751cf78e920094ea892",
+      "docs/architecture/iam-014-password-only-review.json": "7237f05af509cda440a5891602c4346217877f42b728a37a7e78797354c56d70",
+      "docs/architecture/iam-014-password-only-transition.md": "39f51ee705b89e7d9c8f87b6a02e42f2fef5c2227e3464f52df7b398b8b4e2bf",
+      "docs/architecture/iam-015-account-lifecycle-design.md": "262362e643d447c2ff14efcf036f18fcc136877c9f58b728d1c40b9abb570460",
+      "docs/architecture/iam-015-account-lifecycle-results.md": "ac42405b8346f4a1428ce11c492354d8857c435cd6d19ad322f0c4eb615c963d",
+      "docs/architecture/iam-015-account-lifecycle-review.json": "88e85f0f27d3c2202857143301a6487b7011b6da03808cfb31e6d9f8fa849987",
+      "docs/architecture/iam-016-operator-onboarding-design.md": "38bbab6a72b59be00bdc8f4a7904f378f984a9f8dd0d727960129e674bf8d6c6",
+      "docs/architecture/iam-016-operator-onboarding-results.md": "66f561ea251e7f3b223b81b31edbf9d6780f1ba6529d9179abb223da8d3efc23",
+      "docs/architecture/iam-016-operator-onboarding-review.json": "e7eeaf84988ede626f4a0025363547c4124c8801a202d3ba90eec9b2a01805d5",
+      "docs/architecture/iam-017-operator-management-design.md": "be0b2051d571bfe3325b8e95c357a4c3cda501833b2f54ac07f78f45db0a442c",
+      "docs/architecture/iam-017-operator-management-results.md": "f5f039c98236980be0aed55be0e00e9f2497f37df8c107bb6916bbc56cbf0142",
+      "docs/architecture/iam-017-operator-management-review.json": "30697206d129af58e7355f1d91cbb7930135b896f69c6b0cc148b73e917d58fd",
+      "docs/architecture/iam-018-withdrawn-operator-move-design.md": "f34c92f08ad18bb4ae155f28cd23cfdcd8571e3f3bd89aa1fcb9e76401c51f1b",
+      "docs/architecture/module-boundaries.md": "17aeac1093e4ff774017070d9160f9a23a35ba4c8f8448ebb32d1c2e652e56a9",
+      "docs/architecture/password-corpus-distribution-review.json": "321be94ca910692a4567c64733e8feaa2c90f820c8a9f7d0a777f2fdfe3463b9",
+      "docs/architecture/prep-iam-001-results.md": "0fef2436f7e0faeb539c4f810759554ba49d126ad135282cd951c540a3604f4d",
+      "docs/architecture/prep-iam-001-review.json": "7ff2d07eef42f53120cfe6125fb393e182af5473ffc3a2df0ac1769ba072d0a9",
+      "docs/architecture/qa-cleanup-results.json": "09d45ede23213019854797270000997946a52ba78b65630781c406f932fd8ba3",
+      "docs/architecture/validation-plan.md": "e10e3c0fb725ed2f0d88835dec4d6005f8c5ed50e3beffaed904955eb3b183df",
+      "docs/architecture/workforce-001-initial-registration-design.md": "94ed82695c35bafd9c348a3947ca6e447b0863e6de4142b022ffd7e4a5198ffd",
+      "docs/architecture/workforce-001-initial-registration-results.md": "febebbb24fd172fa72535aa0d43fe088ac0fa834c8a209c51a9623771b268751",
+      "docs/architecture/workforce-001-initial-registration-review.json": "af4175d90dd4df059f86744b40a571c224b34655e0f6293600103aeb6c57c479",
+      "docs/architecture/workforce-002-trainer-state-design.md": "23c5893ff547c0107a385cb03ffbb20e3f68b8749af57150369f8a7bbefe4ae4",
+      "docs/architecture/workforce-002-trainer-state-results.md": "1e49d81ed830df67437de42d31ef345e0a3200890f41fd2c01155713ee914019",
+      "docs/architecture/workforce-002-trainer-state-review.json": "f1243298a9760160b6b28be8d624340125dfe3acd5faf028526522c60a385f71",
+      "docs/architecture/wsl-migration.md": "c6fe3cf4bcedc929f8fbdd5445ae14d2126132a46a38ea9d960284b3e225b618",
+      "docs/decisions/0001-backend-stack.md": "35470513efeb91f24dd98c6af48927adceb67e7f246ce7e366320d5933176a22",
+      "docs/decisions/0002-modular-monolith.md": "81e180c95f8185d67159588e5e33ea35f7a14ed32239ef97af1d429825ff069a",
+      "docs/decisions/0003-foundation-tooling.md": "e6366b20e29aba905ce101b770e1a10c696ec4aa666fe8a38b7ad9b5c62ad649",
+      "docs/decisions/0004-authentication-session.md": "13230e649eea861ae8228925fa3ee693da1f2eb5acc782d81fc992e6e53dc64e",
+      "docs/decisions/0005-password-only-authentication.md": "cd591984e0594d63ad0ce6fcebab046d1cff7a1557f8591a81aa4eb46c643ad9",
+      "docs/product/README.md": "6d175cc5de3b498e31e485e70904b9cb693170482242e6c9b054e2513826e996",
+      "docs/product/architecture-handoff.md": "17dcd001e73647015437690fb55b46db49872037d4d73f9d2d237b1d3929178f",
+      "docs/product/as-is-to-be-mapping.md": "5b9295c907f64c824850b4c9d539fc93da00b97f68091bc9d6ee85e8fab326a1",
+      "docs/product/business-rules.md": "29d578daed92bd20317d068c18c3081a8b5e3a4bae7636b2757f23f90d099c52",
+      "docs/product/non-functional-requirements.md": "2e4bb93f1628cb97786db84e3fa64e04f3d78430cde510df20dc65094a54b0c5",
+      "docs/product/open-questions.md": "a6e3803bce84ebccbe4b8f2e9f60d252d3d93c5683479d01feae8ef4c43d747c",
+      "docs/product/product-decisions.md": "1aa1d2af36b5b08ee570ac2dced1fd3afbeda2834aafdcdcf50827328a20df34",
+      "docs/product/product-goal.md": "f3258db4ff2f0e9483d0055d07e66879c1f63a50a264b858c5724355df2d298a",
+      "docs/product/requirements.md": "fca02c1d7a2e28f44691b57bf7fef75c585a23f0d3b709f4616df2d395c2e963",
+      "docs/product/scope.md": "2822c35c14539e2b75d5ae03b60b23ede616cb81efcbee7ad4d5ad4cb9e5a68c",
+      "docs/product/user-scenarios.md": "c57c3e70fbcf28df5d6ac3315f46e387f4ddd7c1ae234684a97df0a13903993b",
+      "docs/product/users-and-roles.md": "a65220a458077778a9987b5baad07894c7629f31cfbf4aa2b756a4fbd9d36e6b",
+      "docs/product/validation-needed.md": "efd76ab46bb971223d81b7129dc2f009bc105f1a747557c0c10237cf2a4ab288"
+    },
+    "protected_original_count": 31,
+    "protected_paths": [
+      "AGENTS.md",
+      "backend/alembic/env.py",
+      "backend/alembic/script.py.mako",
+      "backend/alembic/versions/.gitkeep",
+      "backend/alembic/versions/0001_iam_s1.py",
+      "backend/alembic/versions/0002_iam_restore.py",
+      "backend/alembic/versions/0003_iam_password.py",
+      "backend/alembic/versions/0004_iam_login_id.py",
+      "backend/alembic/versions/0005_iam_mfa.py",
+      "backend/alembic/versions/0006_iam_mfa_management.py",
+      "backend/alembic/versions/0007_iam_password_reset.py",
+      "backend/alembic/versions/0008_iam_emergency_recovery.py",
+      "backend/alembic/versions/0009_iam_emergency_handoff.py",
+      "backend/alembic/versions/0010_workforce_initial_registration.py",
+      "backend/alembic/versions/0011_iam_trainer_login.py",
+      "backend/alembic/versions/0012_iam_trainer_roles.py",
+      "backend/alembic/versions/0013_workforce_trainer_state.py",
+      "backend/alembic/versions/0014_password_only.py",
+      "backend/alembic/versions/0015_account_lifecycle.py",
+      "backend/alembic/versions/0016_operator_onboarding.py",
+      "backend/alembic/versions/0017_operator_management.py",
+      "backend/check.ps1",
+      "backend/check.sh",
+      "backend/pyproject.toml",
+      "backend/tests/conftest.py",
+      "backend/uv.lock",
+      "docs/decisions/0001-backend-stack.md",
+      "docs/decisions/0002-modular-monolith.md",
+      "docs/decisions/0003-foundation-tooling.md",
+      "docs/decisions/0004-authentication-session.md",
+      "docs/decisions/0005-password-only-authentication.md"
+    ],
+    "independent_invariants": {
+      "source_map_and_inventory_unchanged": true,
+      "backend_frozen_raw_sha256_matches": true,
+      "protected31_match_parent": true,
+      "head_main_refs_unchanged": true,
+      "branch_unchanged": true,
+      "index_unchanged": true,
+      "status_unchanged": true,
+      "diff_unchanged": true,
+      "git_diff_check_pass": true,
+      "personal_and_system_trust_unchanged": true,
+      "hosts_resolver_unchanged": true
+    },
+    "root_post_runtime_doc_changes": [
+      "docs/architecture/README.md",
+      "docs/architecture/decision-gates.md",
+      "docs/architecture/iam-018-withdrawn-operator-move-design.md",
+      "docs/architecture/iam-018-withdrawn-operator-move-results.md",
+      "docs/architecture/iam-018-withdrawn-operator-move-review.json"
+    ],
+    "backend_changes_after_runtime": false
+  },
+  "metadata": {
+    "full_collected": 925,
+    "full_setup_nodes": 925,
+    "postgres_fixture_nodes": 728,
+    "non_postgres_fixture_nodes": 197,
+    "selected_setup_exact": 104,
+    "executed_tests": 0,
+    "required_postgres_gate_exit_codes": [
+      1,
+      1,
+      1
+    ],
+    "gate_exit1_is_metadata_not_test_pass": true
+  },
+  "fast": {
+    "command": [
+      "bash",
+      "check.sh",
+      "fast"
+    ],
+    "PYTEST_ADDOPTS": "UNSET",
+    "exit_code": 0,
+    "checks": {
+      "ruff": true,
+      "format": true,
+      "mypy": true,
+      "pytest_non_postgres": true,
+      "import_linter": true
+    },
+    "passed_non_postgres": 197,
+    "deselected_postgres": 728,
+    "failed": 0,
+    "skipped": 0,
+    "xfail": 0,
+    "xpass": 0,
+    "import_contracts_kept": 8
+  },
+  "selected_postgres": {
+    "single_pytest_invocation": true,
+    "PYTEST_ADDOPTS": "UNSET",
+    "require_postgres": true,
+    "stop_on_first_failure": true,
+    "exit_code": 0,
+    "seconds": 718.018,
+    "selected": 104,
+    "actual_cases": 104,
+    "passed": 104,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "xfail": 0,
+    "xpass": 0,
+    "missing_or_unrun": [],
+    "unexpected": [],
+    "exact_selected_set": true,
+    "individual_results": [
+      {
+        "nodeid": "tests/test_operator_management.py::test_operator_role_receipts_move_and_raw_history",
+        "outcome": "passed",
+        "seconds": 6.918
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_pending_move_keeps_tuple_rejects_old_setup_and_stale_reissue",
+        "outcome": "passed",
+        "seconds": 5.466
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_master_self_roles_auth_audit_and_receipt",
+        "outcome": "passed",
+        "seconds": 5.383
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_operator_withdrawn_lifecycle_and_regrant_boundaries[ACTIVE]",
+        "outcome": "passed",
+        "seconds": 6.897
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_operator_withdrawn_lifecycle_and_regrant_boundaries[PENDING_SETUP]",
+        "outcome": "passed",
+        "seconds": 5.328
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_operator_withdrawn_lifecycle_and_regrant_boundaries[DISABLED]",
+        "outcome": "passed",
+        "seconds": 5.249
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_required_operator_audit_rolls_back_unexpected_change[audit]",
+        "outcome": "passed",
+        "seconds": 4.954
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_required_operator_audit_rolls_back_unexpected_change[account]",
+        "outcome": "passed",
+        "seconds": 5.433
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_required_operator_audit_rolls_back_unexpected_change[grant]",
+        "outcome": "passed",
+        "seconds": 6.726
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_required_operator_audit_rolls_back_unexpected_change[budget]",
+        "outcome": "passed",
+        "seconds": 5.803
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_emergency_move_keeps_original_case_and_handoff[False]",
+        "outcome": "passed",
+        "seconds": 8.082
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_emergency_move_keeps_original_case_and_handoff[True]",
+        "outcome": "passed",
+        "seconds": 7.789
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_emergency_role_change_rejects_old_proof_allows_fresh",
+        "outcome": "passed",
+        "seconds": 6.768
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_previous16_current17_roundtrip_and_full_rows",
+        "outcome": "passed",
+        "seconds": 15.372
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_operator_receipt_audit_identity_fk_and_downgrade_guard",
+        "outcome": "passed",
+        "seconds": 4.872
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_move_state_matrix_and_source_gc[False-pending]",
+        "outcome": "passed",
+        "seconds": 4.668
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_move_state_matrix_and_source_gc[False-disabled_pending]",
+        "outcome": "passed",
+        "seconds": 5.186
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_move_state_matrix_and_source_gc[False-active]",
+        "outcome": "passed",
+        "seconds": 5.096
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_move_state_matrix_and_source_gc[False-disabled_active]",
+        "outcome": "passed",
+        "seconds": 5.429
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_move_state_matrix_and_source_gc[False-reset]",
+        "outcome": "passed",
+        "seconds": 6.305
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_move_state_matrix_and_source_gc[True-pending]",
+        "outcome": "passed",
+        "seconds": 5.003
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_move_state_matrix_and_source_gc[True-disabled_pending]",
+        "outcome": "passed",
+        "seconds": 5.405
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_move_state_matrix_and_source_gc[True-active]",
+        "outcome": "passed",
+        "seconds": 5.493
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_move_state_matrix_and_source_gc[True-disabled_active]",
+        "outcome": "passed",
+        "seconds": 5.73
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_move_state_matrix_and_source_gc[True-reset]",
+        "outcome": "passed",
+        "seconds": 6.676
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_operator_required_audit_wait_crosses_original_deadline[False-idle]",
+        "outcome": "passed",
+        "seconds": 7.947
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_operator_required_audit_wait_crosses_original_deadline[False-absolute]",
+        "outcome": "passed",
+        "seconds": 8.323
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_operator_required_audit_wait_crosses_original_deadline[True-idle]",
+        "outcome": "passed",
+        "seconds": 8.883
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_operator_required_audit_wait_crosses_original_deadline[True-absolute]",
+        "outcome": "passed",
+        "seconds": 8.449
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_concurrent_first_grant_is_one_effect",
+        "outcome": "passed",
+        "seconds": 4.963
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_branch_admin_operator_trainer_scopes_and_real_auth",
+        "outcome": "passed",
+        "seconds": 7.992
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_self_expected_delta_rejects_audit_corruption[account]",
+        "outcome": "passed",
+        "seconds": 4.252
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_self_expected_delta_rejects_audit_corruption[admin]",
+        "outcome": "passed",
+        "seconds": 4.381
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_self_expected_delta_rejects_audit_corruption[trainer]",
+        "outcome": "passed",
+        "seconds": 4.496
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_self_expected_delta_rejects_audit_corruption[budget]",
+        "outcome": "passed",
+        "seconds": 4.595
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_self_expected_delta_rejects_audit_corruption[case]",
+        "outcome": "passed",
+        "seconds": 4.409
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_first_role0_and_noop_replay_preserve_new_auth",
+        "outcome": "passed",
+        "seconds": 6.705
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_operator_aba_rejects_prepared_login_and_c3[False]",
+        "outcome": "passed",
+        "seconds": 7.522
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_operator_aba_rejects_prepared_login_and_c3[True]",
+        "outcome": "passed",
+        "seconds": 6.646
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_move_waits_for_locked_retired_source_and_gc_preserves_history[consumed]",
+        "outcome": "passed",
+        "seconds": 4.717
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_move_waits_for_locked_retired_source_and_gc_preserves_history[expired]",
+        "outcome": "passed",
+        "seconds": 4.866
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_first_operator_grant_enforces_readiness_and_assignment[pending]",
+        "outcome": "passed",
+        "seconds": 4.92
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_first_operator_grant_enforces_readiness_and_assignment[disabled]",
+        "outcome": "passed",
+        "seconds": 5.098
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_first_operator_grant_enforces_readiness_and_assignment[reset]",
+        "outcome": "passed",
+        "seconds": 5.214
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_first_operator_grant_enforces_readiness_and_assignment[inactive_branch]",
+        "outcome": "passed",
+        "seconds": 4.805
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_first_operator_grant_enforces_readiness_and_assignment[foreign_org]",
+        "outcome": "passed",
+        "seconds": 4.694
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_ba_role_scope_receipt_and_self_reauthentication[False]",
+        "outcome": "passed",
+        "seconds": 8.404
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_ba_role_scope_receipt_and_self_reauthentication[True]",
+        "outcome": "passed",
+        "seconds": 8.267
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_operator_expected_actor_precondition_all_routes",
+        "outcome": "passed",
+        "seconds": 6.238
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_operator_noninitial_audit_requires_prior_grant[null_branch-revoke]",
+        "outcome": "passed",
+        "seconds": 4.9
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_operator_noninitial_audit_requires_prior_grant[null_branch-regrant]",
+        "outcome": "passed",
+        "seconds": 5.048
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_operator_noninitial_audit_requires_prior_grant[null_branch-move]",
+        "outcome": "passed",
+        "seconds": 5.422
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_operator_noninitial_audit_requires_prior_grant[zero_version-revoke]",
+        "outcome": "passed",
+        "seconds": 5.003
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_operator_noninitial_audit_requires_prior_grant[zero_version-regrant]",
+        "outcome": "passed",
+        "seconds": 5.166
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_operator_noninitial_audit_requires_prior_grant[zero_version-move]",
+        "outcome": "passed",
+        "seconds": 5.037
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_operator17_isolated_synthetic_loss_guards[admin_auth]",
+        "outcome": "passed",
+        "seconds": 4.382
+      },
+      {
+        "nodeid": "tests/test_operator_management.py::test_operator17_isolated_synthetic_loss_guards[source_branch]",
+        "outcome": "passed",
+        "seconds": 4.48
+      },
+      {
+        "nodeid": "tests/test_operator_withdrawn_move.py::test_withdrawn_move_noop_replay_preserves_facts_and_new_sessions",
+        "outcome": "passed",
+        "seconds": 7.209
+      },
+      {
+        "nodeid": "tests/test_operator_withdrawn_move.py::test_withdrawn_master_self_move_preserves_master_and_revokes_login",
+        "outcome": "passed",
+        "seconds": 6.761
+      },
+      {
+        "nodeid": "tests/test_operator_withdrawn_move.py::test_withdrawn_move_audit_rollback[audit]",
+        "outcome": "passed",
+        "seconds": 5.419
+      },
+      {
+        "nodeid": "tests/test_operator_withdrawn_move.py::test_withdrawn_move_audit_rollback[account]",
+        "outcome": "passed",
+        "seconds": 5.777
+      },
+      {
+        "nodeid": "tests/test_operator_withdrawn_move.py::test_withdrawn_move_audit_rollback[grant]",
+        "outcome": "passed",
+        "seconds": 5.704
+      },
+      {
+        "nodeid": "tests/test_operator_withdrawn_move.py::test_withdrawn_history_blocks18_downgrade_before_ddl[both]",
+        "outcome": "passed",
+        "seconds": 5.942
+      },
+      {
+        "nodeid": "tests/test_operator_withdrawn_move.py::test_withdrawn_history_blocks18_downgrade_before_ddl[receipt_only]",
+        "outcome": "passed",
+        "seconds": 6.356
+      },
+      {
+        "nodeid": "tests/test_operator_withdrawn_move.py::test_withdrawn_history_blocks18_downgrade_before_ddl[audit_only]",
+        "outcome": "passed",
+        "seconds": 5.974
+      },
+      {
+        "nodeid": "tests/test_operator_withdrawn_move.py::test_move_check_rejects_grant_change[True-False]",
+        "outcome": "passed",
+        "seconds": 5.586
+      },
+      {
+        "nodeid": "tests/test_operator_withdrawn_move.py::test_move_check_rejects_grant_change[False-True]",
+        "outcome": "passed",
+        "seconds": 5.741
+      },
+      {
+        "nodeid": "tests/test_operator_withdrawn_move.py::test_actual17_18_roundtrip_with_withdrawn_rows_and_runtime_matrix",
+        "outcome": "passed",
+        "seconds": 13.748
+      },
+      {
+        "nodeid": "tests/test_operator_withdrawn_move.py::test_upgrade_rejects_unexpected17_transition_shape[missing]",
+        "outcome": "passed",
+        "seconds": 5.376
+      },
+      {
+        "nodeid": "tests/test_operator_withdrawn_move.py::test_upgrade_rejects_unexpected17_transition_shape[duplicate]",
+        "outcome": "passed",
+        "seconds": 5.109
+      },
+      {
+        "nodeid": "tests/test_operator_withdrawn_move.py::test_upgrade_rejects_unexpected17_transition_shape[weakened]",
+        "outcome": "passed",
+        "seconds": 5.364
+      },
+      {
+        "nodeid": "tests/test_operator_withdrawn_move.py::test_false_move_regrant_race_uses_current_epoch[True]",
+        "outcome": "passed",
+        "seconds": 5.498
+      },
+      {
+        "nodeid": "tests/test_operator_withdrawn_move.py::test_false_move_regrant_race_uses_current_epoch[False]",
+        "outcome": "passed",
+        "seconds": 6.184
+      },
+      {
+        "nodeid": "tests/test_operator_withdrawn_move.py::test_original17_move_receipt_exact_replay_on18",
+        "outcome": "passed",
+        "seconds": 14.914
+      },
+      {
+        "nodeid": "tests/test_operator_withdrawn_move.py::test_pending_false_move_requires_new_branch_regrant_and_explicit_reissue",
+        "outcome": "passed",
+        "seconds": 6.959
+      },
+      {
+        "nodeid": "tests/test_operator_withdrawn_move.py::test_false_move_and_actual18_downgrade_installation_gate[True]",
+        "outcome": "passed",
+        "seconds": 5.104
+      },
+      {
+        "nodeid": "tests/test_operator_withdrawn_move.py::test_false_move_and_actual18_downgrade_installation_gate[False]",
+        "outcome": "passed",
+        "seconds": 4.965
+      },
+      {
+        "nodeid": "tests/test_operator_withdrawn_move.py::test_move_rejects_missing_grant_or_unassignable_destination[absent_grant]",
+        "outcome": "passed",
+        "seconds": 4.75
+      },
+      {
+        "nodeid": "tests/test_operator_withdrawn_move.py::test_move_rejects_missing_grant_or_unassignable_destination[inactive_destination]",
+        "outcome": "passed",
+        "seconds": 5.654
+      },
+      {
+        "nodeid": "tests/test_operator_withdrawn_move.py::test_move_rejects_missing_grant_or_unassignable_destination[foreign_destination]",
+        "outcome": "passed",
+        "seconds": 5.843
+      },
+      {
+        "nodeid": "tests/test_operator_onboarding.py::test_current_operator_onboarding",
+        "outcome": "passed",
+        "seconds": 10.513
+      },
+      {
+        "nodeid": "tests/test_operator_onboarding.py::test_two_scopes_source_gc_and_schema_loss_guard",
+        "outcome": "passed",
+        "seconds": 9.058
+      },
+      {
+        "nodeid": "tests/test_operator_onboarding.py::test_current_branch_admin_after_issuer_moves_and_expired_gc",
+        "outcome": "passed",
+        "seconds": 7.242
+      },
+      {
+        "nodeid": "tests/test_operator_onboarding.py::test_prepared_operator_reset_c3_and_lifecycle_rename",
+        "outcome": "passed",
+        "seconds": 7.942
+      },
+      {
+        "nodeid": "tests/test_operator_onboarding.py::test_migration_waits_for_operator_issue",
+        "outcome": "passed",
+        "seconds": 4.007
+      },
+      {
+        "nodeid": "tests/test_operator_onboarding.py::test_downgrade_serializes_trainer_issue_cleanup[cleanup]",
+        "outcome": "passed",
+        "seconds": 4.666
+      },
+      {
+        "nodeid": "tests/test_operator_onboarding.py::test_downgrade_serializes_trainer_issue_cleanup[migration]",
+        "outcome": "passed",
+        "seconds": 4.381
+      },
+      {
+        "nodeid": "tests/test_account_lifecycle.py::test_migrate_disabled_and_roundtrip[False]",
+        "outcome": "passed",
+        "seconds": 7.398
+      },
+      {
+        "nodeid": "tests/test_account_lifecycle.py::test_migrate_disabled_and_roundtrip[True]",
+        "outcome": "passed",
+        "seconds": 7.574
+      },
+      {
+        "nodeid": "tests/test_account_lifecycle.py::test_pending_downgrade_guards",
+        "outcome": "passed",
+        "seconds": 5.424
+      },
+      {
+        "nodeid": "tests/test_account_lifecycle.py::test_previous_runtime_rejects_current_revision",
+        "outcome": "passed",
+        "seconds": 11.004
+      },
+      {
+        "nodeid": "tests/test_password_transition_retained.py::test_cutover_retires_authority_preserves_c2_and_never_promotes_staged_hash",
+        "outcome": "passed",
+        "seconds": 3.72
+      },
+      {
+        "nodeid": "tests/test_password_transition_legacy.py::test_original_handoff_chain_requires_semantic_ancestry[valid]",
+        "outcome": "passed",
+        "seconds": 3.324
+      },
+      {
+        "nodeid": "tests/test_password_transition_legacy.py::test_original_handoff_chain_requires_semantic_ancestry[parent_completed]",
+        "outcome": "passed",
+        "seconds": 2.265
+      },
+      {
+        "nodeid": "tests/test_password_transition_legacy.py::test_original_handoff_chain_requires_semantic_ancestry[security_gap]",
+        "outcome": "passed",
+        "seconds": 2.232
+      },
+      {
+        "nodeid": "tests/test_password_transition_legacy.py::test_original_handoff_chain_requires_semantic_ancestry[not_due]",
+        "outcome": "passed",
+        "seconds": 2.249
+      },
+      {
+        "nodeid": "tests/test_iam_trainer_review.py::test_downgrade_waits_for_actual_issue_then_preserves_history",
+        "outcome": "passed",
+        "seconds": 13.401
+      },
+      {
+        "nodeid": "tests/test_iam_trainer_roles_races.py::test_downgrade_waits_for_actual_role_change_and_preserves_committed_history",
+        "outcome": "passed",
+        "seconds": 11.001
+      },
+      {
+        "nodeid": "tests/test_iam_trainer_storage.py::test_identity_history_blocks_downgrade",
+        "outcome": "passed",
+        "seconds": 11.081
+      },
+      {
+        "nodeid": "tests/test_workforce_state_causal.py::test_downgrade_waits_for_actual_state_writer_and_preserves_history",
+        "outcome": "passed",
+        "seconds": 12.656
+      },
+      {
+        "nodeid": "tests/test_iam_master_management_guards.py::test_target_guards_and_existing_branch_routes[status]",
+        "outcome": "passed",
+        "seconds": 6.609
+      },
+      {
+        "nodeid": "tests/test_iam_master_management_guards.py::test_target_guards_and_existing_branch_routes[restore]",
+        "outcome": "passed",
+        "seconds": 6.85
+      },
+      {
+        "nodeid": "tests/test_iam_master_management_guards.py::test_target_guards_and_existing_branch_routes[login-id]",
+        "outcome": "passed",
+        "seconds": 6.887
+      },
+      {
+        "nodeid": "tests/test_iam_trainer_browser.py::test_trainer_native",
+        "outcome": "passed",
+        "seconds": 56.815
+      }
+    ]
+  },
+  "native": {
+    "valid": true,
+    "required_check_count": 54,
+    "exact_keyset": true,
+    "all_values_literal_true": true,
+    "same_run_id_as_selected_pg": true,
+    "checks": {
+      "role_actor_switch": true,
+      "role_actor_pending": true,
+      "role_actor_late_read": true,
+      "old_session_revoked": true,
+      "trusted_https": true,
+      "role_withdrawn_lookup": true,
+      "operator_old_denied": true,
+      "operator_complete": true,
+      "role_actor_send_race": true,
+      "role_self": true,
+      "operator_password": true,
+      "role_move": true,
+      "operator_conflict": true,
+      "role_conflict_clear": true,
+      "explicit_reissue": true,
+      "status_no_link": true,
+      "csrf_denied": true,
+      "operator_issue": true,
+      "role_lookup": true,
+      "w0_actual_form": true,
+      "role_self_receipt": true,
+      "role_stale_read": true,
+      "password_login": true,
+      "nojs_disabled": true,
+      "self_change": true,
+      "operator_stale_read": true,
+      "role_lost_ack": true,
+      "operator_lost_ack": true,
+      "setup_actual_form": true,
+      "no_admin": true,
+      "role_receipt_current": true,
+      "trainer_self": true,
+      "one_time_link": true,
+      "admin_preserved": true,
+      "role_withdrawn_move": true,
+      "operator_branch": true,
+      "role_withdrawn_separate_regrant": true,
+      "secure_cookie": true,
+      "fragment_cleared": true,
+      "role_other_actor_receipt": true,
+      "operator_denied": true,
+      "role_regrant": true,
+      "role_withdrawn_preserved": true,
+      "issue_actual_form": true,
+      "operator_clear": true,
+      "operator_logout": true,
+      "new_password_login": true,
+      "nojs_post": true,
+      "role_self_revoked": true,
+      "logout": true,
+      "role_conflict": true,
+      "role_admin_landing": true,
+      "logged_out": true,
+      "master_password_login": true
+    },
+    "browser": "151.0.7922.34",
+    "scope": "actual trusted HTTPS browser",
+    "run_id": "auto-e6b7b130a86f434cab4833db830b5848",
+    "network": "Original existing native runner/TLS/NSS environment; no additional DNS/hosts/dev namespace wrapper."
+  },
+  "execution_identity": {
+    "fast_run_id": "auto-5b7c2eabfc3742b2a04289f1d23b6340",
+    "selected_pg_and_native_run_id": "auto-e6b7b130a86f434cab4833db830b5848",
+    "actual_native_run_id": "auto-e6b7b130a86f434cab4833db830b5848",
+    "fresh_execution_only": true,
+    "prior_scores_reused": false,
+    "junit104_and_original_selected_set_verified_by_root": true,
+    "manifest54_exact_keyset_literaltrue_runid_verified_by_root": true
+  },
+  "designer_findings": [],
+  "designer_root_runtime_executed": false,
+  "designer_review_basis": "Raw source map, individual report nodes vs original104, raw JUnit nodes/outcomes104, actual native manifest54/run identity, source invariants, known owned cleanup path absence.",
+  "development_history": {
+    "failures_and_corrections": [
+      {
+        "run": "new-pg-1",
+        "cause": "회수 Operator의 지점 조회는 현재 Scope를 숨기는 기존 404. 신규 테스트가403으로 잘못 기대함.",
+        "correction": "테스트 기대값만404로 수정. 현재 권한 계약 불변."
+      },
+      {
+        "run": "new-pg-2",
+        "cause": "synthetic ValueError는 application.py의 기존 예외 처리에서500. Rejected(503)를 주입한 기존 별도 테스트와 혼동.",
+        "correction": "명시500 기대 및 전체행 rollback 유지. 앱 예외 처리 불변."
+      },
+      {
+        "run": "new-pg-3",
+        "cause": "grant flag만 UPDATE하면 원래0016 iam_operator_grant_guard가 NEW.version<=OLD.version으로 OPERATOR_GRANT_VERSION(P0001)을 거부. UoW는 SQLAlchemyError를503으로 처리. 최종proof에 도달하지 못한 fixture.",
+        "correction": "변조 시 version+1도 함께 주입해 DB에 유효한 비예상 tuple을 만든 뒤 최종proof409와 전체행 rollback을 검증. 허용 오류 집합 확대나 runtime 수정 없음.",
+        "evidence": "실패 run은 HTTP503만 관측했다. 원인 분석은 불변0016의 NEW.version<=OLD.version RAISE EXCEPTION 및 uow.py SQLAlchemyError→503 경로에 근거한다. P0001은 해당 RAISE의 기본 SQLSTATE이며 실패 로그에 직접 수집한 값은 아니다."
+      },
+      {
+        "run": "new-pg-4",
+        "cause": "trainer fixture의 활성 앱 ProcessGuard 때문에 migration CLI가 SINGLE_PROCESS_REQUIRED로 거부되어 exit255. archive17-negative도 그 잠금 때문에 잘못 통과할 수 있는 fixture 결함.",
+        "correction": "기존 scene/trainer generator를 closing으로 재사용하고 앱 lifespan을 정상 종료한 뒤 CLI/archive/runtime 행렬 수행. 공통 fixture/runtime guard 불변. 원래17 직접 loss guard는 live app에서 실제DDL 준비 경로를 사용하고 별도 runtime 행렬과 구분."
+      },
+      {
+        "run": "new-pg-5",
+        "cause": "초기 설정 재발급은 infrastructure.operator_target의 not roles.operator 조건에서 회수grant를404로 거부. 테스트가409로 잘못 기대함.",
+        "correction": "404 기대 후 새Branch BA 별도재부여/dual-version 명시재발급/옛링크거부/새링크완료 검증. 제품 코드 불변."
+      },
+      {
+        "run": "new-pg-tail-1",
+        "cause": "grant 없는 move에서 expected_operator_version=0 입력이 기존 positive-version HTTP DTO 검증으로422. adapter409까지 도달하지 못한 fixture.",
+        "correction": "유효한 양수 version1을 보내 실제 부재/CAS409 거부 및 grant 생성 없음/전체행 불변을 검증. HTTP schema 불변."
+      }
+    ],
+    "developer_selected_pass_before_preservation_strengthening": 103,
+    "final_preservation_reruns": 2,
+    "preservation_reruns_additional_unique_nodes": 0,
+    "development_scores_added_to_independent": false,
+    "post_validation_test_delta": {
+      "path": "backend/tests/test_operator_withdrawn_move.py",
+      "reason": "보존 단언에 실제 workforce Home/초기 snapshot/C2 budgets+attempts의 전체행 hash를 추가하고 정상 로그인 이후 snapshot을 잡아 이동의 효과만 비교. 제품 변경 없음. 같은 비활성 지점 no-op fixture의 Branch row_version도 상태 변경에 맞춰 증가시켰다.",
+      "affected_nodes": [
+        "test_withdrawn_move_noop_replay_preserves_facts_and_new_sessions",
+        "test_withdrawn_master_self_move_preserves_master_and_revokes_login"
+      ],
+      "plan": "103 selected run은 validation-source.json snapshot 기준으로 기록; 추가 단언의 두 node는 최종 bytes로 따로 실행하고 source SHA와 결과를 분리한다.",
+      "result": "preservation-final.txt: PASS2 at final snapshot; 중복 node이며 선정103의 고유 node 수에 더하지 않음"
+    },
+    "final_fast": 197,
+    "native": {
+      "cases": 1,
+      "checks": 54,
+      "all_true": true
+    },
+    "completed_auto_runs": 13,
+    "all_completed_auto_paths_removed": true
+  },
+  "cleanup": {
+    "independent_executions": [
+      {
+        "execution": "fast",
+        "run_id": "auto-5b7c2eabfc3742b2a04289f1d23b6340",
+        "removed": true,
+        "path_absent_after_run": true
+      },
+      {
+        "execution": "selected104",
+        "run_id": "auto-e6b7b130a86f434cab4833db830b5848",
+        "removed": true,
+        "path_absent_after_run": true
+      },
+      {
+        "execution": "full-collect",
+        "run_id": "auto-fc5c02f068544eb3b39a930b6beedb31",
+        "removed": true,
+        "path_absent_after_run": true
+      },
+      {
+        "execution": "full-setup-plan",
+        "run_id": "auto-446dabaaa5d6412a8ace7b9731c15b25",
+        "removed": true,
+        "path_absent_after_run": true
+      },
+      {
+        "execution": "selected-setup-plan",
+        "run_id": "auto-9852538680574dbb829d22b8fd5967cc",
+        "removed": true,
+        "path_absent_after_run": true
+      }
+    ],
+    "all_own_auto_paths_removed": true,
+    "shared_compose_corpus_originals_preserved": true,
+    "task_QA_aggregate": "Discard completed raw logs/copies after acceptance and commit review; retain minimal closeout only. No new lifecycle tool."
+  },
+  "warnings_observed_not_suppressed": [
+    "Starlette TestClient HTTPX deprecation",
+    "AnyIO BlockingPortal alias deprecation"
+  ],
+  "scope_limits": [
+    "Selected104 of728 PostgreSQL nodes; remaining624 not executed. Full collection/setup925 is metadata, not a whole-suite pass.",
+    "Chromium151.0.7922.34 actual local trusted HTTPS; no extra DNS workaround; no other-browser or mobile acceptance.",
+    "No original DB transition, deployment, Member/PT/payment/settlement acceptance, or change to other Product OPEN/global PROPOSED.",
+    "Trainer Home move target states remain a separate unapproved Product gate."
+  ]
+}

@@ -76,7 +76,7 @@ class OperatorRoles:
             work_branch,
             eligible and not bool(grant and grant.granted),
             bool(grant and grant.granted),
-            bool(caller.master and grant and grant.granted),
+            bool(caller.master and grant),
         )
 
     def _fingerprint(self, caller: Caller, command: OperatorCommand) -> bytes:
@@ -188,10 +188,10 @@ class OperatorRoles:
         kind = "add" if grant is None else ("regrant" if command.desired_granted else "revoke")
         if command.action == "move":
             self.iam.require_master(caller)
-            if not grant or not grant.granted or command.branch_id is None:
+            if not grant or command.branch_id is None:
                 raise Rejected(409, "conflict")
             destination = command.branch_id
-            desired = True
+            desired = grant.granted
             changed = destination != before.branch_id
             kind = "move"
         else:

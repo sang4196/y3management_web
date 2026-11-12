@@ -1,5 +1,10 @@
 # Product Specification — Architecture Input Baseline
 
+2026-11-12 최신 부분 승인: [회수된 Operator 지점 변경 OP-7](product-decisions.md#review-20261112-withdrawn-operator-move).
+같은 조직 Master가 모든 계정 상태의 보존된 회수 grant도 활성 목적 Branch로 변경할 수 있다.
+회수·차단 상태/다른 역할/Home을 유지하며 재부여·차단 해제를 자동 수행하지 않는다. 기존 OP-5/OP-6의
+현재 Scope·철회·명시 재발급/감사를 유지한다. 정책 승인과 구현·인수는 구분하며 다른 OPEN은 유지한다.
+
 2026-11-11 최신 부분 승인: [Operator 역할 관리·이동 OP-4/OP-5/OP-6](product-decisions.md#review-20261111-operator-management).
 기존 모든 계정 유형/관리자 본인의 Operator 추가, 처음 부여/회수/같은 지점 재부여의 계정 상태,
 Master의 모든 계정 상태 지점 이동을 확정했다. 독립 역할/상태·기존 E5/G5/OP-2/OP-3와 다른 OPEN은 유지한다.

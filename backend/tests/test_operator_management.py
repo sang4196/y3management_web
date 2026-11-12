@@ -273,8 +273,9 @@ def test_operator_withdrawn_lifecycle_and_regrant_boundaries(
     branch = call(
         t.base.client, "/admin/branches", csrf(t.base.client), {"code": "MOVE", "name": "Other"}
     ).json()["id"]
-    assert command(t, revoked.json()["current"], move=branch).status_code == 409
-    result = command(t, revoked.json()["current"])
+    moved = command(t, revoked.json()["current"], move=branch)
+    assert moved.status_code == 200 and moved.json()["granted"] is False
+    result = command(t, moved.json()["current"])
     assert result.status_code == (409 if state == "DISABLED" else 200)
     if state == "ACTIVE":
         assert command(t, result.json()["current"], False).status_code == 200
@@ -344,7 +345,10 @@ def test_required_operator_audit_rolls_back_unexpected_change(
         assert reader.scalar(text("SELECT count(*) FROM audit_operator_role_events")) == 0
 
 
-def test_emergency_move_keeps_original_case_and_handoff(password_app: Any, tmp_path: Any) -> None:
+@pytest.mark.parametrize("withdrawn", [False, True])
+def test_emergency_move_keeps_original_case_and_handoff(
+    password_app: Any, tmp_path: Any, withdrawn: bool
+) -> None:
     from tests.password_helpers import link_token
     from tests.test_iam_emergency_handoff import complete
     from tests.test_iam_emergency_handoff import scene as emergency_scene
@@ -364,7 +368,7 @@ def test_emergency_move_keeps_original_case_and_handoff(password_app: Any, tmp_p
             assert response.status_code == 200
             return dict(response.json())
 
-        def send(row: dict[str, Any], move: str | None = None) -> Any:
+        def send(row: dict[str, Any], move: str | None = None, desired: bool = True) -> Any:
             body = {
                 "operation_id": str(uuid4()),
                 "expected_account_version": row["account_version"],
@@ -374,7 +378,7 @@ def test_emergency_move_keeps_original_case_and_handoff(password_app: Any, tmp_p
                 "branch_id": move or branch,
             }
             if move is None:
-                body["desired_granted"] = True
+                body["desired_granted"] = desired
             return call(
                 client,
                 BASE + "/" + target + ("/branch" if move else "/changes"),
@@ -383,6 +387,8 @@ def test_emergency_move_keeps_original_case_and_handoff(password_app: Any, tmp_p
             )
 
         assert send(read()).status_code == 200
+        if withdrawn:
+            assert send(read(), desired=False).status_code == 200
         original = recovery.operating()
         with recovery.db.session() as reader:
             fingerprint = reader.scalar(
@@ -398,7 +404,8 @@ def test_emergency_move_keeps_original_case_and_handoff(password_app: Any, tmp_p
             csrf(client),
             {"code": "REC2", "name": "Recovery destination"},
         ).json()["id"]
-        assert send(read(), destination).status_code == 200
+        moved = send(read(), destination)
+        assert moved.status_code == 200 and moved.json()["granted"] is (not withdrawn)
         with recovery.db.session() as reader:
             assert (
                 reader.scalar(
@@ -543,10 +550,18 @@ assert started==EXPECTED
         pytest.raises(ValueError, match="APPLICATION_STARTUP_FAILED"),
         TestClient(create_app(settings)),
     ):
-        pytest.fail("Current17 accepted16")
+        pytest.fail("Current runtime accepted16")
     migrate(settings, "upgrade", "0017_operator_management")
-    with TestClient(create_app(settings)):
-        pass
+    (tmp_path / "original17").mkdir()
+    original17 = archive_backend(
+        tmp_path / "original17", "7b64f5731ed993f5f8473a1476f27fb6c4931513"
+    )
+    execute_original(original17, settings, script.replace("EXPECTED", "True"))
+    with (
+        pytest.raises(ValueError, match="APPLICATION_STARTUP_FAILED"),
+        TestClient(create_app(settings)),
+    ):
+        pytest.fail("Current runtime accepted17")
     execute_original(old, settings, script.replace("EXPECTED", "False"))
     current = lifecycle_fingerprints(db)
     assert {k: v for k, v in current.items() if k in baseline and k != "alembic_version"} == {
@@ -596,7 +611,10 @@ def test_operator_receipt_audit_identity_fk_and_downgrade_guard(trainer: Trainer
 @pytest.mark.parametrize(
     "state", ["pending", "disabled_pending", "active", "disabled_active", "reset"]
 )
-def test_move_state_matrix_and_source_gc(trainer: TrainerScene, state: str) -> None:
+@pytest.mark.parametrize("withdrawn", [False, True])
+def test_move_state_matrix_and_source_gc(
+    trainer: TrainerScene, state: str, withdrawn: bool
+) -> None:
     from tests.password_helpers import link_token, reset_request
     from tests.test_account_lifecycle import mutate
     from tests.test_iam_password_reset import complete
@@ -627,6 +645,8 @@ def test_move_state_matrix_and_source_gc(trainer: TrainerScene, state: str) -> N
     old_reset = None
     if state == "reset":
         old_reset = link_token(reset_request(t.base.client, ident).json()["reset_link"])
+    if withdrawn:
+        assert command(t, candidate(t, t.login).json(), False).status_code == 200
     destination = call(
         t.base.client,
         "/admin/branches",
@@ -654,6 +674,8 @@ def test_move_state_matrix_and_source_gc(trainer: TrainerScene, state: str) -> N
         ).all()
     moved = command(t, candidate(t, t.login).json(), move=destination)
     assert moved.status_code == 200
+    assert moved.json()["granted"] is (not withdrawn)
+    assert moved.json()["current"]["can_move"] is True
     with t.base.db.session() as reader:
         assert (
             reader.scalar(
@@ -674,8 +696,12 @@ def test_move_state_matrix_and_source_gc(trainer: TrainerScene, state: str) -> N
         )
         Security(reader, "synthetic-key", 2048, 128)._guard()
         assert reader.scalar(text("SELECT count(*) FROM iam_operator_grants")) == 1
-        assert reader.scalar(text("SELECT count(*) FROM iam_operator_role_operations")) == 1
-        assert reader.scalar(text("SELECT count(*) FROM audit_operator_role_events")) == 1
+        assert reader.scalar(text("SELECT count(*) FROM iam_operator_role_operations")) == (
+            2 if withdrawn else 1
+        )
+        assert reader.scalar(text("SELECT count(*) FROM audit_operator_role_events")) == (
+            2 if withdrawn else 1
+        )
         reader.rollback()
     if old_reset:
         assert complete(t.recipient, old_reset, t.password + " new").status_code == 401
@@ -690,10 +716,12 @@ def test_move_state_matrix_and_source_gc(trainer: TrainerScene, state: str) -> N
 
 
 @pytest.mark.parametrize("clock", ["idle", "absolute"])
+@pytest.mark.parametrize("withdrawn", [False, True])
 def test_operator_required_audit_wait_crosses_original_deadline(
     trainer: TrainerScene,
     monkeypatch: pytest.MonkeyPatch,
     clock: str,
+    withdrawn: bool,
 ) -> None:
     from concurrent.futures import ThreadPoolExecutor
     from threading import Event
@@ -707,6 +735,12 @@ def test_operator_required_audit_wait_crosses_original_deadline(
     t = trainer
     assert t.complete(source(t.issue())).status_code == 204
     row = candidate(t, t.login).json()
+    if withdrawn:
+        added = command(t, row)
+        assert added.status_code == 200
+        revoked = command(t, added.json()["current"], False)
+        assert revoked.status_code == 200
+        row = revoked.json()["current"]
     actor = t.base.client.get("/api/v1/auth/me").json()["account_id"]
     nonce = csrf(t.base.client)
     payload = {
@@ -716,6 +750,13 @@ def test_operator_required_audit_wait_crosses_original_deadline(
         "desired_granted": True,
         "branch_id": t.base.branch,
     }
+    path = BASE + "/" + row["account_id"] + "/changes"
+    if withdrawn:
+        from tests.test_operator_withdrawn_move import destination
+
+        payload.pop("desired_granted")
+        payload.update(expected_operator_version=2, branch_id=destination(t))
+        path = BASE + "/" + row["account_id"] + "/branch"
     expire_soon(t.base.db, actor, clock)
     with t.base.db.session() as reader:
         deadline = reader.scalar(
@@ -745,9 +786,7 @@ def test_operator_required_audit_wait_crosses_original_deadline(
         with t.base.db.session() as holder:
             holder.execute(text("LOCK TABLE audit_operator_role_events IN SHARE MODE"))
             pid = holder.scalar(text("SELECT pg_backend_pid()"))
-            future = pool.submit(
-                call, t.base.client, BASE + "/" + row["account_id"] + "/changes", nonce, payload
-            )
+            future = pool.submit(call, t.base.client, path, nonce, payload)
             try:
                 assert reached.wait(5)
                 wait_for_owned_block(t.base.db, pid, waiters)
@@ -759,9 +798,13 @@ def test_operator_required_audit_wait_crosses_original_deadline(
                 holder.rollback()
         assert future.result(timeout=5).status_code == 401
     with t.base.db.session() as reader:
-        assert reader.scalar(text("SELECT count(*) FROM iam_operator_grants")) == 0
-        assert reader.scalar(text("SELECT count(*) FROM iam_operator_role_operations")) == 0
-        assert reader.scalar(text("SELECT count(*) FROM audit_operator_role_events")) == 0
+        assert reader.scalar(text("SELECT count(*) FROM iam_operator_grants")) == int(withdrawn)
+        assert reader.scalar(text("SELECT count(*) FROM iam_operator_role_operations")) == (
+            2 if withdrawn else 0
+        )
+        assert reader.scalar(text("SELECT count(*) FROM audit_operator_role_events")) == (
+            2 if withdrawn else 0
+        )
 
 
 def test_concurrent_first_grant_is_one_effect(
@@ -1009,7 +1052,10 @@ def test_first_role0_and_noop_replay_preserve_new_auth(trainer: TrainerScene) ->
     assert actor != row["account_id"]
 
 
-def test_operator_aba_rejects_prepared_login_and_c3(trainer: TrainerScene) -> None:
+@pytest.mark.parametrize("withdrawn_move", [False, True])
+def test_operator_aba_rejects_prepared_login_and_c3(
+    trainer: TrainerScene, withdrawn_move: bool
+) -> None:
     from tests.password_helpers import assert_prepared_rejected, prepare_login
     from y3management.contracts import Rejected
     from y3management.use_cases import Service
@@ -1018,6 +1064,8 @@ def test_operator_aba_rejects_prepared_login_and_c3(trainer: TrainerScene) -> No
     assert t.complete(source(t.issue())).status_code == 204
     row = candidate(t, t.login).json()
     assert command(t, row).status_code == 200
+    if withdrawn_move:
+        assert command(t, candidate(t, t.login).json(), False).status_code == 200
     prepared = prepare_login(t.recipient, t.login, t.password)
     service: Service = cast(Any, t.base.client.app).state.iam_service
     with service.uow.open() as w:
@@ -1025,9 +1073,17 @@ def test_operator_aba_rejects_prepared_login_and_c3(trainer: TrainerScene) -> No
             UUID(row["account_id"]), t.password, t.password + " next"
         )
     original = candidate(t, t.login).json()
-    revoked = command(t, original, False)
-    assert revoked.status_code == 200
-    assert command(t, revoked.json()["current"]).status_code == 200
+    if withdrawn_move:
+        from tests.test_operator_withdrawn_move import destination
+
+        moved = command(t, original, move=destination(t))
+        assert moved.status_code == 200
+        returned = command(t, moved.json()["current"], move=original["branch_id"])
+        assert returned.status_code == 200 and returned.json()["granted"] is False
+    else:
+        revoked = command(t, original, False)
+        assert revoked.status_code == 200
+        assert command(t, revoked.json()["current"]).status_code == 200
     assert_prepared_rejected(t.recipient, prepared)
     with pytest.raises(Rejected), service.uow.open() as w:
         w.iam.lock_login(proof.account_id)
@@ -1208,8 +1264,9 @@ def test_first_operator_grant_enforces_readiness_and_assignment(
         assert reader.scalar(text("SELECT count(*) FROM iam_operator_role_operations")) == 0
 
 
+@pytest.mark.parametrize("withdrawn", [False, True])
 def test_ba_role_scope_receipt_and_self_reauthentication(
-    trainer: TrainerScene, password_app: Any
+    trainer: TrainerScene, password_app: Any, withdrawn: bool
 ) -> None:
     from tests.password_helpers import login_password
     from tests.test_workforce import Scene
@@ -1238,8 +1295,13 @@ def test_ba_role_scope_receipt_and_self_reauthentication(
         regrant = command(bt, revoked.json()["current"])
         assert regrant.status_code == 200
         assert role_get(ba, "/api/v1/admin/operator-role-operations/" + op).status_code == 200
-        moved = command(t, regrant.json()["current"], move=destination)
-        assert moved.status_code == 200
+        current = regrant.json()["current"]
+        if withdrawn:
+            revoked = command(bt, current, False)
+            assert revoked.status_code == 200
+            current = revoked.json()["current"]
+        moved = command(t, current, move=destination)
+        assert moved.status_code == 200 and moved.json()["granted"] is (not withdrawn)
         assert candidate(bt, t.login, t.base.branch).status_code == 404
         assert role_get(ba, "/api/v1/admin/operator-role-operations/" + op).status_code == 404
         assert command(bt, moved.json()["current"], False).status_code == 404
@@ -1433,6 +1495,12 @@ def test_operator17_isolated_synthetic_loss_guards(trainer: TrainerScene, cause:
             )
         )
         assert (auth, snapshots) == ((1, 0) if cause == "admin_auth" else (0, 1))
+        shape = db.execute(text(query)).all()
+    from tests.legacy_helpers import prepare_revision_guard
+
+    with t.base.db.engine.begin() as connection:
+        prepare_revision_guard(connection, "0017_operator_management")
+    with t.base.db.session() as db:
         shape = db.execute(text(query)).all()
     before = lifecycle_fingerprints(t.base.db)
     from sqlalchemy import event

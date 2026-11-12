@@ -48,5 +48,9 @@
   "role_other_actor_receipt",
   "role_actor_send_race",
   "role_actor_pending",
-  "role_actor_late_read"
+  "role_actor_late_read",
+  "role_withdrawn_lookup",
+  "role_withdrawn_move",
+  "role_withdrawn_preserved",
+  "role_withdrawn_separate_regrant"
 ]

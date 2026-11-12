@@ -174,6 +174,23 @@ await p.locator('#role-login').fill('operator.native');
 await click(p,'#role-find','/operator-roles/lookup');
 await p.locator('#role-destination').selectOption(destination.body.id);
 checks.role_move=(await click(p,'#role-move','/operator-roles/'+operator.account_id+'/branch')).status()===200;
+await p.waitForFunction(()=>!document.getElementById('role-revoke').disabled);
+await click(p,'#role-revoke',rolePath);
+await p.waitForFunction(()=>!document.getElementById('role-move').disabled);
+checks.role_withdrawn_lookup=await p.locator('#role-current').textContent().then(x=>x.includes('없음'));
+const withdrawnDestination=await post(p,'/admin/branches',{code:'I18',name:'회수 이동 지점'});
+await p.reload();await p.waitForFunction(()=>!document.getElementById('role-find').disabled);
+await p.locator('#role-login').fill('operator.native');
+await click(p,'#role-find','/operator-roles/lookup');
+await p.locator('#role-destination').selectOption(withdrawnDestination.body.id);
+checks.role_withdrawn_move=(await click(p,'#role-move','/operator-roles/'+operator.account_id+'/branch')).status()===200;
+await p.waitForFunction(()=>!document.getElementById('role-grant').disabled);
+const withdrawnCurrent=(await get(p,'/admin/operator-roles/'+operator.account_id)).body;
+checks.role_withdrawn_preserved=withdrawnCurrent.operator_grant.granted===false&&
+ withdrawnCurrent.branch_id===withdrawnDestination.body.id&&
+ await p.locator('#role-current').textContent().then(x=>x.includes('없음'));
+checks.role_withdrawn_separate_regrant=(await click(p,'#role-grant',rolePath)).status()===200&&
+ (await get(p,'/admin/operator-roles/'+operator.account_id)).body.operator_grant.granted===true;
 await p.waitForFunction(()=>!document.getElementById('role-find').disabled);
 // A delayed lookup cannot restore a target discarded by a new input generation.
 let unblockRole;const roleGate=new Promise(resolve=>unblockRole=resolve);

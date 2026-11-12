@@ -1,5 +1,10 @@
 # 기능 요구사항 — 승인된 제품 기준
 
+2026-11-12 PR-001/021/026/030의 [OP-7](product-decisions.md#review-20261112-withdrawn-operator-move):
+같은 조직 Master는 회수된 Operator도 모든 계정 상태에서 활성 목적 지점으로 변경할 수 있다.
+회수/차단·복구 목적·다른 역할/Home을 보존한다. 기존 grant가 없으면 이동으로 생성하지 않으며
+별도 재부여·현재 인가·옛 인증/링크 철회·명시 재발급·감사/실패 원자성은 유지한다.
+
 2026-11-11 PR-001/021/026/030의 기존 계정 Operator 관리는 [OP-4/OP-5/OP-6](product-decisions.md#review-20261111-operator-management)를 따른다.
 같은 조직의 모든 기존 계정 유형/허용 관리자 본인을 포함하되 처음 부여는 ACTIVE/암호 준비/reset 대기 아님,
 회수는 모든 상태, 같은 지점 재부여는 ACTIVE/PENDING_SETUP이며 차단은 제외한다.

@@ -587,6 +587,12 @@ Traceability: PD-004/007/011/022; PR-002/003/006/030; BR-OPS-001/004/007/008/009
 
 Status: APPROVED
 
+2026-11-12 [OP-7](product-decisions.md#review-20261112-withdrawn-operator-move): Master의 이동 대상에
+보존된 회수 grant를 포함한다. 모든 계정 상태/활성 목적 Branch 조건은 유지하며 비활성 출발지도 허용한다.
+이동 후 `granted=false`·계정 차단/복구 상태·다른 역할/Home/과거 이력은 그대로다. 이동 자체로 grant 생성,
+재부여·차단 해제·로그인을 허용하지 않는다. 기존 옛 인증/링크 철회·명시 재발급·감사/원자성 및
+별도 재부여의 상태·새 현재 업무 지점 인가 조건은 유지한다.
+
 2026-11-11 [OP-6](product-decisions.md#review-20261111-operator-management): 유효 Operator의 Master 전용 이동은
 최초 설정 대기/차단/reset 대기를 포함한 모든 계정 상태에 허용한다. 활성 목적 지점/같은 조직 조건은 유지한다.
 계정 상태·복구 목적지·다른 역할/Scope·Trainer Home·과거 이력은 보존하며 옛 인증·링크 폐기 후 필요한 링크만

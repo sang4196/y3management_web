@@ -346,7 +346,7 @@ def test_original_handoff_chain_requires_semantic_ancestry(
                 )
 
         history = history_digests()
-        migrate(settings, "upgrade", "0017_operator_management")
+        migrate(settings, "upgrade", "0018_withdrawn_operator_move")
         assert history_digests() == history
         with UnitOfWork(db, settings).open() as work:
             assert isinstance(work.emergency, Emergency)

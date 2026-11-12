@@ -671,7 +671,7 @@ def test_migration_waits_for_operator_issue(
     with t.base.db.session() as reader:
         assert (
             reader.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-            == "0017_operator_management"
+            == "0018_withdrawn_operator_move"
         )
         assert (
             reader.execute(text("SELECT count(*) FROM audit_operator_account_events")).scalar_one()
@@ -886,7 +886,7 @@ def test_downgrade_serializes_trainer_issue_cleanup(
     assert counts(trainer) == (1, 1, 1, 1)
     with db.session() as reader:
         assert reader.scalar(text("SELECT version_num FROM alembic_version")) == (
-            "0017_operator_management"
+            "0018_withdrawn_operator_move"
         )
     credential = source(issued)
     assert trainer.complete(credential).status_code == 204

@@ -1,5 +1,10 @@
 # 사용자 및 역할
 
+2026-11-12 [OP-7](product-decisions.md#review-20261112-withdrawn-operator-move): 같은 조직 Master는
+회수된 Operator의 보존 업무 지점도 변경할 수 있다. 활성 목적 지점/모든 계정 상태 조건과
+회수·차단 상태/독립 역할·관리 Scope·Trainer Home 보존을 따른다. 이동만으로 Operator가 되지 않는다.
+이후 허용된 역할 관리는 새 현재 업무 지점 기준이며 계정 차단 해제는 계속 Master 전용이다.
+
 2026-11-11 [OP-4/OP-5/OP-6](product-decisions.md#review-20261111-operator-management): 같은 조직의 기존 Master·Branch Admin·
 Trainer·role0 및 허용 관리자 본인도 상태 조건을 만족하면 Operator를 겸할 수 있다. 각 관리 Scope·Operator 단일 업무 지점·
 Trainer Home/업무 상태는 독립이다. Operator 추가로 관리자 권한이나 보상 조회를 부여하지 않는다.
