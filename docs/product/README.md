@@ -1,5 +1,11 @@
 # Product Specification — Architecture Input Baseline
 
+2026-11-22 사용자 답변/2026-11-23 반영: [Trainer Home 이동 대상 상태 WF3-1](product-decisions.md#review-20261122-trainer-home-states).
+같은 조직 Master는 모든 Trainer/연결 계정 상태에서 활성 지점으로 이동할 수 있다. 계정 미발급·업무 비활성·
+최초 설정/차단/reset/recovery 대기·Trainer 역할 회수도 포함하며 각 상태·독립 역할/Scope·보상과 과거 사실을 유지한다.
+자동 계정 발급/복구/재활성/재부여는 없다. 기존 즉시 적용·새 필수 사유 없음 및 다른 OPEN을 유지한다.
+정책 승인과 실제 구현·인수는 [현재 단계](../architecture/README.md)로 구분한다.
+
 2026-11-12 최신 부분 승인: [회수된 Operator 지점 변경 OP-7](product-decisions.md#review-20261112-withdrawn-operator-move).
 같은 조직 Master가 모든 계정 상태의 보존된 회수 grant도 활성 목적 Branch로 변경할 수 있다.
 회수·차단 상태/다른 역할/Home을 유지하며 재부여·차단 해제를 자동 수행하지 않는다. 기존 OP-5/OP-6의

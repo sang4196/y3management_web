@@ -13,6 +13,9 @@ from y3management.workforce.public import (
     ManagedTrainer,
     RegisterTrainer,
     RegistrationResult,
+    TrainerHomeChange,
+    TrainerHomeRequest,
+    TrainerHomeResult,
     TrainerIdentityFact,
     TrainerPage,
     TrainerStateChange,
@@ -135,4 +138,61 @@ class Workforce:
 
     def confirm_state(self, caller: Caller, result: TrainerStateResult) -> None:
         if self.state_operation(caller, result.operation_id) != result:
+            raise Rejected(409, "conflict")
+
+    def _home_master(self, caller: Caller) -> None:
+        if not caller.master:
+            raise Rejected(403, "forbidden")
+
+    def home_operation(self, caller: Caller, operation_id: UUID) -> TrainerHomeResult | None:
+        self._home_master(caller)
+        row = self.repo.home_operation(caller.organization_id, operation_id)
+        if row is None:
+            return None
+        if row[2] != caller.account_id:
+            raise Rejected(404, "not_found")
+        return row[0]
+
+    def change_home(
+        self,
+        caller: Caller,
+        branch: ScopedBranchFact,
+        trainer: TrainerIdentityFact,
+        request: TrainerHomeRequest,
+    ) -> tuple[TrainerHomeResult, TrainerHomeChange | None]:
+        self._home_master(caller)
+        if trainer.organization_id != caller.organization_id:
+            raise Rejected(404, "not_found")
+        if (
+            type(request.expected_trainer_version) is not int
+            or request.expected_trainer_version < 1
+        ):
+            raise Rejected(422, "invalid_request")
+        payload = {
+            **asdict(request),
+            "trainer_id": trainer.trainer_id,
+            "actor_id": caller.account_id,
+            "canonical_version": 1,
+        }
+        digest = hashlib.sha256(
+            json.dumps(payload, sort_keys=True, default=str, separators=(",", ":")).encode()
+        ).digest()
+        old = self.repo.home_operation(caller.organization_id, request.operation_id)
+        if old:
+            if old[2] != caller.account_id or old[1] != digest:
+                raise Rejected(409, "operation_conflict")
+            return old[0], None
+        if (
+            branch.organization_id != caller.organization_id
+            or branch.branch_id != request.destination_home_branch_id
+        ):
+            raise Rejected(409, "conflict")
+        if branch.branch_id != trainer.home_branch_id and not branch.active:
+            raise Rejected(409, "branch_inactive")
+        if trainer.version != request.expected_trainer_version:
+            raise Rejected(409, "conflict")
+        return self.repo.change_home(caller.account_id, trainer, request, digest)
+
+    def confirm_home(self, caller: Caller, result: TrainerHomeResult) -> None:
+        if self.home_operation(caller, result.operation_id) != result:
             raise Rejected(409, "conflict")

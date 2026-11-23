@@ -1,5 +1,9 @@
 # 사용자 및 역할
 
+2026-11-22 답변/2026-11-23 반영: [WF3-1](product-decisions.md#review-20261122-trainer-home-states). Trainer Home 변경의 Actor는 계속
+같은 조직 Master뿐이다. Trainer가 비활성이거나 계정 없음/설정·차단·reset/recovery 대기/역할 회수 상태여도
+소속을 변경할 수 있으나 원래 상태와 독립 관리자/Operator Scope는 유지한다. 이동은 로그인 자격 복원이 아니다.
+
 2026-11-12 [OP-7](product-decisions.md#review-20261112-withdrawn-operator-move): 같은 조직 Master는
 회수된 Operator의 보존 업무 지점도 변경할 수 있다. 활성 목적 지점/모든 계정 상태 조건과
 회수·차단 상태/독립 역할·관리 Scope·Trainer Home 보존을 따른다. 이동만으로 Operator가 되지 않는다.

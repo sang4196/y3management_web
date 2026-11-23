@@ -1,3 +1,12 @@
+# WORKFORCE-003 로컬 인수 완료 — Trainer 소속 지점 변경
+
+2026-11-22 사용자 WF3-1=1/11-23 반영. 모든 Trainer/연결 계정 상태의 Master 전용 이동을 승인받았다.
+[제한 계약](workforce-003-trainer-home-design.md)의 구현·새 독립검증·설계자 로컬 인수를 마쳤다.
+[결과](workforce-003-trainer-home-results.md)와 [최소 근거](workforce-003-trainer-home-review.json)는
+fast197·선정PG64 단일 실행/실제 HTTPS40조건·초기 교정/소스 보존/정리를 기록한다. 전체PG759 중695개는 미실행이다.
+SQL 후행 공백4개의 의미 없는 인수 후 제거를 별도 기록했다. 다음 후보는 승인된 보상 설정 조회·Rate/Fixed 변경이다.
+기존 상태/독립 역할·보상/과거 사실과 다른 OPEN/전역 PROPOSED·운영 게이트를 유지한다.
+
 # IAM-018 로컬 인수 완료 — 회수된 Operator의 업무 지점 변경
 
 2026-11-12 [OP-7](../product/product-decisions.md#review-20261112-withdrawn-operator-move)=1을 승인받았다.

@@ -11,6 +11,9 @@ from y3management.contracts import Rejected
 from y3management.workforce.public import (
     ManagedTrainer,
     RegisterTrainer,
+    TrainerHomeChange,
+    TrainerHomeRequest,
+    TrainerHomeResult,
     TrainerIdentityFact,
     TrainerPage,
     TrainerStateChange,
@@ -134,6 +137,13 @@ class Repository:
             ),
             args,
         )
+        self.s.execute(
+            text("""INSERT INTO workforce_trainer_home_origins
+            (trainer_id,organization_id,origin,home_branch_id,trainer_version,recorded_at,
+             registration_operation_id) SELECT id,organization_id,'registered',home_branch_id,
+             row_version,created_at,:op FROM workforce_trainers WHERE id=:i"""),
+            args,
+        )
         return self.get(org, ident)
 
     def state_operation(
@@ -230,3 +240,93 @@ class Repository:
             change.after_version,
             self.identity(fact.organization_id, fact.trainer_id),
         ), change if changed else None
+
+    def home_operation(
+        self, org: UUID, operation: UUID
+    ) -> tuple[TrainerHomeResult, bytes, UUID] | None:
+        row = self.s.execute(
+            text("""SELECT trainer_id,changed,before_home_branch_id,
+            after_home_branch_id,before_version,after_version,recorded_at,fingerprint,actor_id
+            FROM workforce_trainer_home_operations
+            WHERE organization_id=:o AND operation_id=:i"""),
+            {"o": org, "i": operation},
+        ).first()
+        if row is None:
+            return None
+        return (
+            TrainerHomeResult(
+                operation,
+                row.trainer_id,
+                row.changed,
+                row.before_home_branch_id,
+                row.after_home_branch_id,
+                row.before_version,
+                row.after_version,
+                row.recorded_at,
+                self.identity(org, row.trainer_id),
+            ),
+            bytes(row.fingerprint),
+            row.actor_id,
+        )
+
+    def change_home(
+        self,
+        actor: UUID,
+        fact: TrainerIdentityFact,
+        request: TrainerHomeRequest,
+        fingerprint: bytes,
+    ) -> tuple[TrainerHomeResult, TrainerHomeChange | None]:
+        changed = fact.home_branch_id != request.destination_home_branch_id
+        now = self.s.execute(text("SELECT clock_timestamp()")).scalar_one()
+        change = TrainerHomeChange(
+            fact.organization_id,
+            request.operation_id,
+            fact.trainer_id,
+            actor,
+            fact.home_branch_id,
+            request.destination_home_branch_id,
+            fact.version,
+            fact.version + int(changed),
+            now,
+        )
+        args = {**asdict(change), "fp": fingerprint, "changed": changed}
+        if changed:
+            self.s.execute(
+                text("""UPDATE workforce_trainers
+                SET home_branch_id=:after_home_branch_id,row_version=:after_version
+                WHERE organization_id=:organization_id AND id=:trainer_id"""),
+                args,
+            )
+        self.s.execute(
+            text("""INSERT INTO workforce_trainer_home_operations
+            (organization_id,operation_id,trainer_id,actor_id,canonical_version,fingerprint,
+             before_home_branch_id,after_home_branch_id,expected_trainer_version,
+             before_version,after_version,changed,recorded_at)
+            VALUES (:organization_id,:operation_id,:trainer_id,:actor_id,1,:fp,
+             :before_home_branch_id,:after_home_branch_id,:before_version,
+             :before_version,:after_version,:changed,:recorded_at)"""),
+            args,
+        )
+        if changed:
+            columns = tuple(asdict(change))
+            self.s.execute(
+                text(
+                    "INSERT INTO workforce_trainer_home_transitions ("
+                    + ",".join(columns)
+                    + ") VALUES ("
+                    + ",".join(":" + k for k in columns)
+                    + ")"
+                ),
+                asdict(change),
+            )
+        return TrainerHomeResult(
+            request.operation_id,
+            fact.trainer_id,
+            changed,
+            fact.home_branch_id,
+            request.destination_home_branch_id,
+            fact.version,
+            change.after_version,
+            now,
+            self.identity(fact.organization_id, fact.trainer_id),
+        ), (change if changed else None)

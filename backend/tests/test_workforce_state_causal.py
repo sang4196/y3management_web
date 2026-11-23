@@ -17,7 +17,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
 
-from tests.legacy_helpers import legacy_database, password_downgrade_guard  # noqa: F401
+from tests.legacy_helpers import legacy_database  # noqa: F401
 from tests.password_helpers import call, password_app  # noqa: F401
 from tests.test_iam import ORIGIN, SyntheticSecret, csrf
 from tests.test_iam_trainer import TrainerScene, source, trainer  # noqa: F401
@@ -26,6 +26,7 @@ from tests.test_iam_trainer_roles_security import link
 from tests.test_workforce import scene  # noqa: F401
 from tests.test_workforce_integrity import branch_actor, observe_waiter, wait_for_owned_block
 from tests.test_workforce_state import change, request
+from tests.workforce_home_seed import password_downgrade_guard
 from tests.workforce_state_seed import assert_loss_guard, legacy_trainer  # noqa: F401
 from y3management.audit.infrastructure import Audit
 from y3management.audit.public import TrainerIdentityEvent, TrainerStateEvent

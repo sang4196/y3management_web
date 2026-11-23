@@ -63,6 +63,16 @@ class RegistrationResult:
 
 
 class WorkforcePort(Protocol):
+    def home_operation(self, caller: Caller, operation_id: UUID) -> TrainerHomeResult | None: ...
+    def change_home(
+        self,
+        caller: Caller,
+        branch: ScopedBranchFact,
+        trainer: TrainerIdentityFact,
+        request: TrainerHomeRequest,
+    ) -> tuple[TrainerHomeResult, TrainerHomeChange | None]: ...
+    def confirm_home(self, caller: Caller, result: TrainerHomeResult) -> None: ...
+
     def state_operation(self, caller: Caller, operation_id: UUID) -> TrainerStateResult | None: ...
     def change_state(
         self,
@@ -112,6 +122,39 @@ class TrainerStateChange:
     trainer_id: UUID
     before_active: bool
     after_active: bool
+    before_version: int
+    after_version: int
+    recorded_at: datetime
+
+
+@dataclass(frozen=True)
+class TrainerHomeRequest:
+    operation_id: UUID
+    destination_home_branch_id: UUID
+    expected_trainer_version: int
+
+
+@dataclass(frozen=True)
+class TrainerHomeResult:
+    operation_id: UUID
+    trainer_id: UUID
+    changed: bool
+    before_home_branch_id: UUID
+    committed_home_branch_id: UUID
+    before_trainer_version: int
+    committed_trainer_version: int
+    recorded_at: datetime
+    current_state: TrainerIdentityFact
+
+
+@dataclass(frozen=True)
+class TrainerHomeChange:
+    organization_id: UUID
+    operation_id: UUID
+    trainer_id: UUID
+    actor_id: UUID
+    before_home_branch_id: UUID
+    after_home_branch_id: UUID
     before_version: int
     after_version: int
     recorded_at: datetime

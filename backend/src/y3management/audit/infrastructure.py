@@ -13,6 +13,7 @@ from y3management.audit.public import (
     OperatorAccountEvent,
     OperatorRoleEvent,
     PasswordEmergencyEvent,
+    TrainerHomeEvent,
     TrainerIdentityEvent,
     TrainerRegistered,
     TrainerRoleEvent,
@@ -156,4 +157,17 @@ class Audit:
                 ":fixed, :base, :month)"
             ),
             args,
+        )
+
+    def append_trainer_home(self, event: TrainerHomeEvent) -> None:
+        columns = tuple(asdict(event))
+        self.s.execute(
+            text(
+                "INSERT INTO audit_trainer_home_events(id,"
+                + ",".join(columns)
+                + ") VALUES(:id,"
+                + ",".join(":" + k for k in columns)
+                + ")"
+            ),
+            {"id": uuid4(), **asdict(event)},
         )

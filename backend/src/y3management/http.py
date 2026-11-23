@@ -26,7 +26,7 @@ from y3management.iam.public import (
     TrainerRoleRequest,
 )
 from y3management.use_cases import Service
-from y3management.workforce.public import RegisterTrainer, TrainerStateRequest
+from y3management.workforce.public import RegisterTrainer, TrainerHomeRequest, TrainerStateRequest
 
 AUTH = "__Host-y3-auth"
 PREAUTH = "__Host-y3-preauth"
@@ -80,6 +80,12 @@ class TrainerAccountInput(Input):
 class TrainerSetupInput(Input):
     operation_id: UUID
     expected_account_version: int = Field(strict=True, ge=1)
+
+
+class TrainerHomeInput(Input):
+    operation_id: UUID
+    destination_home_branch_id: UUID
+    expected_trainer_version: int = Field(strict=True, ge=1)
 
 
 class TrainerStateInput(Input):
@@ -886,6 +892,36 @@ def attach(app: FastAPI, settings: Settings) -> None:
         result = service(request).trainer_registration(read(request), operation)
         return {"operation_id": result.operation_id, "trainer": asdict(result.trainer)}
 
+    @router.post("/admin/trainers/{ident}/home")
+    def change_trainer_home(
+        request: Request,
+        ident: UUID,
+        body: TrainerHomeInput,
+        expected_actor: ExpectedOperatorActor,
+    ) -> dict[str, object]:
+        workforce_query(request, set())
+        auth, nonce = write(request)
+        return asdict(
+            service(request).change_trainer_home(
+                auth,
+                nonce,
+                ident,
+                TrainerHomeRequest(**body.model_dump()),
+                expected_actor=expected_actor,
+            )
+        )
+
+    @router.get("/admin/trainer-home-operations/{operation}")
+    def trainer_home_operation(
+        request: Request, operation: UUID, expected_actor: ExpectedOperatorActor
+    ) -> dict[str, object]:
+        workforce_query(request, set())
+        return asdict(
+            service(request).trainer_home_operation(
+                read(request), operation, expected_actor=expected_actor
+            )
+        )
+
     @router.post("/admin/trainers/{ident}/state")
     def change_trainer_state(
         request: Request, ident: UUID, body: TrainerStateInput
@@ -1244,6 +1280,7 @@ const roleRefresh=roleControls(li,t,async(preserve)=>{
 if(identity.capabilities.includes('accounts:manage'))
  resetRefresh=resetControls(li,t,async()=>{await roleRefresh();await accountRefresh(true);});
 stateControls(li,t,async()=>{await roleRefresh();await accountRefresh(true);await resetRefresh();});
+if(identity.roles.some(r=>r.role==='ADMIN'&&r.scope==='ORGANIZATION'))homeControls(li,t);
 }}
 // Only the newest read may publish a complete snapshot; writes invalidate older reads.
 function latestRead(){let epoch=0,current=Promise.resolve();
@@ -1592,6 +1629,96 @@ try{await load();}catch{current=null;
  status.textContent='현재 재설정 상태를 확인할 수 없습니다.';buttons();}}
 refresh.addEventListener('click',()=>{if(!working)refreshState();});
 buttons();refreshState();return refreshState;
+}
+function homeControls(li,t){
+const owner=identity.account_id,box=document.createElement('section');box.dataset.homeTrainer=t.id;
+const title=document.createElement('h3');title.textContent='소속 지점 변경';
+const status=document.createElement('p'),select=document.createElement('select');
+select.setAttribute('aria-label','변경할 소속 지점');select.dataset.homeDestination='';
+const change=document.createElement('button'),fresh=document.createElement('button');
+const check=document.createElement('button'),operation=document.createElement('input');
+const result=document.createElement('p');result.setAttribute('role','status');
+result.dataset.homeResult='';
+operation.setAttribute('aria-label','소속 변경 작업 번호');operation.dataset.homeOperation='';
+change.textContent='소속 변경';fresh.textContent='소속 새로 조회';
+check.textContent='소속 작업 결과 확인';
+change.dataset.homeChange='';fresh.dataset.homeRefresh='';check.dataset.homeCheck='';
+for(const b of [change,fresh,check])b.type='button';
+box.append(title,status,select,change,fresh,operation,check,result);li.append(box);
+let ready=false,working=false,pending=null,generation=0,selection=null;
+const names=new Map();
+async function branchName(id){if(names.has(id))return names.get(id);
+const r=await fetch('/api/v1/branches/'+encodeURIComponent(id));if(!r.ok)throw Error();
+const b=await r.json();names.set(id,b.name);return b.name;}
+function buttons(){change.disabled=working||!ready||!!pending;fresh.disabled=working;
+check.disabled=working;select.disabled=working||!ready||!!pending;operation.disabled=working;}
+async function actor(){const r=await fetch('/api/v1/auth/me');if(!r.ok)throw Error();
+const me=await r.json();if(me.account_id!==owner||
+ !me.roles.some(r=>r.role==='ADMIN'&&r.scope==='ORGANIZATION')){
+ ready=false;generation++;result.textContent='로그인 사용자가 변경되었습니다. 화면을 다시 여세요.';
+ buttons();throw Error();}}
+async function load(){const mine=++generation;ready=false;buttons();await actor();
+const [r,c]=await Promise.all([fetch('/api/v1/admin/trainers/'+t.id),
+ fetch('/api/v1/admin/trainer-home-candidates?limit=100')]);
+if(!r.ok||!c.ok)throw Error();const current=await r.json();let candidates=(await c.json()).items;
+for(let offset=100;candidates.length===offset;offset+=100){
+ const next=await fetch('/api/v1/admin/trainer-home-candidates?limit=100&offset='+offset);
+ if(!next.ok)throw Error();candidates.push(...(await next.json()).items);}
+for(const b of candidates)names.set(b.id,b.name);
+const currentName=await branchName(current.home_branch_id);
+await actor();if(mine!==generation)return;
+if(current.version<t.version){selection=null;ready=false;
+ status.textContent='소속 정보가 변경되었습니다. 소속을 새로 조회하세요.';buttons();return;}
+updateTrainer(t,current);selection={home:current.home_branch_id,version:current.version};
+status.textContent='현재 소속: '+currentName;
+select.replaceChildren();
+for(const item of candidates){const option=document.createElement('option');
+ option.value=item.id;option.textContent=item.name;select.append(option);}
+if(!candidates.some(b=>b.id===current.home_branch_id)){
+ const option=document.createElement('option');option.value=current.home_branch_id;
+ option.textContent=currentName+' (현재 비활성)';select.append(option);}
+select.value=current.home_branch_id;ready=true;buttons();}
+select.addEventListener('change',()=>{generation++;});
+addEventListener('pagehide',()=>{generation++;ready=false;buttons();});
+change.addEventListener('click',async()=>{if(working||!ready||pending)return;
+if(!selection||selection.version!==t.version||selection.home!==t.home_branch_id){
+ ready=false;result.textContent='소속 정보가 변경되었습니다. 소속을 새로 조회하세요.';
+ buttons();return;}
+const mine=generation;pending={actor:owner,trainer:t.id,body:{operation_id:crypto.randomUUID(),
+ destination_home_branch_id:select.value,expected_trainer_version:selection.version}};
+operation.value=pending.body.operation_id;working=true;buttons();
+try{await actor();if(mine!==generation)throw Error();
+const c=await fetch('/api/v1/auth/csrf',{headers:{'X-Y3-Client':'trainer-home'}});
+if(!c.ok)throw Error();const token=(await c.json()).csrf_token;
+await actor();if(mine!==generation)throw Error();
+const r=await fetch('/api/v1/admin/trainers/'+pending.trainer+'/home',{method:'POST',
+ headers:{'Content-Type':'application/json','X-CSRF-Token':token,'X-Y3-Expected-Actor':owner},
+ body:JSON.stringify(pending.body)});
+if(!r.ok)throw Error();const data=await r.json();await actor();
+if(mine!==generation)throw Error();await load();
+result.textContent=data.changed?'소속 변경 완료. 작업 번호를 보관하세요.':'소속이 같아 변경 없음';
+}catch{ready=false;result.textContent='결과가 불명확합니다. 작업 번호로 확인하세요.';}
+finally{working=false;buttons();}});
+check.addEventListener('click',async()=>{if(working)return;const mine=generation;
+const id=operation.value.trim();
+if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))return;
+working=true;buttons();try{await actor();
+const r=await fetch('/api/v1/admin/trainer-home-operations/'+encodeURIComponent(id),
+ {headers:{'X-Y3-Expected-Actor':owner}});if(!r.ok)throw Error();
+const data=await r.json();await actor();if(mine!==generation||data.trainer_id!==t.id)throw Error();
+const beforeName=await branchName(data.before_home_branch_id);
+const committedName=await branchName(data.committed_home_branch_id);
+const currentName=await branchName(data.current_state.home_branch_id);
+await actor();if(mine!==generation)throw Error();
+await load();result.textContent='작업 당시 소속: '+beforeName+' → '+committedName+
+ ' / 현재 소속: '+currentName;
+}catch{ready=false;result.textContent='현재 권한과 작업 결과를 확인할 수 없습니다.';}
+finally{working=false;buttons();}});
+fresh.addEventListener('click',async()=>{if(working)return;working=true;buttons();
+try{await load();pending=null;operation.value='';result.textContent='';}
+catch{ready=false;result.textContent='현재 소속을 확인할 수 없습니다.';}
+finally{working=false;buttons();}});
+load().catch(()=>{ready=false;buttons();result.textContent='현재 소속을 확인할 수 없습니다.';});
 }
 function stateControls(li,t,refreshPanels){
 const box=document.createElement('section');box.dataset.stateTrainer=t.id;

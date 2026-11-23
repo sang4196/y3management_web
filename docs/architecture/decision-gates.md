@@ -1,3 +1,12 @@
+# 2026-11-23 WORKFORCE-003 현재 게이트
+
+[WF3-1](../product/product-decisions.md#review-20261122-trainer-home-states)=1로 BR-OPS-013의 대상 상태 게이트를 해결했다.
+[제한 계약](workforce-003-trainer-home-design.md)의 구현·새 독립 실행·설계자 로컬 인수를 마쳤다.
+[결과](workforce-003-trainer-home-results.md)의 fast197·선정PG64 단일 실행/HTTPS40조건에 한정한다.
+미실행PG695·운영 검증을 통과로 확대하지 않는다. 전담 커밋 검토·일반 feature push가 후속이다.
+Master 전용·활성 목적지·즉시 적용·보존·새 필수 사유 없음/Architecture 대상 철회 방식은 재질문하지 않는다.
+과거 Home 정정/확인 불가·Member/PT/정산/원본 DB·운영과 다른 Product OPEN/전역 PROPOSED는 유지한다.
+
 # 2026-11-12 IAM-018 현재 게이트
 
 [OP-7](../product/product-decisions.md#review-20261112-withdrawn-operator-move)=1로 회수된 Operator의 Master 전용

@@ -98,6 +98,87 @@ req.write(payload.subarray(0,3000));setTimeout(()=>{req.write(payload.subarray(3
 setTimeout(()=>req.end(payload.subarray(6000)),10);},10);});}
 checks.actual_chunked_8192=(await chunked(8192))===200;
 checks.actual_chunked_8193=(await chunked(8193))===413;
+stage='home-move';await p.goto(cfg.origin+'/trainers');
+const homeBox=p.locator('[data-home-trainer="'+data.trainer.id+'"]');
+await homeBox.locator('[data-home-change]').waitFor();
+await p.waitForFunction(id=>!document.querySelector('[data-home-trainer="'+id+'"] [data-home-change]').disabled,
+ data.trainer.id);
+await homeBox.locator('[data-home-destination]').selectOption(first[0].id);
+let homeWrites=0;p.on('request',r=>{if(r.url().endsWith('/'+data.trainer.id+'/home')&&
+ r.method()==='POST')homeWrites++;});
+const moved=p.waitForResponse(r=>r.url().endsWith('/'+data.trainer.id+'/home'));
+await homeBox.locator('[data-home-change]').dblclick();const moveResponse=await moved;
+const homeReceipt=await moveResponse.json();
+checks.home_master_ui_move=moveResponse.status()===200&&homeReceipt.changed&&
+ homeReceipt.current_state.home_branch_id===first[0].id;
+checks.home_double_click_one=homeWrites===1;
+await p.waitForFunction(id=>document.querySelector('[data-home-trainer="'+id+'"] [data-home-result]')
+ .textContent.includes('소속 변경 완료'),data.trainer.id);
+checks.home_old_admin_denied=(await get(b,'/admin/trainers/'+data.trainer.id)).status===404;
+checks.home_current_registration=(await post(p,'/admin/trainers',submitted)).body.trainer.home_branch_id===first[0].id;
+await homeBox.locator('[data-home-refresh]').click();
+await p.waitForFunction(id=>!document.querySelector('[data-home-trainer="'+id+'"] [data-home-change]').disabled,
+ data.trainer.id);
+await homeBox.locator('[data-home-destination]').selectOption(home);
+let homeAck=false;await p.route('**/api/v1/admin/trainers/'+data.trainer.id+'/home',async route=>{
+ const response=await route.fetch();homeAck=response.status()===200;await route.abort();});
+await homeBox.locator('[data-home-change]').click();
+await p.waitForFunction(id=>document.querySelector('[data-home-trainer="'+id+'"] [data-home-result]')
+ .textContent.includes('불명확'),data.trainer.id);
+await p.unroute('**/api/v1/admin/trainers/'+data.trainer.id+'/home');
+await homeBox.locator('[data-home-check]').click();
+await p.waitForFunction(id=>document.querySelector('[data-home-trainer="'+id+'"] [data-home-result]')
+ .textContent.includes('작업 당시 소속'),data.trainer.id);
+checks.home_ack_reconciled=homeAck&&(await get(p,'/admin/trainers/'+data.trainer.id)).body.home_branch_id===home;
+await homeBox.locator('[data-home-operation]').fill(homeReceipt.operation_id);
+await homeBox.locator('[data-home-check]').click();
+await p.waitForFunction(({id,home})=>document.querySelector('[data-home-trainer="'+id+'"] [data-home-result]')
+ .textContent.includes('현재 소속: '),{id:data.trainer.id,home});
+checks.home_receipt_keeps_current=(await get(p,'/admin/trainers/'+data.trainer.id)).body.home_branch_id===home;
+stage='home-stale-response';
+await p.waitForFunction(id=>!document.querySelector('[data-home-trainer="'+id+'"] [data-home-refresh]').disabled,
+ data.trainer.id,{timeout:5000});
+let capturedResolve,releaseResolve;
+const captured=new Promise(resolve=>{capturedResolve=resolve;});
+const releaseOld=new Promise(resolve=>{releaseResolve=resolve;});let delayed=false;
+await p.route('**/api/v1/admin/trainers/'+data.trainer.id,async route=>{
+ if(!delayed&&route.request().method()==='GET'){delayed=true;
+  const response=await route.fetch();capturedResolve();await releaseOld;
+  await route.fulfill({response});}else await route.continue();});
+await homeBox.locator('[data-home-refresh]').click();stage='home-stale-capture';
+await Promise.race([captured,new Promise((_,reject)=>setTimeout(()=>reject(Error()),5000))]);
+stage='home-stale-external';
+const owner=(await get(p,'/auth/me')).body.account_id;
+const externalMove=await p.evaluate(async({id,dest,owner})=>{
+ const current=await(await fetch('/api/v1/admin/trainers/'+id)).json();
+ const csrf=await(await fetch('/api/v1/auth/csrf',{headers:{'X-Y3-Client':'browser-home'}})).json();
+ const r=await fetch('/api/v1/admin/trainers/'+id+'/home',{method:'POST',
+ headers:{'Content-Type':'application/json','X-CSRF-Token':csrf.csrf_token,'X-Y3-Expected-Actor':owner},
+ body:JSON.stringify({operation_id:crypto.randomUUID(),destination_home_branch_id:dest,
+ expected_trainer_version:current.version})});return r.status;
+},{id:data.trainer.id,dest:first[0].id,owner});
+stage='home-stale-state';const row=homeBox.locator('..');
+await row.getByRole('button',{name:'새 상태 작업',exact:true}).click();
+await p.waitForFunction(id=>document.querySelector('[data-state-trainer="'+id+'"] button')
+ .disabled===false,data.trainer.id,{timeout:5000});
+stage='home-stale-release';releaseResolve();
+await p.waitForFunction(id=>document.querySelector('[data-home-trainer="'+id+'"] p')
+ .textContent.includes('소속 정보가 변경'),data.trainer.id,{timeout:5000});
+stage='home-stale-assert';const staleWrites=homeWrites;
+checks.home_stale_response_blocked=externalMove===200&&
+ await homeBox.locator('[data-home-change]').isDisabled()&&homeWrites===staleWrites;
+await p.unroute('**/api/v1/admin/trainers/'+data.trainer.id);
+await homeBox.locator('[data-home-refresh]').click();
+await p.waitForFunction(id=>!document.querySelector('[data-home-trainer="'+id+'"] [data-home-change]').disabled,
+ data.trainer.id);
+checks.home_branch_name_display=!(await homeBox.locator('p').first().textContent()).includes(first[0].id);
+const ownerCookies=await master.context.cookies();await master.context.clearCookies();
+await master.context.addCookies(await ba.context.cookies());const writesBeforeActor=homeWrites;
+await homeBox.locator('[data-home-refresh]').click();
+await p.waitForFunction(id=>document.querySelector('[data-home-trainer="'+id+'"] [data-home-result]')
+ .textContent.includes('확인할 수 없습니다'),data.trainer.id);
+checks.home_actor_switch_blocks=homeWrites===writesBeforeActor&&await homeBox.locator('[data-home-change]').isDisabled();
+await master.context.clearCookies();await master.context.addCookies(ownerCookies);
 stage='nojs';const off=await browser.newContext({javaScriptEnabled:false,ignoreHTTPSErrors:false});
 await off.addCookies(await master.context.cookies());const n=await off.newPage();let leaked=false;
 n.on('request',r=>{if(['private-marker','phone-marker','amount-marker'].some(x=>r.url().includes(x)))leaked=true;});

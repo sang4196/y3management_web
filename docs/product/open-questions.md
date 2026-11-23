@@ -1,5 +1,11 @@
 # Open Questions / 후속 TODO
 
+2026-11-22 답변/2026-11-23 반영: [WF3-1](product-decisions.md#review-20261122-trainer-home-states)=1로 BR-OPS-013의 이동 대상
+Trainer/연결 계정 상태 부분을 해결했다. ACTIVE/INACTIVE·계정 없음/최초 설정·차단·reset/recovery 대기·
+Trainer 역할 회수 모두 포함하며 상태를 보존한다. Master 전용/활성 목적지·비활성 출발 허용·즉시 적용·
+다른 역할/관계/보상/과거 사실 보존·새 필수 사유 없음은 유지한다. 이 부분은 재질문하지 않는다.
+과거 Home 이력 정정/확인 불가·PT/보상/정산과 기술 계약/저장·운영 및 다른22 OPEN/8 CLOSED는 유지한다.
+
 2026-11-12 ARCH-002/MB-004 부분 해결: [OP-7](product-decisions.md#review-20261112-withdrawn-operator-move)=1로
 회수된 Operator의 Master 전용 업무 지점 변경을 허용했다. 모든 계정 상태/활성 목적 지점,
 회수·차단 상태·다른 역할/Home 보존과 기존 OP-5/OP-6의 인가·철회·명시 재발급·감사를 유지한다.

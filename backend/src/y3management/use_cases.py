@@ -13,6 +13,7 @@ from y3management.audit.public import (
     OperatorAccountEvent,
     OperatorRoleEvent,
     PasswordEmergencyEvent,
+    TrainerHomeEvent,
     TrainerIdentityEvent,
     TrainerRegistered,
     TrainerRoleEvent,
@@ -53,6 +54,8 @@ from y3management.workforce.public import (
     ManagedTrainer,
     RegisterTrainer,
     RegistrationResult,
+    TrainerHomeRequest,
+    TrainerHomeResult,
     TrainerIdentityFact,
     TrainerPage,
     TrainerStateRequest,
@@ -1610,4 +1613,85 @@ class Service:
             if self._trainer_scope(w, a.caller, trainer) != result.current_state:
                 raise Rejected(409, "conflict")
             w.roles.confirm_actor(snapshot, self_change=False)
+            return result
+
+    def trainer_home_operation(
+        self, auth: str | None, operation: UUID, *, expected_actor: UUID
+    ) -> TrainerHomeResult:
+        with self.uow.open() as w:
+            a = w.iam.authenticate(auth, management=True, touch=False)
+            if a.caller.account_id != expected_actor:
+                raise Rejected(409, "actor_changed")
+            w.iam.require_master(a.caller)
+            snapshot = w.roles.snapshot(a)
+            result = w.workforce.home_operation(a.caller, operation)
+            if result is None:
+                raise Rejected(404, "not_found")
+            fact = self._trainer_scope(w, a.caller, result.trainer_id)
+            if fact != result.current_state:
+                raise Rejected(409, "conflict")
+            w.workforce.confirm_home(a.caller, result)
+            w.roles.confirm_actor(snapshot, self_change=False)
+            return result
+
+    def change_trainer_home(
+        self,
+        auth: str | None,
+        nonce: str | None,
+        trainer: UUID,
+        request: TrainerHomeRequest,
+        *,
+        expected_actor: UUID,
+    ) -> TrainerHomeResult:
+        with self.uow.open() as w:
+            a = w.iam.authenticate(auth, management=True, touch=False)
+            if a.caller.account_id != expected_actor:
+                raise Rejected(409, "actor_changed")
+            w.iam.require_master(a.caller)
+            w.iam.csrf(a, nonce)
+            fact_hint = self._trainer_scope(w, a.caller, trainer)
+            binding_hint = w.iam.trainer_binding(a.caller.organization_id, trainer)
+        with self.uow.open() as w:
+            a = w.iam.authenticate(
+                auth,
+                management=True,
+                target=binding_hint.account_id if binding_hint else None,
+                touch=False,
+            )
+            if a.caller.account_id != expected_actor:
+                raise Rejected(409, "actor_changed")
+            w.iam.require_master(a.caller)
+            w.iam.csrf(a, nonce)
+            snapshot = w.roles.snapshot(a)
+            if w.iam.trainer_binding(a.caller.organization_id, trainer) != binding_hint:
+                raise Rejected(409, "conflict")
+            branches = {
+                ident: w.organization.lock_scoped_branch(a.caller, ident)
+                for ident in sorted(
+                    {fact_hint.home_branch_id, request.destination_home_branch_id}, key=str
+                )
+            }
+            fact = w.workforce.lock_identity(a.caller.organization_id, trainer, exclusive=True)
+            if (
+                fact.home_branch_id != fact_hint.home_branch_id
+                or w.iam.trainer_binding(a.caller.organization_id, trainer) != binding_hint
+            ):
+                raise Rejected(409, "conflict")
+            # Exact replay retains its committed facts even after destination deactivation.
+            old = w.workforce.home_operation(a.caller, request.operation_id)
+            if old is None and request.destination_home_branch_id != fact.home_branch_id:
+                w.organization.require_assignable(branches[request.destination_home_branch_id])
+            result, change = w.workforce.change_home(
+                a.caller, branches[request.destination_home_branch_id], fact, request
+            )
+            if change is not None:
+                w.audit.append_trainer_home(TrainerHomeEvent(**asdict(change)))
+            for branch in branches.values():
+                w.organization.confirm_scoped_branch(a.caller, branch)
+            w.workforce.confirm_home(a.caller, result)
+            if w.iam.trainer_binding(a.caller.organization_id, trainer) != binding_hint:
+                raise Rejected(409, "conflict")
+            if w.workforce.lock_identity(a.caller.organization_id, trainer) != result.current_state:
+                raise Rejected(409, "conflict")
+            w.roles.confirm_actor(snapshot, self_change=False, touch=change is not None)
             return result

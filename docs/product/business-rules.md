@@ -663,6 +663,11 @@ Traceability: PD-001/019; PR-001/021/029/030; BR-OPS-001/011; NFR-001/004; MB-00
 
 Status: APPROVED
 
+2026-11-22 답변/2026-11-23 반영: [WF3-1](product-decisions.md#review-20261122-trainer-home-states)은 모든 Trainer/연결 계정 상태의 이동을
+허용한다. ACTIVE/INACTIVE·계정 미발급·최초 설정/차단·reset/recovery 대기·Trainer grant 회수도 포함한다.
+원래 업무/계정/grant 상태·독립 Scope/보상/과거 사실은 유지하며 자동 발급/활성화/차단 해제/재부여는 없다.
+아래 대상 Trainer/계정 상태 미정은 이 범위에서 해결됐다. 나머지 기술·과거 사실/정정 게이트는 유지한다.
+
 2026-10-12 사용자 확정(Trainer 소속 지점(Home Branch) 변경 권한 질문의 1번): Trainer의 Home Branch 변경은 Master Admin만 자신의 Organization 범위에서 수행한다. Branch Admin은 변경 전/후 지점 관리자 또는 해당 Trainer 계정 발급자여도 변경할 수 없다. Operator·Trainer 단독은 본인 포함 불가하며 관리자/Trainer 겸임도 현재 Master 권한이 있을 때만 해당 Organization Scope로 처리한다. Branch Admin의 자기 지점 Trainer 신규 로그인 계정 발급 권한(BR-OPS-012)은 유지하며 이를 소속 변경 권한으로 확대하지 않는다(BR-OPS-013, PD-004, PR-005/029/030, NFR-001/004, MB-001/004/005, ARCH-001).
 
 인가 경계: Backend는 검증된 현재 Caller의 Master 역할/Organization과 실제 대상 Trainer의 현재 Organization/Home Branch·변경 대상 Branch의 Organization을 확인한다. 같은 Organization 안의 변경만 허용하며 직접 Trainer/Branch ID·위조 role/organization_id/branch_id/과거 Master 권한으로 우회할 수 없다. 지원 수업·담당 Member/Pass·Performed/Issued Branch 또는 기존 계정 발급 권한은 대체 근거가 아니다. 새 계정 발급/일반 기본정보 수정으로 기존 Trainer Home Branch를 덮어써 권한을 우회하지 않는다. 변경 후에도 Trainer Home Branch는 한 시점 하나이며 다른 지점 수업 수행만으로 Home Branch를 자동 변경하지 않는다.

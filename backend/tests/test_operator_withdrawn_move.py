@@ -221,8 +221,8 @@ def test_withdrawn_move_audit_rollback(
 def test_withdrawn_history_blocks18_downgrade_before_ddl(
     trainer: TrainerScene, history: str
 ) -> None:
-    from tests.legacy_helpers import assert_revision_loss_guard
     from tests.test_account_lifecycle import lifecycle_fingerprints
+    from tests.workforce_home_seed import assert_revision_loss_guard
 
     t = trainer
     row = withdrawn(t)
@@ -287,6 +287,8 @@ def test_actual17_18_roundtrip_with_withdrawn_rows_and_runtime_matrix(
     with owned_trainer(password_app) as t:
         withdrawn(t)  # Existing false grant and ordinary revoke are representable at17.
     settings, db, _ = password_app
+    # This acceptance input is the actual18 shape; current19 owns additional Home metadata.
+    migrate(settings, "downgrade", "0018_withdrawn_operator_move")
     baseline, constraints = lifecycle_fingerprints(db), shape(db)
     old = archive_backend(tmp_path, "7b64f5731ed993f5f8473a1476f27fb6c4931513")
     script = """import os
@@ -314,10 +316,11 @@ assert started==EXPECTED
         TestClient(create_app(settings)),
     ):
         pytest.fail("Current18 accepted original17")
+    migrate(settings, "upgrade", "0018_withdrawn_operator_move")
+    assert lifecycle_fingerprints(db) == baseline and shape(db) == constraints
     migrate(settings, "upgrade", "head")
     with TestClient(create_app(settings)):
         pass
-    assert lifecycle_fingerprints(db) == baseline and shape(db) == constraints
 
 
 @pytest.mark.parametrize("damage", ["missing", "duplicate", "weakened"])

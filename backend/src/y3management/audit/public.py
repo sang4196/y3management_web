@@ -83,6 +83,8 @@ class OperatorAccountEvent:
 
 
 class AuditPort(Protocol):
+    def append_trainer_home(self, event: TrainerHomeEvent) -> None: ...
+
     def append_operator_role(self, event: OperatorRoleEvent) -> None: ...
 
     def append_operator(self, event: OperatorAccountEvent) -> None: ...
@@ -197,3 +199,18 @@ class OperatorRoleEvent:
     after_version: int
     account_state: str
     account_version: int
+
+
+@dataclass(frozen=True)
+class TrainerHomeEvent:
+    organization_id: UUID
+    operation_id: UUID
+    trainer_id: UUID
+    actor_id: UUID
+    before_home_branch_id: UUID
+    after_home_branch_id: UUID
+    before_version: int
+    after_version: int
+    recorded_at: datetime
+    actor_role: str = "MASTER"
+    actor_branch: UUID | None = None

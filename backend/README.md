@@ -557,3 +557,25 @@ PENDING_SETUP 재부여 후 새 초기 링크는 별도 명시 발급이다. 응
 0012는 기존 binding을 grant/version1로 backfill한다. 이후 역할 이력 또는 보존할 epoch 사실이
 있으면 downgrade를 거부한다. 기존 migration을 수정하거나 이력을 지워 내려가지 않는다.
 개발 대상 실행과 독립 전체 인수를 구분하며 기존 QA fixture와 WSL 검사 절차를 유지한다.
+
+
+### WORKFORCE-003 현재 Home 변경
+
+현재 runtime은 `0019_workforce_trainer_home`과 기존 policy 2/target14 조합만 받는다.
+과거18 실행본은 실제18 schema로 검사하며, current19를18에 연결하거나 원래18을19에
+연결하면 시작을 거부한다. 0001–0018 파일을 변경해 현재 계약을 소급하지 않는다.
+
+Master의 같은 조직 Trainer Home 변경은 `POST /api/v1/admin/trainers/{id}/home`이다.
+`operation_id`, `destination_home_branch_id`, `expected_trainer_version` 및
+UUID `X-Y3-Expected-Actor`를 전달한다. 작업 조회도 같은 헤더와 원래 Actor의 현재 Master
+권한이 필요하다. 결과의 committed 값은 원래 처리 사실이며 `current_state`는 현재 사실이다.
+불명 응답은 원래 UUID로 대사하고 새 이동으로 자동 재시도하지 않는다.
+
+기존 자료의 Home origin은 migration 시점 관측이며 과거 연속 소속을 추정하지 않는다.
+등록 snapshot·IAM 원본과 독립 역할은 보존한다. downgrade는 Home receipt(no-op 포함)와
+이력/감사 소실을 거부하고, 등록 origin은 원래 snapshot/등록/감사에 정확히 중복되는 경우에만
+안전하게 제거한다. W1만의 version 증가는 Home 이동으로 판정하지 않는다.
+
+선정 검사는 `tests/test_workforce_home.py`, `tests/test_workforce_home_storage.py`와
+기존 `test_workforce_native`/`browser/workforce-checks.json`에 있다. 전용 schema/프로세스의
+정리는 기존 pytest QA fixture를 따른다. 실제 검증 범위·실패·동결 SHA는 해당 QA 실행 보고를 따른다.

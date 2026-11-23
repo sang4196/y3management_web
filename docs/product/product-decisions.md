@@ -1,5 +1,21 @@
 # Product Decisions — 승인 반영
 
+<a id="review-20261122-trainer-home-states"></a>
+## 2026-11-22 승인 / 2026-11-23 반영 — Trainer Home 이동 대상 상태
+
+사용자는 Trainer 소속 이동 대상 상태 질문에 “1번”을 선택했다. 같은 Organization Master는
+ACTIVE/INACTIVE Trainer 모두의 Home을 활성 목적 Branch로 변경할 수 있다. 연결 계정이 없거나
+최초 설정 대기·차단·비밀번호 reset/recovery 대기·Trainer 역할 회수 상태여도 허용한다.
+
+이동은 기존 Trainer/계정/역할 상태를 유지한다. 계정을 자동 발급하거나 차단 해제·업무 재활성·역할 재부여를
+수행하지 않는다. 독립 관리자 Scope·Operator 업무 Branch·계정/Trainer 연결·보상 설정과 과거 사실을 보존한다.
+기존 BR-OPS-013/G5의 Master 전용/같은 조직·활성 목적지/비활성 출발 허용·저장 완료 즉시 적용·미래 예약 없음·
+새 필수 사유 없음·현재 Home 기반 인가/감사/실패 원자성은 유지한다. 과거 소속 이력 정정은 별도 업무다.
+
+이 답변은 BR-OPS-013/ARCH-001/002/MB-001/004/005 중 대상 상태 부분만 해결한다. 다른 Product OPEN·
+전역 PROPOSED·원본 DB/운영 게이트를 닫거나 AuthSession/원본 링크의 기술 구현을 확정하지 않는다.
+기술 계약/구현·검증 완료 선언은 아니다.
+
 <a id="review-20261112-withdrawn-operator-move"></a>
 ## 2026-11-12 승인 — 회수된 Operator의 업무 지점 변경
 
