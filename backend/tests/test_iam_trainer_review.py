@@ -19,7 +19,7 @@ from tests.test_iam import ORIGIN, SyntheticSecret, csrf
 from tests.test_iam_trainer import TrainerScene, counts, source, trainer  # noqa: F401
 from tests.test_workforce import scene  # noqa: F401
 from tests.test_workforce_integrity import branch_actor
-from tests.workforce_home_seed import password_downgrade_guard
+from tests.workforce_compensation_seed import password_downgrade_guard
 from tests.workforce_state_seed import legacy_trainer  # noqa: F401
 from y3management.audit.infrastructure import Audit
 from y3management.audit.public import TrainerIdentityEvent

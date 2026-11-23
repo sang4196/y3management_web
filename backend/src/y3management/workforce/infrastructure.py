@@ -8,7 +8,12 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from y3management.contracts import Rejected
+from y3management.iam.public import Caller
 from y3management.workforce.public import (
+    CompensationChange,
+    CompensationRequest,
+    CompensationResult,
+    CompensationState,
     ManagedTrainer,
     RegisterTrainer,
     TrainerHomeChange,
@@ -329,4 +334,127 @@ class Repository:
             change.after_version,
             now,
             self.identity(fact.organization_id, fact.trainer_id),
+        ), (change if changed else None)
+
+    def compensation(self, org: UUID, trainer: UUID) -> CompensationState:
+        row = self.s.execute(
+            text("""SELECT t.id,t.home_branch_id,t.row_version,t.rate_percent,
+            t.fixed_amount_won,t.compensation_version,s.base_salary_won,s.base_salary_start_month
+            FROM workforce_trainers t JOIN workforce_initial_snapshots s
+            ON s.organization_id=t.organization_id AND s.trainer_id=t.id
+            WHERE t.organization_id=:o AND t.id=:i
+              AND t.base_salary_won=s.base_salary_won
+              AND t.base_salary_start_month=s.base_salary_start_month"""),
+            {"o": org, "i": trainer},
+        ).first()
+        if row is None:
+            raise Rejected(503, "unavailable")
+        return CompensationState(
+            row[0],
+            row[1],
+            row[2],
+            row[3],
+            str(row[4]),
+            row[5],
+            str(row[6]),
+            f"{row[7].year:04d}-{row[7].month:02d}",
+        )
+
+    def compensation_operation(
+        self, org: UUID, operation: UUID
+    ) -> tuple[CompensationResult, bytes, UUID] | None:
+        row = self.s.execute(
+            text("""SELECT trainer_id,changed,before_rate,before_fixed,
+            before_version,after_rate,after_fixed,after_version,recorded_at,fingerprint,actor_id
+            FROM workforce_compensation_operations
+            WHERE organization_id=:o AND operation_id=:i"""),
+            {"o": org, "i": operation},
+        ).first()
+        if row is None:
+            return None
+        return (
+            CompensationResult(
+                operation,
+                row.trainer_id,
+                row.changed,
+                row.before_rate,
+                str(row.before_fixed),
+                row.before_version,
+                row.after_rate,
+                str(row.after_fixed),
+                row.after_version,
+                row.recorded_at,
+                self.compensation(org, row.trainer_id),
+            ),
+            bytes(row.fingerprint),
+            row.actor_id,
+        )
+
+    def change_compensation(
+        self,
+        caller: Caller,
+        fact: TrainerIdentityFact,
+        current: CompensationState,
+        request: CompensationRequest,
+        fingerprint: bytes,
+    ) -> tuple[CompensationResult, CompensationChange | None]:
+        changed = (
+            request.rate_percent != current.rate_percent
+            or request.fixed_amount_won != current.fixed_amount_won
+        )
+        now = self.s.execute(text("SELECT clock_timestamp()")).scalar_one()
+        change = CompensationChange(
+            fact.organization_id,
+            request.operation_id,
+            fact.trainer_id,
+            caller.account_id,
+            "MASTER" if caller.master else "BRANCH_ADMIN",
+            None if caller.master else caller.branch_id,
+            fact.home_branch_id,
+            current.rate_percent,
+            request.rate_percent,
+            current.fixed_amount_won,
+            request.fixed_amount_won,
+            current.compensation_version,
+            current.compensation_version + int(changed),
+            now,
+        )
+        args = {
+            **asdict(change),
+            "fp": fingerprint,
+            "changed": changed,
+            "trainer_version": fact.version,
+        }
+        args["before_fixed"] = Decimal(change.before_fixed)
+        args["after_fixed"] = Decimal(change.after_fixed)
+        if changed:
+            self.s.execute(
+                text("""UPDATE workforce_trainers SET rate_percent=:after_rate,
+                fixed_amount_won=:after_fixed,compensation_version=:after_version
+                WHERE organization_id=:organization_id AND id=:trainer_id"""),
+                args,
+            )
+        self.s.execute(
+            text("""INSERT INTO workforce_compensation_operations
+            (organization_id,operation_id,trainer_id,actor_id,actor_role,actor_branch,target_home,
+             canonical_version,fingerprint,expected_trainer_version,expected_compensation_version,
+             before_rate,after_rate,before_fixed,after_fixed,before_version,after_version,
+             changed,recorded_at) VALUES (:organization_id,:operation_id,:trainer_id,:actor_id,
+             :actor_role,:actor_branch,:target_home,1,:fp,:trainer_version,:before_version,
+             :before_rate,:after_rate,:before_fixed,:after_fixed,:before_version,:after_version,
+             :changed,:recorded_at)"""),
+            args,
+        )
+        return CompensationResult(
+            request.operation_id,
+            fact.trainer_id,
+            changed,
+            change.before_rate,
+            change.before_fixed,
+            change.before_version,
+            change.after_rate,
+            change.after_fixed,
+            change.after_version,
+            now,
+            self.compensation(fact.organization_id, fact.trainer_id),
         ), (change if changed else None)

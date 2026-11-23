@@ -1,13 +1,17 @@
 """Atomic audit writer; never accepts arbitrary event payloads."""
 
 from dataclasses import asdict
-from uuid import uuid4
+from decimal import Decimal
+from uuid import UUID, uuid4
 
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from y3management.audit.public import (
+    CompensationEvent,
+    CompensationHistoryItem,
+    CompensationHistoryPage,
     Event,
     InitialCompensationSet,
     OperatorAccountEvent,
@@ -171,3 +175,67 @@ class Audit:
             ),
             {"id": uuid4(), **asdict(event)},
         )
+
+    def append_compensation(self, event: CompensationEvent) -> None:
+        args = {"id": uuid4(), **asdict(event)}
+        args["before_fixed"] = Decimal(event.before_fixed)
+        args["after_fixed"] = Decimal(event.after_fixed)
+        columns = tuple(asdict(event))
+        self.s.execute(
+            text(
+                "INSERT INTO audit_compensation_events(id,"
+                + ",".join(columns)
+                + ") VALUES(:id,"
+                + ",".join(":" + k for k in columns)
+                + ")"
+            ),
+            args,
+        )
+
+    def compensation_history(
+        self, organization: UUID, trainer: UUID, offset: int, limit: int
+    ) -> CompensationHistoryPage:
+        query = """SELECT version AS compensation_version,operation_id,actor_id,actor_role,
+            actor_branch,target_home,before_rate,after_rate,before_fixed,after_fixed,
+            after_base AS initial_base_salary_won,
+            after_month AS initial_base_salary_start_month,created_at AS recorded_at
+            FROM audit_workforce_initial_events WHERE organization_id=:o AND trainer_id=:t
+              AND event_kind='initial_compensation'
+            UNION ALL
+            SELECT after_version,operation_id,actor_id,actor_role,actor_branch,target_home,
+              before_rate,after_rate,before_fixed,after_fixed,NULL::numeric,NULL::date,recorded_at
+            FROM audit_compensation_events WHERE organization_id=:o AND trainer_id=:t"""
+        args = {"o": organization, "t": trainer, "off": offset, "lim": limit}
+        total = int(
+            self.s.execute(text("SELECT count(*) FROM (" + query + ") h"), args).scalar_one()
+        )
+        rows = self.s.execute(
+            text(
+                "SELECT * FROM (" + query + ") h ORDER BY compensation_version "
+                "OFFSET :off LIMIT :lim"
+            ),
+            args,
+        )
+        items = []
+        for row in rows:
+            month = row.initial_base_salary_start_month
+            items.append(
+                CompensationHistoryItem(
+                    row.compensation_version,
+                    row.operation_id,
+                    row.actor_id,
+                    row.actor_role,
+                    row.actor_branch,
+                    row.target_home,
+                    row.before_rate,
+                    row.after_rate,
+                    str(row.before_fixed) if row.before_fixed is not None else None,
+                    str(row.after_fixed),
+                    str(row.initial_base_salary_won)
+                    if row.initial_base_salary_won is not None
+                    else None,
+                    f"{month.year:04d}-{month.month:02d}" if month is not None else None,
+                    row.recorded_at,
+                )
+            )
+        return CompensationHistoryPage(tuple(items), total)

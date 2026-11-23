@@ -1,3 +1,11 @@
+# 2026-11-23 WORKFORCE-004 현재 게이트
+
+[제한 계약](workforce-004-compensation-design.md)은 이미 승인된 현재 Home 인가/본인 겸임·Rate/Fixed 변경·초기 포함 이력의 최소 구현이다.
+개발자·독립 tester 기술진입 검토에서 새 Product 질문은 없었다. 초기 감사 read 소유권·독립 시각·ASC 페이지·NULL FK·실제 하위 DDL 준비를 확정했다.
+2026-11-24 구현·동결·새 독립 실행·설계자 로컬 인수를 마쳤다. [결과](workforce-004-compensation-results.md)의
+fast197·선정PG39 단일 실행/HTTPS54조건에 한정하며 PG745는 미실행이다. 전담 커밋·일반 feature push가 후속이다.
+Base 일정 편집/정산/PT·다른 OPEN/운영 게이트는 유지한다.
+
 # 2026-11-23 WORKFORCE-003 현재 게이트
 
 [WF3-1](../product/product-decisions.md#review-20261122-trainer-home-states)=1로 BR-OPS-013의 대상 상태 게이트를 해결했다.

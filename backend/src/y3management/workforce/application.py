@@ -10,6 +10,10 @@ from y3management.iam.public import Caller
 from y3management.organization.public import ScopedBranchFact
 from y3management.workforce.infrastructure import Repository
 from y3management.workforce.public import (
+    CompensationChange,
+    CompensationRequest,
+    CompensationResult,
+    CompensationState,
     ManagedTrainer,
     RegisterTrainer,
     RegistrationResult,
@@ -22,7 +26,7 @@ from y3management.workforce.public import (
     TrainerStateRequest,
     TrainerStateResult,
 )
-from y3management.workforce.validation import fingerprint, normalize
+from y3management.workforce.validation import fingerprint, money, normalize
 
 
 class Workforce:
@@ -195,4 +199,58 @@ class Workforce:
 
     def confirm_home(self, caller: Caller, result: TrainerHomeResult) -> None:
         if self.home_operation(caller, result.operation_id) != result:
+            raise Rejected(409, "conflict")
+
+    def compensation(self, caller: Caller, trainer: UUID) -> CompensationState:
+        fact = self.repo.identity(caller.organization_id, trainer, shared=True)
+        self._scope(caller, fact.home_branch_id, fact.organization_id)
+        return self.repo.compensation(caller.organization_id, trainer)
+
+    def compensation_operation(self, caller: Caller, operation: UUID) -> CompensationResult | None:
+        row = self.repo.compensation_operation(caller.organization_id, operation)
+        if row is None:
+            return None
+        if row[2] != caller.account_id:
+            raise Rejected(404, "not_found")
+        self.compensation(caller, row[0].trainer_id)
+        return row[0]
+
+    def change_compensation(
+        self, caller: Caller, fact: TrainerIdentityFact, request: CompensationRequest
+    ) -> tuple[CompensationResult, CompensationChange | None]:
+        self._scope(caller, fact.home_branch_id, fact.organization_id)
+        if (
+            type(request.rate_percent) is not int
+            or not 0 <= request.rate_percent <= 100
+            or type(request.expected_compensation_version) is not int
+            or request.expected_compensation_version < 1
+            or type(request.expected_trainer_version) is not int
+            or request.expected_trainer_version < 1
+        ):
+            raise Rejected(422, "invalid_request")
+        money(request.fixed_amount_won)
+        payload = {
+            **asdict(request),
+            "actor_id": caller.account_id,
+            "trainer_id": fact.trainer_id,
+            "canonical_version": 1,
+        }
+        digest = hashlib.sha256(
+            json.dumps(payload, sort_keys=True, default=str, separators=(",", ":")).encode()
+        ).digest()
+        old = self.repo.compensation_operation(caller.organization_id, request.operation_id)
+        if old:
+            if old[2] != caller.account_id or old[1] != digest:
+                raise Rejected(409, "operation_conflict")
+            return old[0], None
+        current = self.compensation(caller, fact.trainer_id)
+        if (
+            fact.version != request.expected_trainer_version
+            or current.compensation_version != request.expected_compensation_version
+        ):
+            raise Rejected(409, "conflict")
+        return self.repo.change_compensation(caller, fact, current, request, digest)
+
+    def confirm_compensation(self, caller: Caller, result: CompensationResult) -> None:
+        if self.compensation_operation(caller, result.operation_id) != result:
             raise Rejected(409, "conflict")

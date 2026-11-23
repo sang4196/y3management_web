@@ -1,3 +1,11 @@
+# WORKFORCE-004 로컬 인수 완료 — 보상 설정 조회·Rate/Fixed 변경
+
+승인된 BR-PAY-010/011/023의 최소 흐름이다. [제한 계약](workforce-004-compensation-design.md)의 개발자·독립 tester 사전검토 후 구현을 허용했다.
+현재 Home 범위·관리자 본인 겸임/보상 비공개·독립 version·초기 이력을 유지한다. 기본급은 최초값/시작월 조회만 하며 일정 편집·PT/정산·운영은 후속이다.
+2026-11-24 [결과](workforce-004-compensation-results.md) / [최소 근거](workforce-004-compensation-review.json)의
+새 독립 fast197·선정PG39 단일 실행/실제 HTTPS54조건·소스 보존/자원 정리를 설계자가 인수했다. PG784 중745개는 미실행이다.
+초기 실패와 미확정 원인·수정 범위를 구분하며 다른 OPEN/전역 PROPOSED를 닫지 않는다. 다음은 별도 기본급 일정 편집이다.
+
 # WORKFORCE-003 로컬 인수 완료 — Trainer 소속 지점 변경
 
 2026-11-22 사용자 WF3-1=1/11-23 반영. 모든 Trainer/연결 계정 상태의 Master 전용 이동을 승인받았다.

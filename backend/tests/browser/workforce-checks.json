@@ -38,5 +38,19 @@
   "home_receipt_keeps_current",
   "home_actor_switch_blocks",
   "home_stale_response_blocked",
-  "home_branch_name_display"
+  "home_branch_name_display",
+  "compensation_initial_base",
+  "compensation_actual_ui",
+  "compensation_exact_string",
+  "compensation_double_click",
+  "compensation_history_initial_and_change",
+  "compensation_current_ba",
+  "compensation_noop",
+  "compensation_ack_reconciled",
+  "compensation_receipt_current",
+  "compensation_stale_same_trainer_version",
+  "compensation_no_mobile_overflow",
+  "compensation_old_home_denied",
+  "compensation_actor_switch_blocks",
+  "compensation_receipt_fresh_publication"
 ]

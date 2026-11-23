@@ -8,6 +8,8 @@ from typing import Literal
 from uuid import UUID
 
 from y3management.audit.public import (
+    CompensationEvent,
+    CompensationHistoryPage,
     Event,
     InitialCompensationSet,
     OperatorAccountEvent,
@@ -51,6 +53,9 @@ from y3management.iam.public import (
 from y3management.organization.public import AssignmentCandidate, Branch, BranchPage
 from y3management.uow import UnitOfWork, Work
 from y3management.workforce.public import (
+    CompensationRequest,
+    CompensationResult,
+    CompensationState,
     ManagedTrainer,
     RegisterTrainer,
     RegistrationResult,
@@ -1693,5 +1698,80 @@ class Service:
                 raise Rejected(409, "conflict")
             if w.workforce.lock_identity(a.caller.organization_id, trainer) != result.current_state:
                 raise Rejected(409, "conflict")
+            w.roles.confirm_actor(snapshot, self_change=False, touch=change is not None)
+            return result
+
+    def compensation(
+        self, auth: str | None, trainer: UUID, *, expected_actor: UUID
+    ) -> CompensationState:
+        with self.uow.open() as w:
+            a = w.iam.authenticate(auth, management=True, touch=False)
+            if a.caller.account_id != expected_actor:
+                raise Rejected(409, "actor_changed")
+            snapshot = w.roles.snapshot(a)
+            fact = self._trainer_scope(w, a.caller, trainer)
+            result = w.workforce.compensation(a.caller, trainer)
+            if self._trainer_scope(w, a.caller, trainer) != fact:
+                raise Rejected(409, "conflict")
+            if w.workforce.compensation(a.caller, trainer) != result:
+                raise Rejected(409, "conflict")
+            w.roles.confirm_actor(snapshot, self_change=False)
+            return result
+
+    def compensation_history(
+        self, auth: str | None, trainer: UUID, offset: int, limit: int, *, expected_actor: UUID
+    ) -> CompensationHistoryPage:
+        if offset < 0 or not 1 <= limit <= 100:
+            raise Rejected(422, "invalid_request")
+        with self.uow.open() as w:
+            a = w.iam.authenticate(auth, management=True, touch=False)
+            if a.caller.account_id != expected_actor:
+                raise Rejected(409, "actor_changed")
+            snapshot = w.roles.snapshot(a)
+            fact = self._trainer_scope(w, a.caller, trainer)
+            result = w.audit.compensation_history(a.caller.organization_id, trainer, offset, limit)
+            if self._trainer_scope(w, a.caller, trainer) != fact:
+                raise Rejected(409, "conflict")
+            w.roles.confirm_actor(snapshot, self_change=False)
+            return result
+
+    def compensation_operation(
+        self, auth: str | None, operation: UUID, *, expected_actor: UUID
+    ) -> CompensationResult:
+        with self.uow.open() as w:
+            a = w.iam.authenticate(auth, management=True, touch=False)
+            if a.caller.account_id != expected_actor:
+                raise Rejected(409, "actor_changed")
+            snapshot = w.roles.snapshot(a)
+            result = w.workforce.compensation_operation(a.caller, operation)
+            if result is None:
+                raise Rejected(404, "not_found")
+            self._trainer_scope(w, a.caller, result.trainer_id)
+            w.workforce.confirm_compensation(a.caller, result)
+            w.roles.confirm_actor(snapshot, self_change=False)
+            return result
+
+    def change_compensation(
+        self,
+        auth: str | None,
+        nonce: str | None,
+        trainer: UUID,
+        request: CompensationRequest,
+        *,
+        expected_actor: UUID,
+    ) -> CompensationResult:
+        with self.uow.open() as w:
+            a = w.iam.authenticate(auth, management=True, touch=False)
+            if a.caller.account_id != expected_actor:
+                raise Rejected(409, "actor_changed")
+            w.iam.csrf(a, nonce)
+            snapshot = w.roles.snapshot(a)
+            fact = self._trainer_scope(w, a.caller, trainer, exclusive=True)
+            result, change = w.workforce.change_compensation(a.caller, fact, request)
+            if change is not None:
+                w.audit.append_compensation(CompensationEvent(**asdict(change)))
+            if self._trainer_scope(w, a.caller, trainer) != fact:
+                raise Rejected(409, "conflict")
+            w.workforce.confirm_compensation(a.caller, result)
             w.roles.confirm_actor(snapshot, self_change=False, touch=change is not None)
             return result

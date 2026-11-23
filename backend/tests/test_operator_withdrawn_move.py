@@ -222,7 +222,7 @@ def test_withdrawn_history_blocks18_downgrade_before_ddl(
     trainer: TrainerScene, history: str
 ) -> None:
     from tests.test_account_lifecycle import lifecycle_fingerprints
-    from tests.workforce_home_seed import assert_revision_loss_guard
+    from tests.workforce_compensation_seed import assert_revision_loss_guard
 
     t = trainer
     row = withdrawn(t)

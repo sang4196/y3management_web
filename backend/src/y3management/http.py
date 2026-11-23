@@ -26,7 +26,12 @@ from y3management.iam.public import (
     TrainerRoleRequest,
 )
 from y3management.use_cases import Service
-from y3management.workforce.public import RegisterTrainer, TrainerHomeRequest, TrainerStateRequest
+from y3management.workforce.public import (
+    CompensationRequest,
+    RegisterTrainer,
+    TrainerHomeRequest,
+    TrainerStateRequest,
+)
 
 AUTH = "__Host-y3-auth"
 PREAUTH = "__Host-y3-preauth"
@@ -80,6 +85,14 @@ class TrainerAccountInput(Input):
 class TrainerSetupInput(Input):
     operation_id: UUID
     expected_account_version: int = Field(strict=True, ge=1)
+
+
+class CompensationInput(Input):
+    operation_id: UUID
+    rate_percent: int = Field(strict=True, ge=0, le=100)
+    fixed_amount_won: str = Field(strict=True, max_length=1024)
+    expected_compensation_version: int = Field(strict=True, ge=1)
+    expected_trainer_version: int = Field(strict=True, ge=1)
 
 
 class TrainerHomeInput(Input):
@@ -892,6 +905,60 @@ def attach(app: FastAPI, settings: Settings) -> None:
         result = service(request).trainer_registration(read(request), operation)
         return {"operation_id": result.operation_id, "trainer": asdict(result.trainer)}
 
+    @router.get("/admin/trainers/{ident}/compensation")
+    def compensation(
+        request: Request, ident: UUID, expected_actor: ExpectedOperatorActor
+    ) -> dict[str, object]:
+        workforce_query(request, set())
+        return asdict(
+            service(request).compensation(read(request), ident, expected_actor=expected_actor)
+        )
+
+    @router.get("/admin/trainers/{ident}/compensation-history")
+    def compensation_history(
+        request: Request,
+        ident: UUID,
+        expected_actor: ExpectedOperatorActor,
+        offset: int = 0,
+        limit: int = 25,
+    ) -> dict[str, object]:
+        workforce_query(request, {"offset", "limit"})
+        return asdict(
+            service(request).compensation_history(
+                read(request), ident, offset, limit, expected_actor=expected_actor
+            )
+        )
+
+    @router.post("/admin/trainers/{ident}/compensation")
+    def change_compensation(
+        request: Request,
+        ident: UUID,
+        body: CompensationInput,
+        expected_actor: ExpectedOperatorActor,
+    ) -> dict[str, object]:
+        workforce_query(request, set())
+        auth, nonce = write(request)
+        return asdict(
+            service(request).change_compensation(
+                auth,
+                nonce,
+                ident,
+                CompensationRequest(**body.model_dump()),
+                expected_actor=expected_actor,
+            )
+        )
+
+    @router.get("/admin/trainer-compensation-operations/{operation}")
+    def compensation_operation(
+        request: Request, operation: UUID, expected_actor: ExpectedOperatorActor
+    ) -> dict[str, object]:
+        workforce_query(request, set())
+        return asdict(
+            service(request).compensation_operation(
+                read(request), operation, expected_actor=expected_actor
+            )
+        )
+
     @router.post("/admin/trainers/{ident}/home")
     def change_trainer_home(
         request: Request,
@@ -1281,6 +1348,7 @@ if(identity.capabilities.includes('accounts:manage'))
  resetRefresh=resetControls(li,t,async()=>{await roleRefresh();await accountRefresh(true);});
 stateControls(li,t,async()=>{await roleRefresh();await accountRefresh(true);await resetRefresh();});
 if(identity.roles.some(r=>r.role==='ADMIN'&&r.scope==='ORGANIZATION'))homeControls(li,t);
+compensationControls(li,t);
 }}
 // Only the newest read may publish a complete snapshot; writes invalidate older reads.
 function latestRead(){let epoch=0,current=Promise.resolve();
@@ -1630,6 +1698,111 @@ try{await load();}catch{current=null;
 refresh.addEventListener('click',()=>{if(!working)refreshState();});
 buttons();refreshState();return refreshState;
 }
+function compensationControls(li,t){
+const owner=identity.account_id,box=document.createElement('section');
+box.dataset.compensationTrainer=t.id;
+const title=document.createElement('h3');title.textContent='보상 설정';
+const status=document.createElement('p'),base=document.createElement('p');
+base.dataset.compensationBase='';
+const rate=document.createElement('input'),fixed=document.createElement('input');
+rate.setAttribute('aria-label','보상 Rate (%)');
+fixed.setAttribute('aria-label','보상 Fixed Amount (원)');
+rate.inputMode=fixed.inputMode='numeric';rate.dataset.compensationRate='';fixed.dataset.compensationFixed='';
+const change=document.createElement('button'),fresh=document.createElement('button');
+const check=document.createElement('button'),next=document.createElement('button');
+change.textContent='Rate/Fixed 저장';fresh.textContent='보상 새로 조회';
+check.textContent='보상 작업 결과 확인';next.textContent='이력 다음 페이지';
+change.dataset.compensationChange='';fresh.dataset.compensationRefresh='';
+check.dataset.compensationCheck='';next.dataset.compensationNext='';
+for(const b of [change,fresh,check,next])b.type='button';
+const operation=document.createElement('input');
+operation.setAttribute('aria-label','보상 작업 번호');
+operation.dataset.compensationOperation='';
+const history=document.createElement('ol');history.dataset.compensationHistory='';
+const result=document.createElement('p');result.setAttribute('role','status');
+result.dataset.compensationResult='';
+box.append(title,status,rate,fixed,base,change,fresh,operation,check,history,next,result);li.append(box);
+let generation=0,working=false,ready=false,pending=null,selection=null,highest=0;
+let offset=0,more=false;
+function buttons(){change.disabled=working||!ready||!!pending;
+rate.disabled=fixed.disabled=working||!ready||!!pending;
+fresh.disabled=check.disabled=operation.disabled=working;next.disabled=working||!ready||!more;}
+async function actor(){const r=await fetch('/api/v1/auth/me');if(!r.ok)throw Error();
+const me=await r.json();if(me.account_id!==owner||!me.roles.some(r=>r.role==='ADMIN')){
+ generation++;ready=false;selection=null;status.textContent='로그인 사용자가 변경되었습니다.';
+ rate.value=fixed.value='';base.textContent='';history.replaceChildren();result.textContent='';
+ buttons();throw Error();}}
+async function get(path){const r=await fetch('/api/v1'+path,
+ {headers:{'X-Y3-Expected-Actor':owner}});
+if(!r.ok)throw Error();return r.json();}
+async function load(){const mine=++generation;ready=false;buttons();await actor();
+const [current,page,trainer]=await Promise.all([
+ get('/admin/trainers/'+t.id+'/compensation'),
+ get('/admin/trainers/'+t.id+'/compensation-history?offset='+offset+'&limit=25'),
+ get('/admin/trainers/'+t.id)]);await actor();if(mine!==generation)return false;
+if(current.trainer_id!==t.id||current.trainer_version<t.version||
+ current.compensation_version<highest||trainer.version!==current.trainer_version||
+ trainer.home_branch_id!==current.home_branch_id||page.total!==current.compensation_version){
+ selection=null;ready=false;status.textContent='설정이 변경되었습니다. 보상을 새로 조회하세요.';
+ buttons();return false;}
+updateTrainer(t,trainer);highest=current.compensation_version;selection=current;
+rate.value=String(current.rate_percent);fixed.value=current.fixed_amount_won;
+base.textContent='최초 일반 기본급 설정: '+current.initial_base_salary_won+'원 / 적용 시작 월: '+
+ current.initial_base_salary_start_month+' (이 화면에서는 변경하지 않습니다)';
+status.textContent='현재 Rate/Fixed 설정';history.replaceChildren();
+for(const item of page.items){const row=document.createElement('li');
+row.textContent=(item.before_rate===null?'최초 설정':'변경')+' #'+item.compensation_version+
+ ': Rate '+(item.before_rate===null?'없음':item.before_rate)+' → '+item.after_rate+'%, Fixed '+
+ (item.before_fixed===null?'없음':item.before_fixed)+' → '+item.after_fixed+'원 / '+
+ item.actor_role+' '+item.actor_id+' / '+item.recorded_at;history.append(row);}
+more=offset+page.items.length<page.total;ready=true;buttons();return true;}
+function validSelection(){return selection&&selection.trainer_version===t.version&&
+ selection.home_branch_id===t.home_branch_id&&selection.compensation_version===highest;}
+change.addEventListener('click',async()=>{if(working||!ready||pending)return;
+if(!validSelection()){ready=false;status.textContent='현재 보상을 새로 조회하세요.';
+ buttons();return;}
+if(!/^(0|[1-9][0-9]?|100)$/.test(rate.value)||! /^(0|[1-9][0-9]{0,1023})$/.test(fixed.value)){
+ result.textContent='Rate는 0~100 정수, Fixed는 0원 이상 정수로 입력하세요.';return;}
+const mine=generation;pending={actor:owner,trainer:t.id,body:{operation_id:crypto.randomUUID(),
+ rate_percent:Number(rate.value),fixed_amount_won:fixed.value,
+ expected_compensation_version:selection.compensation_version,
+ expected_trainer_version:selection.trainer_version}};operation.value=pending.body.operation_id;
+working=true;buttons();try{await actor();if(mine!==generation||!validSelection())throw Error();
+const c=await fetch('/api/v1/auth/csrf',{headers:{'X-Y3-Client':'compensation'}});
+if(!c.ok)throw Error();const nonce=(await c.json()).csrf_token;await actor();
+if(mine!==generation||!validSelection())throw Error();
+const r=await fetch('/api/v1/admin/trainers/'+pending.trainer+'/compensation',{method:'POST',
+ headers:{'Content-Type':'application/json','X-CSRF-Token':nonce,'X-Y3-Expected-Actor':owner},
+ body:JSON.stringify(pending.body)});if(!r.ok)throw Error();const data=await r.json();
+await actor();if(mine!==generation||data.trainer_id!==t.id)throw Error();
+highest=Math.max(highest,data.current_state.compensation_version);
+if(!await load())throw Error();
+result.textContent=data.changed?'Rate/Fixed 저장 완료':'동일한 설정으로 변경 없음';
+}catch{ready=false;result.textContent='결과가 불명확합니다. 작업 번호로 확인하세요.';}
+finally{working=false;buttons();}});
+check.addEventListener('click',async()=>{if(working)return;const mine=generation;
+const id=operation.value.trim();
+if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))return;
+working=true;buttons();try{await actor();
+const data=await get('/admin/trainer-compensation-operations/'+encodeURIComponent(id));
+await actor();if(mine!==generation||data.trainer_id!==t.id)throw Error();
+highest=Math.max(highest,data.current_state.compensation_version);
+if(!await load())throw Error();
+result.textContent='작업 당시 Rate/Fixed: '+data.committed_rate_percent+'% / '+
+ data.committed_fixed_amount_won+'원; 현재: '+selection.rate_percent+'% / '+
+ selection.fixed_amount_won+'원';
+}catch{ready=false;result.textContent='현재 권한과 작업 결과를 확인할 수 없습니다.';}
+finally{working=false;buttons();}});
+async function refresh(reset){if(working)return;working=true;buttons();if(reset)offset=0;
+try{if(!await load())throw Error();pending=null;operation.value='';result.textContent='';}
+catch{ready=false;rate.value=fixed.value='';base.textContent='';history.replaceChildren();
+ result.textContent='현재 보상을 확인할 수 없습니다.';}
+finally{working=false;buttons();}}
+fresh.addEventListener('click',()=>refresh(true));
+next.addEventListener('click',()=>{if(more&&!working){offset+=25;refresh(false);}});
+addEventListener('pagehide',()=>{generation++;ready=false;selection=null;buttons();});
+load().catch(()=>{ready=false;buttons();status.textContent='현재 보상을 확인할 수 없습니다.';});
+}
 function homeControls(li,t){
 const owner=identity.account_id,box=document.createElement('section');box.dataset.homeTrainer=t.id;
 const title=document.createElement('h3');title.textContent='소속 지점 변경';
@@ -1711,7 +1884,7 @@ const committedName=await branchName(data.committed_home_branch_id);
 const currentName=await branchName(data.current_state.home_branch_id);
 await actor();if(mine!==generation)throw Error();
 await load();result.textContent='작업 당시 소속: '+beforeName+' → '+committedName+
- ' / 현재 소속: '+currentName;
+ ' / 결과 조회 당시 소속: '+currentName;
 }catch{ready=false;result.textContent='현재 권한과 작업 결과를 확인할 수 없습니다.';}
 finally{working=false;buttons();}});
 fresh.addEventListener('click',async()=>{if(working)return;working=true;buttons();

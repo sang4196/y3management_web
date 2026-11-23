@@ -579,3 +579,28 @@ UUID `X-Y3-Expected-Actor`를 전달한다. 작업 조회도 같은 헤더와 �
 선정 검사는 `tests/test_workforce_home.py`, `tests/test_workforce_home_storage.py`와
 기존 `test_workforce_native`/`browser/workforce-checks.json`에 있다. 전용 schema/프로세스의
 정리는 기존 pytest QA fixture를 따른다. 실제 검증 범위·실패·동결 SHA는 해당 QA 실행 보고를 따른다.
+
+
+### WORKFORCE-004 보상 설정 조회·Rate/Fixed 변경
+
+현재 runtime의 schema head는 `0020_workforce_compensation`이며 기존 policy2/target14를 유지한다.
+현재 코드와 원래19 실행본은 서로 다른 head에서 시작을 거부한다. 원래0001–0019를 수정하지 않는다.
+
+기등록 Trainer의 별도 `/api/v1/admin/trainers/{id}/compensation` GET/POST와
+`compensation-history` GET, `/api/v1/admin/trainer-compensation-operations/{uuid}` GET을 제공한다.
+신규 네 경로는 UUID `X-Y3-Expected-Actor`와 현재 Master/대상 현재 Home 관리 Branch Admin 권한을 확인한다.
+독립 관리 Scope 안 본인 겸임도 허용한다. 기본 목록/identity·계정 응답은 보상값을 공개하지 않는다.
+
+Rate/Fixed 변경에는 두 명시 값과 operation UUID, `expected_compensation_version`,
+`expected_trainer_version`이 필요하다. 실제 변경만 보상 version을 증가시키고 Trainer/IAM 상태는 보존한다.
+Rate0~100 정수, Fixed0원 이상 정확한 정수원 문자열(기존1024자리 표현 범위)을 사용한다.
+최초 일반 기본급 금액·시작월은 읽기만 제공하며 Base일정/PT 지급/월 정산 변경은 포함하지 않는다.
+
+이력은 원래 초기 감사의 시각/전후값과 새 변경을 보상 version ASC로 제공한다.
+최초 before없음과 명시0은 구분한다. receipt의 committed 값은 당시 사실이며 별도 현재 조회를 덮지 않는다.
+불명 응답은 원래 UUID로 대사하고 자동 새 명령을 만들지 않는다. 신규 receipt(noop 포함)/변경·감사가
+남으면0020 downgrade를 거부한다. 최초값과 정확히 중복되는 보상 version1 metadata만 안전하게 제거한다.
+
+새 검사는 `test_workforce_compensation*.py`와 기존 workforce native manifest에 있으며,
+하위 역사 guard는 WF4-local 실제20→19 inverse adapter 뒤 원래 guard를 실행한다.
+공통 fixture/원래 migration·역사 harness와 소유 QA 정리 절차는 유지한다.

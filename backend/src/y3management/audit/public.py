@@ -83,6 +83,11 @@ class OperatorAccountEvent:
 
 
 class AuditPort(Protocol):
+    def append_compensation(self, event: CompensationEvent) -> None: ...
+    def compensation_history(
+        self, organization: UUID, trainer: UUID, offset: int, limit: int
+    ) -> CompensationHistoryPage: ...
+
     def append_trainer_home(self, event: TrainerHomeEvent) -> None: ...
 
     def append_operator_role(self, event: OperatorRoleEvent) -> None: ...
@@ -214,3 +219,44 @@ class TrainerHomeEvent:
     recorded_at: datetime
     actor_role: str = "MASTER"
     actor_branch: UUID | None = None
+
+
+@dataclass(frozen=True, repr=False)
+class CompensationEvent:
+    organization_id: UUID
+    operation_id: UUID
+    trainer_id: UUID
+    actor_id: UUID
+    actor_role: str
+    actor_branch: UUID | None
+    target_home: UUID
+    before_rate: int
+    after_rate: int
+    before_fixed: str
+    after_fixed: str
+    before_version: int
+    after_version: int
+    recorded_at: datetime
+
+
+@dataclass(frozen=True, repr=False)
+class CompensationHistoryItem:
+    compensation_version: int
+    operation_id: UUID
+    actor_id: UUID
+    actor_role: str
+    actor_branch: UUID | None
+    target_home: UUID
+    before_rate: int | None
+    after_rate: int
+    before_fixed: str | None
+    after_fixed: str
+    initial_base_salary_won: str | None
+    initial_base_salary_start_month: str | None
+    recorded_at: datetime
+
+
+@dataclass(frozen=True, repr=False)
+class CompensationHistoryPage:
+    items: tuple[CompensationHistoryItem, ...]
+    total: int

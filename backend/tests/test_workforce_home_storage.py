@@ -65,7 +65,7 @@ def test_real18_observation_runtime_and_state_only_inverse(
         pytest.fail("Current19 accepted18")
     old = seed18(settings, password, tmp_path)
     before = lifecycle_fingerprints(db)
-    migrate(settings, "upgrade", "head")
+    migrate(settings, "upgrade", "0019_workforce_trainer_home")
     after = lifecycle_fingerprints(db)
     assert all(after[k] == v for k, v in before.items() if k != "alembic_version")
     with db.session() as s:
@@ -103,7 +103,7 @@ assert not started
         s.execute(text("UPDATE workforce_trainers SET active=false,row_version=row_version+1"))
         s.commit()
     migrate(settings, "downgrade", "0018_withdrawn_operator_move")
-    migrate(settings, "upgrade", "head")
+    migrate(settings, "upgrade", "0019_workforce_trainer_home")
     with db.session() as s:
         assert (
             s.execute(
@@ -238,6 +238,8 @@ def test_registered_inverse_and_actual_home_information_loss_guard(
             if kind in ("noop", "move"):
                 home = branch if kind == "noop" else destination(t)
                 assert move(t, body(t, home)).status_code == 200
+    # This is original19 Home inverse acceptance, separate from new20 metadata.
+    migrate(settings, "downgrade", "0019_workforce_trainer_home")
     with db.session() as s:
         if kind == "registered_mismatch":
             s.execute(

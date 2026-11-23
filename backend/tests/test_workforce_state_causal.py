@@ -26,7 +26,7 @@ from tests.test_iam_trainer_roles_security import link
 from tests.test_workforce import scene  # noqa: F401
 from tests.test_workforce_integrity import branch_actor, observe_waiter, wait_for_owned_block
 from tests.test_workforce_state import change, request
-from tests.workforce_home_seed import password_downgrade_guard
+from tests.workforce_compensation_seed import password_downgrade_guard
 from tests.workforce_state_seed import assert_loss_guard, legacy_trainer  # noqa: F401
 from y3management.audit.infrastructure import Audit
 from y3management.audit.public import TrainerIdentityEvent, TrainerStateEvent

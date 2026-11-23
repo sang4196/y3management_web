@@ -2,7 +2,7 @@
 const fs=require('fs'),path=require('path'),R=process.env.Y3_BROWSER_RUN;
 const checks={},required=JSON.parse(fs.readFileSync(path.join(R,'required-checks.json')));
 let stage='start';
-(async()=>{let browser;try{
+(async()=>{let browser;const heldReleases=[];try{
 const {chromium}=require(path.join(R,'playwright-core'));
 const cfg=JSON.parse(fs.readFileSync(path.join(R,'input.json')));
 browser=await chromium.launch({executablePath:path.join(R,'browser-binaries/chrome'),
@@ -98,6 +98,123 @@ req.write(payload.subarray(0,3000));setTimeout(()=>{req.write(payload.subarray(3
 setTimeout(()=>req.end(payload.subarray(6000)),10);},10);});}
 checks.actual_chunked_8192=(await chunked(8192))===200;
 checks.actual_chunked_8193=(await chunked(8193))===413;
+stage='compensation';await p.goto(cfg.origin+'/trainers');
+const comp=p.locator('[data-compensation-trainer="'+data.trainer.id+'"]');
+await comp.locator('[data-compensation-change]').waitFor();
+await p.waitForFunction(id=>!document.querySelector('[data-compensation-trainer="'+id+'"] [data-compensation-change]').disabled,
+ data.trainer.id);
+const compOwner=(await get(p,'/auth/me')).body.account_id;
+async function compGet(page,suffix){return page.evaluate(async({id,suffix})=>{
+ const me=await(await fetch('/api/v1/auth/me')).json();
+ const r=await fetch('/api/v1/admin/trainers/'+id+'/'+suffix,
+ {headers:{'X-Y3-Expected-Actor':me.account_id}});return {status:r.status,body:await r.json()};
+},{id:data.trainer.id,suffix});}
+async function compPost(command){return p.evaluate(async({id,owner,command})=>{
+ const c=await(await fetch('/api/v1/auth/csrf',{headers:{'X-Y3-Client':'browser-comp'}})).json();
+ const r=await fetch('/api/v1/admin/trainers/'+id+'/compensation',{method:'POST',
+ headers:{'Content-Type':'application/json','X-CSRF-Token':c.csrf_token,'X-Y3-Expected-Actor':owner},
+ body:JSON.stringify(command)});return {status:r.status,body:await r.json()};
+},{id:data.trainer.id,owner:compOwner,command});}
+checks.compensation_initial_base=(await comp.locator('[data-compensation-base]').textContent()).includes('9999-12')&&
+ (await comp.locator('[data-compensation-base]').textContent()).includes('9'.repeat(1024))&&
+ await comp.locator('[data-compensation-history] li').count()===1;
+let compWrites=0,firstCompCommand;
+p.on('request',r=>{if(r.url().endsWith('/'+data.trainer.id+'/compensation')&&r.method()==='POST'){
+ compWrites++;if(!firstCompCommand)firstCompCommand=r.postDataJSON();}});
+await comp.locator('[data-compensation-rate]').fill('75');
+await comp.locator('[data-compensation-fixed]').fill('9007199254740993');
+let compResponse=p.waitForResponse(r=>r.url().endsWith('/'+data.trainer.id+'/compensation')&&r.request().method()==='POST');
+await comp.locator('[data-compensation-change]').dblclick();let changedComp=await compResponse;
+const firstCompReceipt=await changedComp.json();
+await p.waitForFunction(id=>document.querySelector('[data-compensation-trainer="'+id+'"] [data-compensation-result]')
+ .textContent.includes('저장 완료'),data.trainer.id);
+checks.compensation_actual_ui=changedComp.status()===200&&firstCompReceipt.changed&&
+ firstCompReceipt.current_state.trainer_version===data.trainer.version;
+checks.compensation_exact_string=firstCompCommand.fixed_amount_won==='9007199254740993'&&
+ typeof firstCompCommand.fixed_amount_won==='string';
+checks.compensation_double_click=compWrites===1;
+checks.compensation_history_initial_and_change=await comp.locator('[data-compensation-history] li').count()===2;
+checks.compensation_current_ba=(await compGet(b,'compensation')).status===200;
+await comp.locator('[data-compensation-refresh]').click();
+await p.waitForFunction(id=>!document.querySelector('[data-compensation-trainer="'+id+'"] [data-compensation-change]').disabled,
+ data.trainer.id);
+compResponse=p.waitForResponse(r=>r.url().endsWith('/'+data.trainer.id+'/compensation')&&r.request().method()==='POST');
+await comp.locator('[data-compensation-change]').click();changedComp=await compResponse;
+checks.compensation_noop=changedComp.status()===200&&(await changedComp.json()).changed===false;
+await p.waitForFunction(id=>!document.querySelector('[data-compensation-trainer="'+id+'"] [data-compensation-refresh]').disabled,
+ data.trainer.id);
+await comp.locator('[data-compensation-refresh]').click();
+await p.waitForFunction(id=>!document.querySelector('[data-compensation-trainer="'+id+'"] [data-compensation-change]').disabled,
+ data.trainer.id);
+await comp.locator('[data-compensation-rate]').fill('80');await comp.locator('[data-compensation-fixed]').fill('1');
+let compAck=false;await p.route('**/api/v1/admin/trainers/'+data.trainer.id+'/compensation',async route=>{
+ if(route.request().method()==='POST'){const response=await route.fetch();compAck=response.status()===200;
+ await route.abort();}else await route.continue();});
+await comp.locator('[data-compensation-change]').click();
+await p.waitForFunction(id=>document.querySelector('[data-compensation-trainer="'+id+'"] [data-compensation-result]')
+ .textContent.includes('불명확'),data.trainer.id);
+await p.unroute('**/api/v1/admin/trainers/'+data.trainer.id+'/compensation');
+await comp.locator('[data-compensation-check]').click();
+await p.waitForFunction(id=>document.querySelector('[data-compensation-trainer="'+id+'"] [data-compensation-result]')
+ .textContent.includes('작업 당시'),data.trainer.id);
+checks.compensation_ack_reconciled=compAck&&(await compGet(p,'compensation')).body.rate_percent===80;
+await p.waitForFunction(id=>!document.querySelector('[data-compensation-trainer="'+id+'"] [data-compensation-refresh]').disabled,
+ data.trainer.id);
+await comp.locator('[data-compensation-operation]').fill(firstCompReceipt.operation_id);
+await comp.locator('[data-compensation-check]').click();
+await p.waitForFunction(id=>document.querySelector('[data-compensation-trainer="'+id+'"] [data-compensation-result]')
+ .textContent.includes('75% / 9007199254740993원; 현재: 80% / 1원'),data.trainer.id);
+checks.compensation_receipt_current=(await compGet(p,'compensation')).body.compensation_version===3;
+stage='compensation-receipt-freshness';let receiptRaceStatus=0;
+await p.route('**/api/v1/admin/trainer-compensation-operations/'+firstCompReceipt.operation_id,async route=>{
+ const response=await route.fetch();const oldReceipt=await response.json();
+ const next=await compPost({operation_id:await p.evaluate(()=>crypto.randomUUID()),rate_percent:85,
+ fixed_amount_won:'7',expected_trainer_version:oldReceipt.current_state.trainer_version,
+ expected_compensation_version:oldReceipt.current_state.compensation_version});receiptRaceStatus=next.status;
+ await route.fulfill({response});});
+await p.waitForFunction(id=>!document.querySelector('[data-compensation-trainer="'+id+'"] [data-compensation-check]').disabled,
+ data.trainer.id);
+await comp.locator('[data-compensation-check]').click();
+await p.waitForFunction(id=>document.querySelector('[data-compensation-trainer="'+id+'"] [data-compensation-result]')
+ .textContent.includes('현재: 85% / 7원'),data.trainer.id);
+await p.unroute('**/api/v1/admin/trainer-compensation-operations/'+firstCompReceipt.operation_id);
+checks.compensation_receipt_fresh_publication=receiptRaceStatus===200&&
+ await comp.locator('[data-compensation-fixed]').inputValue()==='7';
+
+stage='compensation-stale-read';
+let heldComp,compCapturedResolve,compReleaseResolve,compCaptureError=null;
+const compCaptured=new Promise(resolve=>{compCapturedResolve=resolve;});
+const compRelease=new Promise(resolve=>{compReleaseResolve=resolve;});
+heldReleases.push(compReleaseResolve);let heldOnce=false;
+await p.route('**/api/v1/admin/trainers/'+data.trainer.id+'/compensation',async route=>{
+ try{if(!heldOnce&&route.request().method()==='GET'){heldOnce=true;
+ const response=await route.fetch();
+ if(response.status()!==200){compCaptureError='http-'+response.status();compCapturedResolve();
+  await route.abort();return;}
+ heldComp=await response.json();compCapturedResolve();await compRelease;
+ await route.fulfill({response});}else await route.continue();
+ }catch(error){compCaptureError=['TimeoutError','TargetClosedError'].includes(error.name)?
+  error.name.toLowerCase():'route-error';compCapturedResolve();
+  await route.abort().catch(()=>{});}});
+await p.goto(cfg.origin+'/trainers');stage='compensation-stale-capture';
+await comp.locator('[data-compensation-refresh]').waitFor();
+await Promise.race([compCaptured,new Promise((_,reject)=>setTimeout(()=>reject(Error()),5000))]);
+if(compCaptureError){stage='compensation-stale-capture-'+compCaptureError;throw Error();}
+stage='compensation-stale-external';
+const externalComp=await compPost({operation_id:await p.evaluate(()=>crypto.randomUUID()),rate_percent:90,
+ fixed_amount_won:'2',expected_trainer_version:heldComp.trainer_version,
+ expected_compensation_version:heldComp.compensation_version});
+stage='compensation-stale-refresh-'+externalComp.status;await comp.locator('[data-compensation-refresh]').click();
+await p.waitForFunction(id=>document.querySelector('[data-compensation-trainer="'+id+'"] [data-compensation-fixed]').value==='2'&&
+ !document.querySelector('[data-compensation-trainer="'+id+'"] [data-compensation-change]').disabled,data.trainer.id);
+const oldCompOwnerCheck=p.waitForResponse(r=>r.url().endsWith('/api/v1/auth/me'));
+stage='compensation-stale-release';compReleaseResolve();await oldCompOwnerCheck;
+await p.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+checks.compensation_stale_same_trainer_version=externalComp.status===200&&
+ heldComp.trainer_version===externalComp.body.current_state.trainer_version&&
+ await comp.locator('[data-compensation-fixed]').inputValue()==='2';
+await p.unroute('**/api/v1/admin/trainers/'+data.trainer.id+'/compensation');
+checks.compensation_no_mobile_overflow=await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 stage='home-move';await p.goto(cfg.origin+'/trainers');
 const homeBox=p.locator('[data-home-trainer="'+data.trainer.id+'"]');
 await homeBox.locator('[data-home-change]').waitFor();
@@ -115,6 +232,8 @@ checks.home_double_click_one=homeWrites===1;
 await p.waitForFunction(id=>document.querySelector('[data-home-trainer="'+id+'"] [data-home-result]')
  .textContent.includes('소속 변경 완료'),data.trainer.id);
 checks.home_old_admin_denied=(await get(b,'/admin/trainers/'+data.trainer.id)).status===404;
+checks.compensation_old_home_denied=(await compGet(b,'compensation')).status===404&&
+ (await compGet(b,'compensation-history')).status===404;
 checks.home_current_registration=(await post(p,'/admin/trainers',submitted)).body.trainer.home_branch_id===first[0].id;
 await homeBox.locator('[data-home-refresh]').click();
 await p.waitForFunction(id=>!document.querySelector('[data-home-trainer="'+id+'"] [data-home-change]').disabled,
@@ -133,14 +252,15 @@ checks.home_ack_reconciled=homeAck&&(await get(p,'/admin/trainers/'+data.trainer
 await homeBox.locator('[data-home-operation]').fill(homeReceipt.operation_id);
 await homeBox.locator('[data-home-check]').click();
 await p.waitForFunction(({id,home})=>document.querySelector('[data-home-trainer="'+id+'"] [data-home-result]')
- .textContent.includes('현재 소속: '),{id:data.trainer.id,home});
+ .textContent.includes('결과 조회 당시 소속: '),{id:data.trainer.id,home});
 checks.home_receipt_keeps_current=(await get(p,'/admin/trainers/'+data.trainer.id)).body.home_branch_id===home;
 stage='home-stale-response';
 await p.waitForFunction(id=>!document.querySelector('[data-home-trainer="'+id+'"] [data-home-refresh]').disabled,
  data.trainer.id,{timeout:5000});
 let capturedResolve,releaseResolve;
 const captured=new Promise(resolve=>{capturedResolve=resolve;});
-const releaseOld=new Promise(resolve=>{releaseResolve=resolve;});let delayed=false;
+const releaseOld=new Promise(resolve=>{releaseResolve=resolve;});
+heldReleases.push(releaseResolve);let delayed=false;
 await p.route('**/api/v1/admin/trainers/'+data.trainer.id,async route=>{
  if(!delayed&&route.request().method()==='GET'){delayed=true;
   const response=await route.fetch();capturedResolve();await releaseOld;
@@ -178,6 +298,11 @@ await homeBox.locator('[data-home-refresh]').click();
 await p.waitForFunction(id=>document.querySelector('[data-home-trainer="'+id+'"] [data-home-result]')
  .textContent.includes('확인할 수 없습니다'),data.trainer.id);
 checks.home_actor_switch_blocks=homeWrites===writesBeforeActor&&await homeBox.locator('[data-home-change]').isDisabled();
+await comp.locator('[data-compensation-refresh]').click();
+await p.waitForFunction(id=>document.querySelector('[data-compensation-trainer="'+id+'"] [data-compensation-result]')
+ .textContent.includes('확인할 수 없습니다'),data.trainer.id);
+checks.compensation_actor_switch_blocks=await comp.locator('[data-compensation-change]').isDisabled()&&
+ await comp.locator('[data-compensation-fixed]').inputValue()==='';
 await master.context.clearCookies();await master.context.addCookies(ownerCookies);
 stage='nojs';const off=await browser.newContext({javaScriptEnabled:false,ignoreHTTPSErrors:false});
 await off.addCookies(await master.context.cookies());const n=await off.newPage();let leaked=false;
@@ -189,6 +314,8 @@ await n.waitForLoadState();checks.nojs_no_query_leak=!leaked&&!n.url().includes(
 checks.actor_preserved=(await get(p,'/auth/me')).status===200;
 if(Object.keys(checks).length!==required.length||!required.every(k=>checks[k]===true))throw Error();
 fs.writeFileSync(path.join(R,'browser-results.json'),JSON.stringify({checks,browser:browser.version()}));
-}catch{process.stderr.write('WORKFORCE_BROWSER_FAILED stage='+stage+'\n');
+}catch(error){const kind=['Error','TypeError','TimeoutError','TargetClosedError'].includes(error.name)?
+ error.name.toLowerCase():'error';stage=(stage+'-'+kind).slice(0,64);
+process.stderr.write('WORKFORCE_BROWSER_FAILED stage='+stage+'\n');
 process.stderr.write('WORKFORCE_DIAGNOSTIC='+JSON.stringify(checks)+'\n');process.exitCode=1;}
-finally{if(browser)await browser.close();}})();
+finally{for(const release of heldReleases)release();if(browser)await browser.close();}})();

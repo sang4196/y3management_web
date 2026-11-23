@@ -63,6 +63,15 @@ class RegistrationResult:
 
 
 class WorkforcePort(Protocol):
+    def compensation(self, caller: Caller, trainer: UUID) -> CompensationState: ...
+    def compensation_operation(
+        self, caller: Caller, operation: UUID
+    ) -> CompensationResult | None: ...
+    def change_compensation(
+        self, caller: Caller, fact: TrainerIdentityFact, request: CompensationRequest
+    ) -> tuple[CompensationResult, CompensationChange | None]: ...
+    def confirm_compensation(self, caller: Caller, result: CompensationResult) -> None: ...
+
     def home_operation(self, caller: Caller, operation_id: UUID) -> TrainerHomeResult | None: ...
     def change_home(
         self,
@@ -155,6 +164,60 @@ class TrainerHomeChange:
     actor_id: UUID
     before_home_branch_id: UUID
     after_home_branch_id: UUID
+    before_version: int
+    after_version: int
+    recorded_at: datetime
+
+
+@dataclass(frozen=True, repr=False)
+class CompensationRequest:
+    operation_id: UUID
+    rate_percent: int
+    fixed_amount_won: str
+    expected_compensation_version: int
+    expected_trainer_version: int
+
+
+@dataclass(frozen=True, repr=False)
+class CompensationState:
+    trainer_id: UUID
+    home_branch_id: UUID
+    trainer_version: int
+    rate_percent: int
+    fixed_amount_won: str
+    compensation_version: int
+    initial_base_salary_won: str
+    initial_base_salary_start_month: str
+
+
+@dataclass(frozen=True, repr=False)
+class CompensationResult:
+    operation_id: UUID
+    trainer_id: UUID
+    changed: bool
+    before_rate_percent: int
+    before_fixed_amount_won: str
+    before_compensation_version: int
+    committed_rate_percent: int
+    committed_fixed_amount_won: str
+    committed_compensation_version: int
+    recorded_at: datetime
+    current_state: CompensationState
+
+
+@dataclass(frozen=True, repr=False)
+class CompensationChange:
+    organization_id: UUID
+    operation_id: UUID
+    trainer_id: UUID
+    actor_id: UUID
+    actor_role: str
+    actor_branch: UUID | None
+    target_home: UUID
+    before_rate: int
+    after_rate: int
+    before_fixed: str
+    after_fixed: str
     before_version: int
     after_version: int
     recorded_at: datetime
