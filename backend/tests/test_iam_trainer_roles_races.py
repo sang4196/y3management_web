@@ -20,7 +20,7 @@ from tests.test_iam_trainer import TrainerScene, source, trainer  # noqa: F401
 from tests.test_iam_trainer_roles import body, change, state
 from tests.test_workforce import scene  # noqa: F401
 from tests.test_workforce_integrity import branch_actor, observe_waiter, wait_for_owned_block
-from tests.workforce_compensation_seed import password_downgrade_guard
+from tests.workforce_base_seed import password_downgrade_guard
 from tests.workforce_state_seed import legacy_trainer  # noqa: F401
 from y3management.audit.infrastructure import Audit
 from y3management.audit.public import TrainerRoleEvent
@@ -292,7 +292,7 @@ def test_downgrade_waits_for_actual_role_change_and_preserves_committed_history(
             with t.base.db.session() as reader:
                 assert (
                     reader.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                    == "0018_withdrawn_operator_move"
+                    == "0021_workforce_base_schedule"
                 )
                 assert (
                     reader.execute(

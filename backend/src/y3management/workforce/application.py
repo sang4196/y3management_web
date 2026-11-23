@@ -8,6 +8,7 @@ from uuid import UUID
 from y3management.contracts import Rejected
 from y3management.iam.public import Caller
 from y3management.organization.public import ScopedBranchFact
+from y3management.workforce.base import BaseSchedules
 from y3management.workforce.infrastructure import Repository
 from y3management.workforce.public import (
     CompensationChange,
@@ -29,7 +30,7 @@ from y3management.workforce.public import (
 from y3management.workforce.validation import fingerprint, money, normalize
 
 
-class Workforce:
+class Workforce(BaseSchedules):
     def lock_identity(
         self, organization_id: UUID, ident: UUID, *, exclusive: bool = False
     ) -> TrainerIdentityFact:
@@ -37,6 +38,7 @@ class Workforce:
 
     def __init__(self, repository: Repository) -> None:
         self.repo = repository
+        super().__init__(repository.base)
 
     def normalize(self, command: RegisterTrainer) -> RegisterTrainer:
         return normalize(command)

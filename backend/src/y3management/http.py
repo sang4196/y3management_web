@@ -27,6 +27,8 @@ from y3management.iam.public import (
 )
 from y3management.use_cases import Service
 from y3management.workforce.public import (
+    BaseCommand,
+    BaseQuery,
     CompensationRequest,
     RegisterTrainer,
     TrainerHomeRequest,
@@ -85,6 +87,25 @@ class TrainerAccountInput(Input):
 class TrainerSetupInput(Input):
     operation_id: UUID
     expected_account_version: int = Field(strict=True, ge=1)
+
+
+class BaseCreateInput(Input):
+    operation_id: UUID
+    expected_base_ledger_version: int = Field(strict=True, ge=1)
+    expected_trainer_version: int = Field(strict=True, ge=1)
+    start_month: str = Field(strict=True, max_length=7)
+    planned_amount_won: str = Field(strict=True, max_length=1024)
+
+
+class BaseCancelInput(Input):
+    operation_id: UUID
+    expected_base_ledger_version: int = Field(strict=True, ge=1)
+    expected_trainer_version: int = Field(strict=True, ge=1)
+    expected_change_revision: int = Field(strict=True, ge=1)
+
+
+class BaseEditInput(BaseCancelInput):
+    planned_amount_won: str = Field(strict=True, max_length=1024)
 
 
 class CompensationInput(Input):
@@ -905,6 +926,143 @@ def attach(app: FastAPI, settings: Settings) -> None:
         result = service(request).trainer_registration(read(request), operation)
         return {"operation_id": result.operation_id, "trainer": asdict(result.trainer)}
 
+    @router.get("/admin/trainers/{ident}/base-schedule")
+    def base_schedule(
+        request: Request,
+        ident: UUID,
+        basis_month: str,
+        expected_actor: ExpectedOperatorActor,
+        offset: int = 0,
+        limit: int = 25,
+        expected_base_ledger_version: int | None = None,
+        expected_server_business_month: str | None = None,
+        expected_basis_month: str | None = None,
+    ) -> dict[str, object]:
+        workforce_query(
+            request,
+            {
+                "basis_month",
+                "offset",
+                "limit",
+                "expected_base_ledger_version",
+                "expected_server_business_month",
+                "expected_basis_month",
+            },
+        )
+        return asdict(
+            service(request).base_schedule(
+                read(request),
+                ident,
+                BaseQuery(
+                    basis_month,
+                    offset,
+                    limit,
+                    expected_base_ledger_version,
+                    expected_server_business_month,
+                    expected_basis_month,
+                ),
+                expected_actor=expected_actor,
+            )
+        )
+
+    @router.get("/admin/trainers/{ident}/base-schedule-history")
+    def base_history(
+        request: Request,
+        ident: UUID,
+        expected_actor: ExpectedOperatorActor,
+        offset: int = 0,
+        limit: int = 25,
+        expected_base_ledger_version: int | None = None,
+        expected_server_business_month: str | None = None,
+    ) -> dict[str, object]:
+        workforce_query(
+            request,
+            {"offset", "limit", "expected_base_ledger_version", "expected_server_business_month"},
+        )
+        head, history, clock, business_month = service(request).base_history(
+            read(request),
+            ident,
+            offset,
+            limit,
+            expected_base_ledger_version,
+            expected_server_business_month,
+            expected_actor=expected_actor,
+        )
+        return {
+            "trainer_id": head.trainer_id,
+            "home_branch_id": head.home_branch_id,
+            "trainer_version": head.trainer_version,
+            "base_ledger_version": head.base_ledger_version,
+            "as_of": clock,
+            "server_business_month": business_month,
+            **asdict(history),
+        }
+
+    @router.post("/admin/trainers/{ident}/base-schedule/changes")
+    def create_base(
+        request: Request, ident: UUID, body: BaseCreateInput, expected_actor: ExpectedOperatorActor
+    ) -> dict[str, object]:
+        workforce_query(request, set())
+        auth, nonce = write(request)
+        return asdict(
+            service(request).change_base(
+                auth,
+                nonce,
+                ident,
+                BaseCommand(kind="create", **body.model_dump()),
+                expected_actor=expected_actor,
+            )
+        )
+
+    @router.post("/admin/trainers/{ident}/base-schedule/changes/{change}/edit")
+    def edit_base(
+        request: Request,
+        ident: UUID,
+        change: UUID,
+        body: BaseEditInput,
+        expected_actor: ExpectedOperatorActor,
+    ) -> dict[str, object]:
+        workforce_query(request, set())
+        auth, nonce = write(request)
+        return asdict(
+            service(request).change_base(
+                auth,
+                nonce,
+                ident,
+                BaseCommand(kind="edit", change_id=change, **body.model_dump()),
+                expected_actor=expected_actor,
+            )
+        )
+
+    @router.post("/admin/trainers/{ident}/base-schedule/changes/{change}/cancel")
+    def cancel_base(
+        request: Request,
+        ident: UUID,
+        change: UUID,
+        body: BaseCancelInput,
+        expected_actor: ExpectedOperatorActor,
+    ) -> dict[str, object]:
+        workforce_query(request, set())
+        auth, nonce = write(request)
+        return asdict(
+            service(request).change_base(
+                auth,
+                nonce,
+                ident,
+                BaseCommand(kind="cancel", change_id=change, **body.model_dump()),
+                expected_actor=expected_actor,
+            )
+        )
+
+    @router.get("/admin/trainer-base-operations/{operation}")
+    def base_operation(
+        request: Request, operation: UUID, expected_actor: ExpectedOperatorActor
+    ) -> dict[str, object]:
+        workforce_query(request, set())
+        return asdict(
+            service(request).base_operation(read(request), operation, expected_actor=expected_actor)
+        )
+
     @router.get("/admin/trainers/{ident}/compensation")
     def compensation(
         request: Request, ident: UUID, expected_actor: ExpectedOperatorActor
@@ -1348,7 +1506,7 @@ if(identity.capabilities.includes('accounts:manage'))
  resetRefresh=resetControls(li,t,async()=>{await roleRefresh();await accountRefresh(true);});
 stateControls(li,t,async()=>{await roleRefresh();await accountRefresh(true);await resetRefresh();});
 if(identity.roles.some(r=>r.role==='ADMIN'&&r.scope==='ORGANIZATION'))homeControls(li,t);
-compensationControls(li,t);
+compensationControls(li,t);baseControls(li,t);
 }}
 // Only the newest read may publish a complete snapshot; writes invalidate older reads.
 function latestRead(){let epoch=0,current=Promise.resolve();
@@ -1698,6 +1856,314 @@ try{await load();}catch{current=null;
 refresh.addEventListener('click',()=>{if(!working)refreshState();});
 buttons();refreshState();return refreshState;
 }
+
+function baseControls(li,t){
+const owner=identity.account_id,box=document.createElement('section');
+box.dataset.baseTrainer=t.id;
+
+const open=document.createElement('button');
+open.type='button';
+open.textContent='일반 기본급 일정';
+
+open.dataset.baseOpen='';
+box.append(open);
+li.append(box);
+let opened=false;
+
+open.onclick=()=>{if(opened)return;
+opened=true;
+open.disabled=true;
+build();
+};
+
+function build(){const panel=document.createElement('div');
+panel.dataset.basePanel='';
+box.append(panel);
+
+const status=document.createElement('p'),anchor=document.createElement('p'),
+ effective=document.createElement('p');
+
+status.dataset.baseStatus='';
+effective.dataset.baseEffective='';
+anchor.dataset.baseAnchor='';
+
+const basis=document.createElement('input');
+basis.setAttribute('aria-label','기준 월');
+basis.dataset.baseBasis='';
+
+const start=document.createElement('input');
+start.setAttribute('aria-label','일반 기본급 적용 시작 월');
+start.dataset.baseStart='';
+
+const amount=document.createElement('input');
+amount.setAttribute('aria-label','일반 기본급 예정 금액 (원)');
+amount.dataset.baseAmount='';
+
+amount.inputMode='numeric';
+const fresh=button('기준 월 조회','baseRefresh');
+
+const create=button('미래 일정 등록','baseCreate'),next=button('일정 다음 페이지','baseNext');
+
+const historyNext=button('기본급 이력 다음 페이지','baseHistoryNext');
+
+const op=document.createElement('input');
+op.setAttribute('aria-label','기본급 작업 번호');
+op.dataset.baseOperation='';
+
+const check=button('기본급 작업 결과 확인','baseCheck');
+
+const rows=document.createElement('ol'),history=document.createElement('ol'),
+ result=document.createElement('p');
+
+rows.dataset.baseRows='';
+history.dataset.baseHistory='';
+result.dataset.baseResult='';
+result.setAttribute('role','status');
+
+panel.append(status,anchor,basis,fresh,effective,start,amount,create,rows,next,history,
+ historyNext,op,check,result);
+
+let selection=null,working=false,pending=null,generation=0,highest=0,offset=0,historyOffset=0,
+ more=false,historyMore=false;
+
+function button(label,key){const b=document.createElement('button');
+b.type='button';
+b.textContent=label;
+b.dataset[key]='';
+return b;
+}
+function buttons(){for(const b of panel.querySelectorAll('button,input'))b.disabled=working;
+
+create.disabled=working||!selection||!!pending;
+next.disabled=working||!selection||!more;
+
+historyNext.disabled=working||!selection||!historyMore;
+
+for(const b of rows.querySelectorAll('button'))b.disabled=working||!selection||!!pending||
+ b.dataset.eligible!=='true';
+}
+async function actor(){const r=await fetch('/api/v1/auth/me');
+if(!r.ok)throw Error();
+const me=await r.json();
+
+if(me.account_id!==owner||!me.roles.some(r=>r.role==='ADMIN')){generation++;
+selection=null;
+
+rows.replaceChildren();
+history.replaceChildren();
+anchor.textContent=effective.textContent='';
+amount.value='';
+result.textContent='';
+throw Error();
+}}
+async function get(path){const r=await fetch('/api/v1'+path,
+ {headers:{'X-Y3-Expected-Actor':owner}});
+
+if(!r.ok)throw Error();
+return r.json();
+}
+function valid(){return selection&&selection.trainer_version===t.version&&
+ selection.home_branch_id===t.home_branch_id;
+}
+async function load(reset){const mine=++generation;
+await actor();
+
+if(reset){offset=historyOffset=0;
+}
+let q='?basis_month='+encodeURIComponent(basis.value||'0001-01')+'&offset='+offset+'&limit=25';
+
+let h='?offset='+historyOffset+'&limit=25';
+
+if(selection){const token='&expected_base_ledger_version='+selection.base_ledger_version+
+ '&expected_server_business_month='+selection.server_business_month;
+
+ if(offset)q+=token+'&expected_basis_month='+selection.basis_month;
+if(historyOffset)h+=token;
+}
+const base='/admin/trainers/'+t.id;
+
+const [page,audit,trainer]=await Promise.all([get(base+'/base-schedule'+q),get(base+
+ '/base-schedule-history'+h),get(base)]);
+
+await actor();
+if(mine!==generation)return false;
+
+if(page.trainer_version<t.version||page.base_ledger_version<highest||
+ trainer.version!==page.trainer_version||
+ trainer.home_branch_id!==page.home_branch_id||
+ audit.base_ledger_version!==page.base_ledger_version||
+ audit.server_business_month!==page.server_business_month)throw Error();
+
+updateTrainer(t,trainer);
+highest=page.base_ledger_version;
+selection=page;
+
+if(!basis.value){basis.value=page.server_business_month;
+return load(true);
+}
+status.textContent='서버 기준 월: '+page.server_business_month+' / 조회 기준 월: '+page.basis_month;
+
+anchor.textContent='최초 일반 기본급: '+page.anchor.planned_amount_won+'원 / '+
+ page.anchor.start_month+' (원본 보존)';
+
+effective.textContent='기준 월 일반 설정: '+
+ (page.general_setting? page.general_setting.planned_amount_won+'원 / '+
+ page.general_setting.start_month:'없음');
+
+rows.replaceChildren();
+for(const item of page.items){const row=document.createElement('li');
+row.dataset.baseChange=item.change_id;
+
+const label=document.createElement('span');
+label.textContent=item.start_month+' / '+item.planned_amount_won+'원 / '+
+ (item.active?'등록 일정':'취소됨 (예정 금액 보존, 적용 금액 아님)');
+
+const input=document.createElement('input');
+input.value=item.planned_amount_won;
+input.setAttribute('aria-label','수정할 기본급 금액');
+input.dataset.baseEditAmount='';
+
+const edit=button('미래 금액 수정','baseEdit'),cancel=button('미래 일정 취소','baseCancel');
+
+edit.dataset.eligible=cancel.dataset.eligible=String(item.cancellable);
+
+edit.onclick=()=>save('edit',item,input.value);
+cancel.onclick=()=>{if(confirm(item.start_month+' / '+item.planned_amount_won+
+ '원 일정 전체를 취소할까요?'))save('cancel',item);
+};
+
+row.append(label,input,edit,cancel);
+rows.append(row);
+}
+history.replaceChildren();
+for(const item of audit.items){const row=document.createElement('li');
+
+row.textContent=item.kind+' / '+item.start_month+' / '+item.planned_amount_won+'원 / '+
+ item.actor_role+' / '+item.recorded_at;
+history.append(row);
+}
+more=offset+page.items.length<page.total;
+historyMore=historyOffset+audit.items.length<audit.total;
+buttons();
+return true;
+}
+async function save(kind,item,value){if(working||pending||!valid())return;
+
+const money=kind==='create'?amount.value:value;
+
+if(kind!=='cancel'&&!/^(0|[1-9][0-9]{0,1023})$/.test(money)){
+result.textContent='0원 이상 정수원을 입력하세요.';
+return;
+}
+if(kind==='create'&&
+ !/^[0-9]{4}-(0[1-9]|1[0-2])$/.test(start.value)){result.textContent='적용 시작 월을 입력하세요.';
+return;
+}
+const body={operation_id:crypto.randomUUID(),
+ expected_trainer_version:selection.trainer_version,
+ expected_base_ledger_version:selection.base_ledger_version};
+
+if(kind==='create'){body.start_month=start.value;
+body.planned_amount_won=money;
+}
+else{body.expected_change_revision=item.revision;
+if(kind==='edit')body.planned_amount_won=money;
+}
+pending={body,path:'/admin/trainers/'+t.id+'/base-schedule/changes'+(item?'/'+item.change_id+
+ '/'+kind:'')};
+
+op.value=body.operation_id;
+working=true;
+buttons();
+try{await actor();
+if(!valid())throw Error();
+
+const c=await fetch('/api/v1/auth/csrf',{headers:{'X-Y3-Client':'base-schedule'}});
+if(!c.ok)throw Error();
+const nonce=(await c.json()).csrf_token;
+
+await actor();
+if(!valid())throw Error();
+const r=await fetch('/api/v1'+pending.path,{method:'POST',
+ headers:{'Content-Type':'application/json',
+ 'X-CSRF-Token':nonce,'X-Y3-Expected-Actor':owner},body:JSON.stringify(body)});
+if(!r.ok)throw Error();
+
+const data=await r.json();
+highest=Math.max(highest,data.current_base_ledger_version);
+
+if(!await load(true))throw Error();
+pending=null;
+result.textContent=data.changed?'기본급 저장 완료':'동일 금액으로 변경 없음';
+
+}catch{selection=null;
+result.textContent='결과가 불명확합니다. 작업 번호로 확인하세요.';
+}
+finally{working=false;
+buttons();
+}}
+create.onclick=()=>save('create');
+fresh.onclick=async()=>{if(working)return;
+working=true;
+buttons();
+
+try{if(!await load(true))throw Error();
+pending=null;
+result.textContent='';
+}catch{selection=null;
+result.textContent='일정을 새로 조회하세요.';
+}finally{working=false;
+buttons();
+}};
+
+check.onclick=async()=>{if(working||!/^[0-9a-f-]{36}$/i.test(op.value))return;
+working=true;
+buttons();
+
+try{await actor();
+const receipt=await get('/admin/trainer-base-operations/'+op.value);
+if(receipt.trainer_id!==t.id)throw Error();
+
+highest=Math.max(highest,receipt.current_base_ledger_version);
+if(!await load(true))throw Error();
+pending=null;
+
+result.textContent='작업 당시 '+receipt.kind+' / '+receipt.committed_change.start_month+' / '+
+ receipt.committed_change.planned_amount_won+'원; 현재 일정은 조회 패널 기준';
+
+}catch{selection=null;
+result.textContent='현재 권한과 작업 결과를 확인할 수 없습니다.';
+}finally{working=false;
+buttons();
+}};
+
+async function page(kind){if(working||!selection)return;
+working=true;
+buttons();
+if(kind==='history')historyOffset+=25;
+else offset+=25;
+
+try{if(!await load(false))throw Error();
+}catch{selection=null;
+result.textContent='페이지 기준이 바뀌었습니다. 새로 조회하세요.';
+}finally{working=false;
+buttons();
+}}
+next.onclick=()=>page('list');
+historyNext.onclick=()=>page('history');
+
+load(true).catch(()=>{selection=null;
+status.textContent='기본급 일정을 확인할 수 없습니다.';
+buttons();
+});
+
+addEventListener('pagehide',()=>{generation++;
+selection=null;
+buttons();
+});
+buttons();
+}}
+
 function compensationControls(li,t){
 const owner=identity.account_id,box=document.createElement('section');
 box.dataset.compensationTrainer=t.id;

@@ -169,7 +169,7 @@ class TrainerRoles:
         touch: bool = False,
         deadline: datetime | None = None,
         logout: bool = False,
-    ) -> None:
+    ) -> datetime:
         self.iam.check_policy(snapshot.policy)
         if touch and (self_change or logout):
             raise ValueError("Cannot touch a self-revoked session")
@@ -195,6 +195,7 @@ class TrainerRoles:
                 text("UPDATE iam_sessions SET last_activity=:now WHERE id=:id"),
                 {"now": now, "id": auth.session_id},
             )
+        return now
 
     def change(
         self,

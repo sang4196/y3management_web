@@ -129,7 +129,7 @@ def test_nonzero_transition_summary_rejects_downgrade_before_ddl(
         s.commit()
     before = fingerprint(db)
     migrate(settings, "downgrade", "0013_workforce_trainer_state", success=False)
-    from tests.workforce_compensation_seed import assert_revision_loss_guard
+    from tests.workforce_base_seed import assert_revision_loss_guard
 
     assert_revision_loss_guard(db, "0014_password_only.py", "PASSWORD_DOWNGRADE_")
     assert fingerprint(db) == before
@@ -194,7 +194,7 @@ def test_transition_preserves_account_business_facts_and_rejects_nonempty_downgr
         )
     before = fingerprint(db)
     migrate(settings, "downgrade", "0013_workforce_trainer_state", success=False)
-    from tests.workforce_compensation_seed import assert_revision_loss_guard
+    from tests.workforce_base_seed import assert_revision_loss_guard
 
     assert_revision_loss_guard(db, "0014_password_only.py", "PASSWORD_DOWNGRADE_")
     assert fingerprint(db) == before

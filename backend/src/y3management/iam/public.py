@@ -548,7 +548,7 @@ class TrainerRolesPort(Protocol):
         touch: bool = False,
         deadline: datetime | None = None,
         logout: bool = False,
-    ) -> None: ...
+    ) -> datetime: ...
     def change(
         self,
         caller: Caller,

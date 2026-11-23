@@ -604,3 +604,20 @@ Rate0~100 정수, Fixed0원 이상 정확한 정수원 문자열(기존1024자�
 새 검사는 `test_workforce_compensation*.py`와 기존 workforce native manifest에 있으며,
 하위 역사 guard는 WF4-local 실제20→19 inverse adapter 뒤 원래 guard를 실행한다.
 공통 fixture/원래 migration·역사 harness와 소유 QA 정리 절차는 유지한다.
+
+
+### WORKFORCE-005 일반 기본급 일정
+
+현재 schema head는 `0021_workforce_base_schedule`이다. 원래20 실행본과 현재21은
+각자 정확한 schema에서만 시작한다. 최초 등록 snapshot과 Rate/Fixed 이력은 보존한다.
+`base-schedule` 조회는 명시 기준 월의 일반 설정과 서버 한국 기준 월을 반환하며,
+실제 지급액·확정 월·수동 월 기본급을 계산하지 않는다. 최초 시작월 이전은 설정 없음이다.
+미래 일정의 등록·금액 수정·취소는 독립 Base ledger와 Trainer version CAS를 사용한다.
+취소된 금액은 예정 이력이며 적용 금액이 아니다. 취소 후 같은 월 등록은 새 logical ID다.
+작업 UUID/현재 Actor 헤더로 불명 결과를 대사하며 자동 재전송하지 않는다.
+일정/이력의 다음 페이지는 ledger·서버월(일정은 기준월도)을 고정하고 불일치면 새로 조회한다.
+
+새0021은 최초 설정 metadata만 역변환하며 새 receipt(noop 포함)/일정/감사·ledger정보 손실을
+거부한다. 원래0001–0020 및 역사 helper는 보존하고 WF5-local 실제 inverse 후 원래 guard를 검사한다.
+선정 검사는 `test_workforce_base*.py`, 기존 workforce native54와 별도 짧은 Base native mode다.
+기존 TLS/NSS/소유권/90초/정리는 동일 fixture를 유지한다. 개발 부분 결과와 독립 검증을 구별한다.

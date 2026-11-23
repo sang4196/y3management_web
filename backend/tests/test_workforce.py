@@ -145,6 +145,10 @@ def test_audit_failure_rolls_everything_back(
     before = activity(scene.db)
     assert scene.send(scene.body()).status_code == 503
     assert counts(scene.db) == (0, 0, 0, 0) and activity(scene.db) == before
+    with scene.db.session() as session:
+        assert (
+            session.execute(text("SELECT count(*) FROM workforce_base_ledgers")).scalar_one() == 0
+        )
 
 
 def test_same_phone_distinct_operations(scene: Scene) -> None:

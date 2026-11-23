@@ -1,3 +1,11 @@
+# 2026-11-24 WORKFORCE-005 현재 게이트
+
+[WF5-1](../product/product-decisions.md#review-20261123-future-base-cancellation) 미래 미적용 변경 취소1은 승인됐다. 재질문하지 않는다.
+[제한 계약](workforce-005-base-schedule-design.md)의 구현·재동결·새 독립 실행·설계자 로컬 인수를 마쳤다. [결과](workforce-005-base-schedule-results.md)의
+fast211·선정PG62 단일 실행·native54/15/8에 한정하며 PG747은 미실행이다. 전담 커밋·일반 feature push가 후속이다.
+같은월/버전/예약 edit/월 경계는 기술 대상이다. 최초 anchor·AA1 이전월/수동·확정 보존·최소 미래범위를 유지한다.
+Base 현재·과거월/Settlement/PT/운영과 다른 Product OPEN/전역 PROPOSED를 이번 취소 승인으로 닫지 않는다.
+
 # 2026-11-23 WORKFORCE-004 현재 게이트
 
 [제한 계약](workforce-004-compensation-design.md)은 이미 승인된 현재 Home 인가/본인 겸임·Rate/Fixed 변경·초기 포함 이력의 최소 구현이다.

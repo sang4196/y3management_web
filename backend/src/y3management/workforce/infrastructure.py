@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from y3management.contracts import Rejected
 from y3management.iam.public import Caller
+from y3management.workforce.base_infrastructure import BaseRepository
 from y3management.workforce.public import (
     CompensationChange,
     CompensationRequest,
@@ -31,6 +32,7 @@ from y3management.workforce.validation import month
 class Repository:
     def __init__(self, session: Session) -> None:
         self.s = session
+        self.base = BaseRepository(session)
 
     def identity(
         self, org: UUID, ident: UUID, *, lock: bool = False, shared: bool = False
@@ -149,6 +151,7 @@ class Repository:
              row_version,created_at,:op FROM workforce_trainers WHERE id=:i"""),
             args,
         )
+        self.base.register(org, ident, c.operation_id)
         return self.get(org, ident)
 
     def state_operation(

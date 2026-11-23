@@ -1,3 +1,9 @@
+## 2026-11-24 반영 — 미래 기본급 변경 취소 승인
+
+[WF5-1 승인](product-decisions.md#review-20261123-future-base-cancellation): 미래 미적용 일반 변경은 취소 가능하며 원래 계획/취소 이력을 보존한다.
+이전 유효 기본급은 다음 남아 있는 변경까지 지속한다. 최초 필수 설정·이미 적용된 월/과거 월 취소는 승인 범위 밖이다.
+기존 현재 관리자 Scope·독립 관리자 본인/감사·수동월/확정본 보존 및 22 OPEN /8 CLOSED를 유지한다. 구현/검증은 후속이다.
+
 # Product Specification — Architecture Input Baseline
 
 2026-11-22 사용자 답변/2026-11-23 반영: [Trainer Home 이동 대상 상태 WF3-1](product-decisions.md#review-20261122-trainer-home-states).

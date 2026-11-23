@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from typing import Protocol
 from uuid import UUID
 
@@ -83,6 +83,11 @@ class OperatorAccountEvent:
 
 
 class AuditPort(Protocol):
+    def append_base_schedule(self, event: BaseScheduleEvent) -> None: ...
+    def base_schedule_history(
+        self, organization: UUID, trainer: UUID, offset: int, limit: int
+    ) -> BaseHistoryPage: ...
+
     def append_compensation(self, event: CompensationEvent) -> None: ...
     def compensation_history(
         self, organization: UUID, trainer: UUID, offset: int, limit: int
@@ -259,4 +264,51 @@ class CompensationHistoryItem:
 @dataclass(frozen=True, repr=False)
 class CompensationHistoryPage:
     items: tuple[CompensationHistoryItem, ...]
+    total: int
+
+
+@dataclass(frozen=True, repr=False)
+class BaseScheduleEvent:
+    organization_id: UUID
+    operation_id: UUID
+    trainer_id: UUID
+    actor_id: UUID
+    actor_role: str
+    actor_branch: UUID | None
+    target_home: UUID
+    kind: str
+    change_id: UUID
+    start_month: date
+    before_amount: str | None
+    after_amount: str
+    before_active: bool | None
+    after_active: bool
+    before_revision: int | None
+    after_revision: int
+    before_ledger_version: int
+    after_ledger_version: int
+    changed: bool
+    recorded_at: datetime
+
+
+@dataclass(frozen=True, repr=False)
+class BaseHistoryItem:
+    ledger_version: int
+    kind: str
+    change_id: UUID
+    start_month: str
+    before_amount_won: str | None
+    planned_amount_won: str
+    active: bool
+    revision: int
+    actor_id: UUID
+    actor_role: str
+    actor_branch: UUID | None
+    target_home: UUID
+    recorded_at: datetime
+
+
+@dataclass(frozen=True, repr=False)
+class BaseHistoryPage:
+    items: tuple[BaseHistoryItem, ...]
     total: int

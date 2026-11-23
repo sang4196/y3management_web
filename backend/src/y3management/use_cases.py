@@ -4,10 +4,13 @@ import logging
 import re
 from collections.abc import Callable
 from dataclasses import asdict, replace
+from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
 from y3management.audit.public import (
+    BaseHistoryPage,
+    BaseScheduleEvent,
     CompensationEvent,
     CompensationHistoryPage,
     Event,
@@ -53,6 +56,11 @@ from y3management.iam.public import (
 from y3management.organization.public import AssignmentCandidate, Branch, BranchPage
 from y3management.uow import UnitOfWork, Work
 from y3management.workforce.public import (
+    BaseCommand,
+    BasePage,
+    BaseQuery,
+    BaseResult,
+    BaseSnapshot,
     CompensationRequest,
     CompensationResult,
     CompensationState,
@@ -1775,3 +1783,96 @@ class Service:
             w.workforce.confirm_compensation(a.caller, result)
             w.roles.confirm_actor(snapshot, self_change=False, touch=change is not None)
             return result
+
+    def base_schedule(
+        self, auth: str | None, trainer: UUID, query: BaseQuery, *, expected_actor: UUID
+    ) -> BasePage:
+        with self.uow.open() as w:
+            a = w.iam.authenticate(auth, management=True, touch=False)
+            if a.caller.account_id != expected_actor:
+                raise Rejected(409, "actor_changed")
+            actor = w.roles.snapshot(a)
+            fact = self._trainer_scope(w, a.caller, trainer)
+            state = w.workforce.base_snapshot(a.caller, trainer, query)
+            if self._trainer_scope(w, a.caller, trainer) != fact:
+                raise Rejected(409, "conflict")
+            clock = w.roles.confirm_actor(actor, self_change=False)
+            return w.workforce.base_page(state, query, clock)
+
+    def base_history(
+        self,
+        auth: str | None,
+        trainer: UUID,
+        offset: int,
+        limit: int,
+        expected_ledger: int | None,
+        expected_month: str | None,
+        *,
+        expected_actor: UUID,
+    ) -> tuple[BaseSnapshot, BaseHistoryPage, datetime, str]:
+        with self.uow.open() as w:
+            a = w.iam.authenticate(auth, management=True, touch=False)
+            if a.caller.account_id != expected_actor:
+                raise Rejected(409, "actor_changed")
+            actor = w.roles.snapshot(a)
+            fact = self._trainer_scope(w, a.caller, trainer)
+            head = w.workforce.base_head(a.caller, trainer)
+            if offset < 0 or not 1 <= limit <= 100:
+                raise Rejected(422, "invalid_request")
+            history = w.audit.base_schedule_history(
+                a.caller.organization_id, trainer, offset, limit
+            )
+            if self._trainer_scope(w, a.caller, trainer) != fact:
+                raise Rejected(409, "conflict")
+            clock = w.roles.confirm_actor(actor, self_change=False)
+            current_month = w.workforce.base_history_token(
+                head, offset, limit, expected_ledger, expected_month, clock
+            )
+            return head, history, clock, current_month
+
+    def base_operation(
+        self, auth: str | None, operation: UUID, *, expected_actor: UUID
+    ) -> BaseResult:
+        with self.uow.open() as w:
+            a = w.iam.authenticate(auth, management=True, touch=False)
+            if a.caller.account_id != expected_actor:
+                raise Rejected(409, "actor_changed")
+            actor = w.roles.snapshot(a)
+            target = w.workforce.base_operation_target(a.caller.organization_id, operation)
+            if target is None:
+                raise Rejected(404, "not_found")
+            self._trainer_scope(w, a.caller, target)
+            result = w.workforce.base_operation(a.caller, operation)
+            if result is None:
+                raise Rejected(404, "not_found")
+            w.roles.confirm_actor(actor, self_change=False)
+            return result
+
+    def change_base(
+        self,
+        auth: str | None,
+        nonce: str | None,
+        trainer: UUID,
+        request: BaseCommand,
+        *,
+        expected_actor: UUID,
+    ) -> BaseResult:
+        with self.uow.open() as w:
+            a = w.iam.authenticate(auth, management=True, touch=False)
+            if a.caller.account_id != expected_actor:
+                raise Rejected(409, "actor_changed")
+            w.iam.csrf(a, nonce)
+            actor = w.roles.snapshot(a)
+            fact = self._trainer_scope(w, a.caller, trainer, exclusive=True)
+            old = w.workforce.base_replay(a.caller, trainer, request)
+            if old is not None:
+                w.roles.confirm_actor(actor, self_change=False)
+                return old
+            prepared = w.workforce.prepare_base(a.caller, fact, request)
+            if prepared.mutation.changed:
+                w.audit.append_base_schedule(BaseScheduleEvent(**asdict(prepared.mutation)))
+            if self._trainer_scope(w, a.caller, trainer) != fact:
+                raise Rejected(409, "conflict")
+            w.workforce.confirm_base(prepared, a.caller)
+            clock = w.roles.confirm_actor(actor, self_change=False, touch=prepared.mutation.changed)
+            return w.workforce.seal_base(prepared, clock)

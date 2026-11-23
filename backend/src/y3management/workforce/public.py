@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Protocol
+from typing import Literal, Protocol
 from uuid import UUID
 
 from y3management.iam.public import Caller
@@ -63,6 +63,31 @@ class RegistrationResult:
 
 
 class WorkforcePort(Protocol):
+    def base_head(self, caller: Caller, trainer: UUID) -> BaseSnapshot: ...
+    def base_history_token(
+        self,
+        snapshot: BaseSnapshot,
+        offset: int,
+        limit: int,
+        expected_ledger: int | None,
+        expected_month: str | None,
+        clock: datetime,
+    ) -> str: ...
+
+    def base_snapshot(self, caller: Caller, trainer: UUID, query: BaseQuery) -> BaseSnapshot: ...
+    def base_page(self, snapshot: BaseSnapshot, query: BaseQuery, clock: datetime) -> BasePage: ...
+    def base_replay(
+        self, caller: Caller, trainer: UUID, request: BaseCommand
+    ) -> BaseResult | None: ...
+    def base_operation_target(self, organization: UUID, operation: UUID) -> UUID | None: ...
+
+    def base_operation(self, caller: Caller, operation: UUID) -> BaseResult | None: ...
+    def prepare_base(
+        self, caller: Caller, fact: TrainerIdentityFact, request: BaseCommand
+    ) -> PreparedBase: ...
+    def confirm_base(self, prepared: PreparedBase, caller: Caller) -> None: ...
+    def seal_base(self, prepared: PreparedBase, clock: datetime) -> BaseResult: ...
+
     def compensation(self, caller: Caller, trainer: UUID) -> CompensationState: ...
     def compensation_operation(
         self, caller: Caller, operation: UUID
@@ -221,3 +246,109 @@ class CompensationChange:
     before_version: int
     after_version: int
     recorded_at: datetime
+
+
+@dataclass(frozen=True, repr=False)
+class BaseCommand:
+    operation_id: UUID
+    kind: Literal["create", "edit", "cancel"]
+    expected_base_ledger_version: int
+    expected_trainer_version: int
+    change_id: UUID | None = None
+    start_month: str | None = None
+    planned_amount_won: str | None = None
+    expected_change_revision: int | None = None
+
+
+@dataclass(frozen=True)
+class BaseQuery:
+    basis_month: str
+    offset: int = 0
+    limit: int = 25
+    expected_base_ledger_version: int | None = None
+    expected_server_business_month: str | None = None
+    expected_basis_month: str | None = None
+
+
+@dataclass(frozen=True, repr=False)
+class BaseFact:
+    change_id: UUID
+    start_month: str
+    planned_amount_won: str
+    revision: int
+    active: bool
+    is_initial: bool = False
+    cancellable: bool | None = None
+
+
+@dataclass(frozen=True, repr=False)
+class BaseSnapshot:
+    trainer_id: UUID
+    home_branch_id: UUID
+    trainer_version: int
+    base_ledger_version: int
+    anchor: BaseFact
+    projection: BaseFact | None
+    items: tuple[BaseFact, ...]
+    total: int
+
+
+@dataclass(frozen=True, repr=False)
+class BasePage:
+    trainer_id: UUID
+    home_branch_id: UUID
+    trainer_version: int
+    base_ledger_version: int
+    basis_month: str
+    server_business_month: str
+    as_of: datetime
+    anchor: BaseFact
+    general_setting: BaseFact | None
+    items: tuple[BaseFact, ...]
+    total: int
+
+
+@dataclass(frozen=True, repr=False)
+class BaseMutation:
+    organization_id: UUID
+    operation_id: UUID
+    trainer_id: UUID
+    actor_id: UUID
+    actor_role: str
+    actor_branch: UUID | None
+    target_home: UUID
+    kind: str
+    change_id: UUID
+    start_month: date
+    before_amount: str | None
+    after_amount: str
+    before_active: bool | None
+    after_active: bool
+    before_revision: int | None
+    after_revision: int
+    before_ledger_version: int
+    after_ledger_version: int
+    changed: bool
+    recorded_at: datetime
+
+
+@dataclass(frozen=True, repr=False)
+class PreparedBase:
+    mutation: BaseMutation
+    fingerprint: bytes
+    expected_trainer_version: int
+
+
+@dataclass(frozen=True, repr=False)
+class BaseResult:
+    operation_id: UUID
+    trainer_id: UUID
+    kind: str
+    changed: bool
+    committed_change: BaseFact
+    committed_base_ledger_version: int
+    recorded_at: datetime
+    validated_at: datetime
+    validated_business_month: str
+    current_base_ledger_version: int
+    current_change: BaseFact

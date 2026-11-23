@@ -222,7 +222,7 @@ def test_withdrawn_history_blocks18_downgrade_before_ddl(
     trainer: TrainerScene, history: str
 ) -> None:
     from tests.test_account_lifecycle import lifecycle_fingerprints
-    from tests.workforce_compensation_seed import assert_revision_loss_guard
+    from tests.workforce_base_seed import assert_revision_loss_guard
 
     t = trainer
     row = withdrawn(t)
@@ -617,6 +617,7 @@ def test_false_move_and_actual18_downgrade_installation_gate(
     from alembic.script import ScriptDirectory
 
     from tests.test_workforce_integrity import wait_for_owned_block
+    from tests.workforce_base_seed import prepare_revision_guard
     from y3management.audit.infrastructure import Audit
 
     t = trainer
@@ -663,11 +664,13 @@ def test_false_move_and_actual18_downgrade_installation_gate(
         script = scripts.get_revision("0018_withdrawn_operator_move")
         assert script is not None
         with t.base.db.engine.begin() as conn:
+            prepare_revision_guard(conn, script.revision)
             context = MigrationContext.configure(conn)
             with Operations.context(context):
                 if writer_first:
                     with pytest.raises(ValueError, match="WITHDRAWN_OPERATOR_MOVE_HISTORY_PRESENT"):
                         script.module.downgrade()
+                    conn.rollback()
                     return "history-preserved"
                 script.module.downgrade()
                 context.stamp(scripts, "0017_operator_management")
@@ -715,7 +718,7 @@ def test_false_move_and_actual18_downgrade_installation_gate(
         )
         assert s.scalar(text("SELECT granted FROM iam_operator_grants")) is False
         assert s.scalar(text("SELECT version_num FROM alembic_version")) == (
-            "0018_withdrawn_operator_move" if writer_first else "0017_operator_management"
+            "0021_workforce_base_schedule" if writer_first else "0017_operator_management"
         )
 
 

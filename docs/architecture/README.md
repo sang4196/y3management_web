@@ -1,3 +1,12 @@
+# WORKFORCE-005 로컬 인수 완료 — 미래 기본급 일정 편집
+
+[WF5-1](../product/product-decisions.md#review-20261123-future-base-cancellation)의 미래 취소 승인을 Product에 반영했다.
+[제한 계약](workforce-005-base-schedule-design.md)을 개발자·독립 tester가 사전검토했다. 구현·재동결·새 독립 실행·설계자 로컬 인수를 마쳤다.
+[결과](workforce-005-base-schedule-results.md)와 [최소 근거](workforce-005-base-schedule-review.json)는
+fast211·선정PG62 단일 실행·세 native54/15/8 조건·원래 소스/자원 보존과 초기 교정을 기록한다. PG809 중747개는 미실행이다.
+미래 등록·금액 수정·취소/기준월 계획 조회로 좁히고 초기 anchor·RF/상태·IAM·수동월/확정본을 보존한다.
+현재/과거 일반변경 승인 자체를 철회하지 않으며 실제 정산/수동월 연계는 후속이다. 다른 OPEN/전역 PROPOSED/운영 게이트는 유지한다.
+
 # WORKFORCE-004 로컬 인수 완료 — 보상 설정 조회·Rate/Fixed 변경
 
 승인된 BR-PAY-010/011/023의 최소 흐름이다. [제한 계약](workforce-004-compensation-design.md)의 개발자·독립 tester 사전검토 후 구현을 허용했다.

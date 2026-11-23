@@ -14,3 +14,15 @@ pytestmark = pytest.mark.postgres
 def test_workforce_native(password_app: tuple[Settings, Database, str], tmp_path: Path) -> None:
     settings, _, password = password_app
     run_browser(settings, password, tmp_path, workforce=True)
+
+
+def test_base_schedule_native(password_app: tuple[Settings, Database, str], tmp_path: Path) -> None:
+    settings, _, password = password_app
+    run_browser(settings, password, tmp_path, base_schedule=True)
+
+
+def test_base_schedule_races_native(
+    password_app: tuple[Settings, Database, str], tmp_path: Path
+) -> None:
+    settings, _, password = password_app
+    run_browser(settings, password, tmp_path, base_races=True)

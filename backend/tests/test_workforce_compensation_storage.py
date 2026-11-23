@@ -100,7 +100,7 @@ def test_real19_origin_clocks_full_preservation_runtime_and_empty_inverse(
             )
         ).one()
         assert clocks[0] == clocks[1] and len(set(clocks)) > 1
-    migrate(settings, "upgrade", "head")
+    migrate(settings, "upgrade", "0020_workforce_compensation")
     after = projected(db)
     assert all(after[k] == v for k, v in before.items() if k != "alembic_version")
     from tests.historical_backend import execute_original
@@ -133,7 +133,7 @@ assert not started
         if k
         not in {"alembic_version", "workforce_compensation_operations", "audit_compensation_events"}
     )
-    migrate(settings, "upgrade", "head")
+    migrate(settings, "upgrade", "0020_workforce_compensation")
 
 
 @pytest.mark.parametrize(
@@ -200,7 +200,7 @@ def test_compensation_information_loss_is_blocked(trainer: TrainerScene, kind: s
             )
             s.commit()
     before = lifecycle_fingerprints(t.base.db)
-    from tests.workforce_compensation_seed import assert_revision_loss_guard
+    from tests.workforce_base_seed import assert_revision_loss_guard
 
     assert_revision_loss_guard(
         t.base.db,
@@ -215,7 +215,7 @@ def test_compensation_information_loss_is_blocked(trainer: TrainerScene, kind: s
 def test_actual0019_guard_retains_home_receipt(trainer: TrainerScene) -> None:
     from tests.test_workforce_home import body as home_body
     from tests.test_workforce_home import destination, move
-    from tests.workforce_compensation_seed import assert_revision_loss_guard
+    from tests.workforce_base_seed import assert_revision_loss_guard
 
     t = trainer
     assert move(t, home_body(t, destination(t))).status_code == 200

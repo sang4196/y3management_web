@@ -9,6 +9,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from y3management.audit.public import (
+    BaseHistoryItem,
+    BaseHistoryPage,
+    BaseScheduleEvent,
     CompensationEvent,
     CompensationHistoryItem,
     CompensationHistoryPage,
@@ -239,3 +242,61 @@ class Audit:
                 )
             )
         return CompensationHistoryPage(tuple(items), total)
+
+    def append_base_schedule(self, event: BaseScheduleEvent) -> None:
+        args = {"id": uuid4(), **asdict(event)}
+        args["before_amount"] = (
+            Decimal(event.before_amount) if event.before_amount is not None else None
+        )
+        args["after_amount"] = Decimal(event.after_amount)
+        columns = tuple(asdict(event))
+        self.s.execute(
+            text(
+                "INSERT INTO audit_base_schedule_events(id,"
+                + ",".join(columns)
+                + ") VALUES(:id,"
+                + ",".join(":" + c for c in columns)
+                + ")"
+            ),
+            args,
+        )
+
+    def base_schedule_history(
+        self, organization: UUID, trainer: UUID, offset: int, limit: int
+    ) -> BaseHistoryPage:
+        query = """SELECT 1::bigint AS ledger_version,'initial' AS kind,trainer_id AS change_id,
+            after_month AS start_month,NULL::numeric AS before_amount,after_base AS planned_amount,
+            true AS active,1::bigint AS revision,actor_id,actor_role,actor_branch,target_home,
+            created_at AS recorded_at FROM audit_workforce_initial_events
+            WHERE organization_id=:o AND trainer_id=:t AND event_kind='initial_compensation'
+            UNION ALL SELECT after_ledger_version,kind,change_id,start_month,before_amount,
+              after_amount,after_active,after_revision,actor_id,actor_role,actor_branch,target_home,
+              recorded_at FROM audit_base_schedule_events
+              WHERE organization_id=:o AND trainer_id=:t"""
+        args = {"o": organization, "t": trainer, "off": offset, "lim": limit}
+        total = int(
+            self.s.execute(text("SELECT count(*) FROM (" + query + ") h"), args).scalar_one()
+        )
+        rows = self.s.execute(
+            text("SELECT * FROM (" + query + ") h ORDER BY ledger_version OFFSET :off LIMIT :lim"),
+            args,
+        )
+        items = tuple(
+            BaseHistoryItem(
+                r.ledger_version,
+                r.kind,
+                r.change_id,
+                f"{r.start_month.year:04d}-{r.start_month.month:02d}",
+                str(r.before_amount) if r.before_amount is not None else None,
+                str(r.planned_amount),
+                r.active,
+                r.revision,
+                r.actor_id,
+                r.actor_role,
+                r.actor_branch,
+                r.target_home,
+                r.recorded_at,
+            )
+            for r in rows
+        )
+        return BaseHistoryPage(items, total)

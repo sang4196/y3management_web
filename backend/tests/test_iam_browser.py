@@ -44,6 +44,8 @@ def run_browser(
     emergency_db: Database | None = None,
     handoff_db: Database | None = None,
     workforce: bool = False,
+    base_schedule: bool = False,
+    base_races: bool = False,
     trainer: bool = False,
     trainer_roles: bool = False,
 ) -> None:
@@ -172,7 +174,11 @@ def run_browser(
     shutil.copy(
         Path(__file__).parent
         / (
-            "browser/trainer-roles.cjs"
+            "browser/base-schedule-races.cjs"
+            if base_races
+            else "browser/base-schedule.cjs"
+            if base_schedule
+            else "browser/trainer-roles.cjs"
             if trainer_roles
             else "browser/trainer.cjs"
             if trainer
@@ -189,7 +195,11 @@ def run_browser(
     shutil.copy(
         Path(__file__).parent
         / (
-            "browser/trainer-roles-checks.json"
+            "browser/base-schedule-races-checks.json"
+            if base_races
+            else "browser/base-schedule-checks.json"
+            if base_schedule
+            else "browser/trainer-roles-checks.json"
             if trainer_roles
             else "browser/trainer-checks.json"
             if trainer
@@ -402,14 +412,20 @@ def run_browser(
                     qa_root() / "latest-emergency-failure.json",
                     {"stage": safe_stage, "diagnostic": json.loads(diagnostic.group(1))},
                 )
-        if (workforce or trainer or trainer_roles) and result.returncode != 0:
+        if (
+            base_races or base_schedule or workforce or trainer or trainer_roles
+        ) and result.returncode != 0:
             diagnostic = re.search(rb"(?:WORKFORCE|TRAINER)_DIAGNOSTIC=(.*)", result.stderr)
             values = json.loads(diagnostic.group(1)) if diagnostic else {}
             required_names = json.loads((root / "required-checks.json").read_text())
             _qa_write(
                 qa_root()
                 / (
-                    "latest-trainer-roles-failure.json"
+                    "latest-base-races-failure.json"
+                    if base_races
+                    else "latest-base-failure.json"
+                    if base_schedule
+                    else "latest-trainer-roles-failure.json"
                     if trainer_roles
                     else "latest-trainer-failure.json"
                     if trainer
@@ -445,10 +461,23 @@ def run_browser(
             },
             "browser": version if re.fullmatch(r"\d+(\.\d+){1,3}", version) else "unknown",
             "scope": "actual trusted HTTPS browser",
+            "mode": (
+                "base-races"
+                if base_races
+                else "base"
+                if base_schedule
+                else "workforce"
+                if workforce
+                else "existing"
+            ),
             "run_id": root.parents[2].name,
         }
         evidence = (
-            "latest-trainer-roles-browser.json"
+            "latest-base-races-browser.json"
+            if base_races
+            else "latest-base-browser.json"
+            if base_schedule
+            else "latest-trainer-roles-browser.json"
             if trainer_roles
             else "latest-trainer-browser.json"
             if trainer

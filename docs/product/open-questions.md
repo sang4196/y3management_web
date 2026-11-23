@@ -1381,3 +1381,12 @@ ARCH-001의 관리자/Trainer 한 계정 겸임 및 관리 범위 안에서의 �
 2026-10-12 후속 결정: Organization 공통 PT 상품 생성·수정은 Master Admin만 허용하도록 MB-007을 CLOSED 처리했다. 현재 Product OPEN은 23 OPEN / 7 CLOSED다. 다른 OPEN/승인된 Product 규칙과 ADR/Architecture의 PROPOSED 상태는 유지한다. 앞선 날짜의 OPEN/CLOSED 수치는 당시 기록이다.
 
 2026-10-12 I 승인 후 상태: UX-001은 v1 개별 등록/여러 날짜 일괄 입력 보류 승인으로 CLOSED가 됐다. 현재 Product OPEN은 22 OPEN / 8 CLOSED다. 앞선 날짜의 수치는 당시 이력이며 나머지 ID 상태/PD 1 OPEN·26 CLOSED/ADR/Architecture 상태는 유지한다. [2026-10-12 I 일괄 승인](product-decisions.md#review-20261012-i-batch).
+
+
+## 2026-11-24 반영 — BR-012 부분 해결 — 미래 미적용 변경 취소
+
+WF5-1에서 미래 미적용 일반 Base Salary 변경의 취소를 허용했다. 원래 계획/취소 이력은 남기고 이전 유효 설정이 다음 남은 변경까지 지속된다.
+현재 Master Organization/Branch Admin의 대상 Trainer 현재 Home 범위·독립 관리자 본인 허용·별도 승인 없음·필수 감사는 유지한다.
+최초 필수 설정 삭제나 이미 적용된 월/과거 월 취소를 추가하지 않는다. 다른 일정·수동 지정·확정본을 자동 변경하지 않는다.
+시작 월/지속/0원/미래 상한과 AA1 이전 월 처리는 기존 승인이며 재질문하지 않는다. [WF5-1 승인](product-decisions.md#review-20261123-future-base-cancellation).
+이번 부분 해결로 다른 OPEN/전역 PROPOSED를 닫지 않으며 실제 기능·검증은 후속 Architecture 계약/구현에 따른다.
