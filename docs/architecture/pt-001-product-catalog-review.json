@@ -1,0 +1,521 @@
+{
+  "status": "ARCHITECT_LOCAL_ACCEPTANCE_PASS",
+  "local_date": "2026-11-25",
+  "parent": "538c7b7955e49a694da595d38d69c8940787b984",
+  "branch": "codex/pt-product-catalog",
+  "product_approval": "CAT-1/CAT-2; docs/product/product-decisions.md#review-20261125-catalog-input-state",
+  "scope": "Master same Organization Catalog create/read/update/stop/own operation receipt only",
+  "root_verified_checks": {
+    "frozen_source330_exact": true,
+    "root_auth_freeze_bound": true,
+    "expected_58_unique": true,
+    "actual_58_exact": true,
+    "all_58_actual_passed": true,
+    "test_exits_zero": true,
+    "fresh_fast218": true,
+    "no_borrowed_scores": true,
+    "all_raw_hashes_match": true,
+    "catalog_manifest_exact_literal_true": true,
+    "catalog_same_pg_run": true,
+    "catalog_raw_safe_agree": true,
+    "workforce_manifest_exact_literal_true": true,
+    "workforce_same_pg_run": true,
+    "workforce_raw_safe_agree": true,
+    "one_actual_browser_version": true,
+    "no_skips_xfails_xpasses": true,
+    "owned_pg_folder_absent": true
+  },
+  "final_independent_scope": {
+    "full_collected_tests": 1051,
+    "fast_non_pg_passed": 218,
+    "full_postgres_denominator": 833,
+    "selected_pg": 58,
+    "selected_pg_executed": 58,
+    "selected_pg_passed": 58,
+    "selected_pg_failed": 0,
+    "selected_pg_not_executed": 0,
+    "unselected_pg_not_executed": 775
+  },
+  "final_runtime_seconds": {
+    "fast": 35.177,
+    "selected_pg": 457.049
+  },
+  "freeze_sha256": "427b33bede96b5f7d8f95f3340a2d55d822576c86b4e7cf229053fab88f1aee1",
+  "independent_report_sha256": "011d68371c754c28256b1968dd409687aeafaf16393036b006cf23fede35bca5",
+  "frozen_source_count": 330,
+  "frozen_backend_count": 212,
+  "frozen_source_manifest_sha256": "01c99c375576b3d30c46083b4860dd7745cec56d3a266edd135f286a6de2d505",
+  "backend_manifest_sha256": "3f6955c396ecc79c0c3b8be2c217c87189d4eb339644e8a14251fb6c2ea8c3c6",
+  "protected42_sha256": {
+    "AGENTS.md": "b729058462d36fec6abfd509db5f0df2334cf4c728be6fd88a7ba21fbadc8ab9",
+    "backend/alembic/versions/.gitkeep": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+    "backend/alembic/versions/0001_iam_s1.py": "b3d402d8c2b48873f88a693429b5cc92f5a295d9681871d5ad799c178033ad1f",
+    "backend/alembic/versions/0002_iam_restore.py": "4322aa7d7a10ea56915927c3efe91c36f771741aaf92e5770a6fe2d8b0a7a5d1",
+    "backend/alembic/versions/0003_iam_password.py": "f207d7f0938e17713f78d7e46cbd806137d5e1c488ae6a6dd5f5c7c4ec90762a",
+    "backend/alembic/versions/0004_iam_login_id.py": "07144bab1120b2d9a5f00ec4a2d40e3fb218b0c5b202c742051df25f454e3937",
+    "backend/alembic/versions/0005_iam_mfa.py": "52950c64e4011ff72f4a542c4c9b50d5dfa81579087ab1bf16c987a739b59a2b",
+    "backend/alembic/versions/0006_iam_mfa_management.py": "2534c339c4be0cbcda8306ee0c719b0aa8a51cd3c88a81ff36b21cbc9b7c5f42",
+    "backend/alembic/versions/0007_iam_password_reset.py": "10d17079e948a047ed978b1258a3cae3feb7b085ca7da2ee5da3f26aa718ffd4",
+    "backend/alembic/versions/0008_iam_emergency_recovery.py": "5a74acb38eb400a538327ea1ae5f4cbb20447d3b7eeff7eb65b65b58c7c81729",
+    "backend/alembic/versions/0009_iam_emergency_handoff.py": "3b8b459fdb050a2c27b9cc03d37628c3d8866d7c1f61cd2bed31c9d7991d6061",
+    "backend/alembic/versions/0010_workforce_initial_registration.py": "84afd92af6608aef01c30909058aabec454c0fc6d32587df302c0e435de645c6",
+    "backend/alembic/versions/0011_iam_trainer_login.py": "d3276fd7fd34705a1da37a391735eb48e8fea3883ad2d30ba1701eb9f4ea6216",
+    "backend/alembic/versions/0012_iam_trainer_roles.py": "684a26a4f4dbe5ad14049ef0e35204241ec7dae8930227e7386b8f53cf466830",
+    "backend/alembic/versions/0013_workforce_trainer_state.py": "d5bfc9e19a5288bc0e9d951dd146dba5fdff31bb258b9f4f81b575ed46e2da25",
+    "backend/alembic/versions/0014_password_only.py": "c8909b77448ace6409baf5f8d7741850d90a9795f02e6c0bc7928b016f1bac81",
+    "backend/alembic/versions/0015_account_lifecycle.py": "1e1c3af8281a07c1c4b3e93762ce16fe85dc08ff46ad1569933b2a73f9e2a89c",
+    "backend/alembic/versions/0016_operator_onboarding.py": "2c02ab759c497b873a45a3a78f2b38a896c5c3a6f715077fd0c2244aa404053f",
+    "backend/alembic/versions/0017_operator_management.py": "34671d9c8724c79a2d1a490d1715eddb208b5dfa1139c5b34c14702c65c51de4",
+    "backend/alembic/versions/0018_withdrawn_operator_move.py": "9533627ae827f0e111c5f6e38be66f0fad1067fb4ac9ffd147d21ae51a4f4615",
+    "backend/alembic/versions/0019_workforce_trainer_home.py": "8db2936f6f8610ec5df2c7ffa679644ddb867b820a8d565871537cf838ace007",
+    "backend/alembic/versions/0020_workforce_compensation.py": "5fe88b08c24572e50ad19ab4664a688bccf00d703fd2b353272e1146a8a520c5",
+    "backend/alembic/versions/0021_workforce_base_schedule.py": "1a9709ea2edfca7ad6751aa16d8d1c7684dbc3e7c2771d6fa69436db9ed3614e",
+    "backend/check.ps1": "abb1d8216d924c10a68e24bb73ad61eaf743d1a6ef2f68d64ff0ee6853ee5b4c",
+    "backend/check.sh": "913aca1b14811d52295d6145924464990665689158368d3024e4a769ac8e4b44",
+    "backend/compose.yaml": "057759a9125dc93d4b8b7a3e31dcee9fdbc338cec814ae76eff2b31ab63725e4",
+    "backend/src/y3management/ownership.py": "08b39878e755567dda122c68d5dc54c11a8a92e7d1ff9f82219e56dd07e83916",
+    "backend/tests/browser_result.py": "1fb866877c8b3e2dd6af0fc88431371fd7628d516940712f694e97a8c0f045cf",
+    "backend/tests/conftest.py": "ffa91a2e3c07db0b93425233bbf0d7ec2c7b87e8c6729da637d0aa417eba6750",
+    "backend/tests/historical_backend.py": "8389adffe83117dc8b360cd3de2fe533905340c9ee66fc410a966ccbd2285de0",
+    "backend/tests/legacy_helpers.py": "310d7c6092359f4f24dc0db17da18dfb523161ab9013278598737c639a442a93",
+    "backend/tests/password_helpers.py": "68e1b56cadbd88ffd4ecadf5f9a4ef3178906fd57b688e41db8f1323aa1a18b9",
+    "backend/tests/workforce_base_seed.py": "fdfab13c6c1a1e9242b840c58e82e1242cfca275b0cde51f0e10168eba9c79c1",
+    "backend/tests/workforce_compensation_seed.py": "993b786b3fd449b425d76e33d075271f3c190a13df38c37c76b23a63b33189aa",
+    "backend/tests/workforce_home_seed.py": "958384a35e7367ef4b515614b420d6c1adf7dfddfce88be679dd512f2160499c",
+    "backend/tests/workforce_state_seed.py": "11f05f38f0173f6a863cf18081464d6e8d2a156b8e1a762aeed488e4be9715da",
+    "backend/uv.lock": "1365098bd3876d84ad808fe0e463b76d66681c20dc3c0c3f5e7cae84bc56ba2e",
+    "docs/decisions/0001-backend-stack.md": "35470513efeb91f24dd98c6af48927adceb67e7f246ce7e366320d5933176a22",
+    "docs/decisions/0002-modular-monolith.md": "81e180c95f8185d67159588e5e33ea35f7a14ed32239ef97af1d429825ff069a",
+    "docs/decisions/0003-foundation-tooling.md": "e6366b20e29aba905ce101b770e1a10c696ec4aa666fe8a38b7ad9b5c62ad649",
+    "docs/decisions/0004-authentication-session.md": "13230e649eea861ae8228925fa3ee693da1f2eb5acc782d81fc992e6e53dc64e",
+    "docs/decisions/0005-password-only-authentication.md": "cd591984e0594d63ad0ce6fcebab046d1cff7a1557f8591a81aa4eb46c643ad9"
+  },
+  "individual_pg_outcomes": [
+    {
+      "nodeid": "tests/test_pt_catalog.py::test_complete_history_stop_edit_noop_replay_and_exact_large_values",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_pt_catalog.py::test_explicit_validation_no_echo_and_rejected_requests_preserve",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_pt_catalog.py::test_current_master_actor_bound_receipts_cross_org_and_nonmaster",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_pt_catalog.py::test_audit_or_changed_actor_rolls_all_catalog_and_activity_back[audit]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_pt_catalog.py::test_audit_or_changed_actor_rolls_all_catalog_and_activity_back[actor]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_pt_catalog.py::test_original_deadline_crossing_after_audit_does_not_touch_rescue[False]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_pt_catalog.py::test_original_deadline_crossing_after_audit_does_not_touch_rescue[True]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_pt_catalog.py::test_actual_installation_gate_serializes_duplicate_or_cas[False]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_pt_catalog.py::test_actual_installation_gate_serializes_duplicate_or_cas[True]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_pt_catalog.py::test_postgresql_typed_constraints_and_nullable_core_proofs",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_pt_catalog.py::test_final_original_proof_on_non_audited_paths[read]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_pt_catalog.py::test_final_original_proof_on_non_audited_paths[receipt]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_pt_catalog.py::test_final_original_proof_on_non_audited_paths[noop]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_pt_catalog.py::test_final_original_proof_on_non_audited_paths[replay]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_pt_catalog.py::test_independent_master_remains_catalog_actor_when_own_trainer_inactive",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_pt_catalog_storage.py::test_real21_rf_base_home_iam_preservation_empty_inverse_and_both_runtime_rejections",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_pt_catalog_storage.py::test_each_catalog_fact_blocks_destructive_inverse[create]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_pt_catalog_storage.py::test_each_catalog_fact_blocks_destructive_inverse[update]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_pt_catalog_storage.py::test_each_catalog_fact_blocks_destructive_inverse[stop]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_pt_catalog_storage.py::test_each_catalog_fact_blocks_destructive_inverse[noop]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_pt_catalog_storage.py::test_schema_policy_preflight_before_ddl_leaves_every_row[head]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_pt_catalog_storage.py::test_schema_policy_preflight_before_ddl_leaves_every_row[policy]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_pt_catalog_storage.py::test_empty_catalog_adapter_reaches_actual21_and_keeps_original_base_guard",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_review.py::test_downgrade_waits_for_actual_issue_then_preserves_history",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_iam_trainer_roles_races.py::test_downgrade_waits_for_actual_role_change_and_preserves_committed_history",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_operator_management.py::test_operator_receipt_audit_identity_fk_and_downgrade_guard",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_operator_management.py::test_operator17_isolated_synthetic_loss_guards[admin_auth]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_operator_management.py::test_operator17_isolated_synthetic_loss_guards[source_branch]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_operator_onboarding.py::test_two_scopes_source_gc_and_schema_loss_guard",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_operator_onboarding.py::test_migration_waits_for_operator_issue",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_operator_onboarding.py::test_downgrade_serializes_trainer_issue_cleanup[cleanup]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_operator_onboarding.py::test_downgrade_serializes_trainer_issue_cleanup[migration]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_operator_withdrawn_move.py::test_withdrawn_history_blocks18_downgrade_before_ddl[both]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_operator_withdrawn_move.py::test_withdrawn_history_blocks18_downgrade_before_ddl[receipt_only]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_operator_withdrawn_move.py::test_withdrawn_history_blocks18_downgrade_before_ddl[audit_only]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_operator_withdrawn_move.py::test_false_move_and_actual18_downgrade_installation_gate[True]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_operator_withdrawn_move.py::test_false_move_and_actual18_downgrade_installation_gate[False]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_password_transition.py::test_nonzero_transition_summary_rejects_downgrade_before_ddl",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_password_transition.py::test_transition_preserves_account_business_facts_and_rejects_nonempty_downgrade[ACTIVE-False-unchanged_password]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_password_transition.py::test_transition_preserves_account_business_facts_and_rejects_nonempty_downgrade[ACTIVE-True-password_pending]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_password_transition.py::test_transition_preserves_account_business_facts_and_rejects_nonempty_downgrade[DISABLED-False-disabled]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_password_transition.py::test_transition_preserves_account_business_facts_and_rejects_nonempty_downgrade[DISABLED-True-disabled]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_password_transition.py::test_transition_preserves_account_business_facts_and_rejects_nonempty_downgrade[PENDING_SETUP-False-pending_setup]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_workforce_base_storage.py::test_each_new_fact_blocks_inverse[create]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_workforce_base_storage.py::test_each_new_fact_blocks_inverse[edit]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_workforce_base_storage.py::test_each_new_fact_blocks_inverse[cancel]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_workforce_base_storage.py::test_each_new_fact_blocks_inverse[noop]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_workforce_compensation_storage.py::test_compensation_information_loss_is_blocked[noop]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_workforce_compensation_storage.py::test_compensation_information_loss_is_blocked[changed]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_workforce_compensation_storage.py::test_compensation_information_loss_is_blocked[version_only]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_workforce_compensation_storage.py::test_compensation_information_loss_is_blocked[initial_mismatch]",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_workforce_compensation_storage.py::test_actual0019_guard_retains_home_receipt",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_workforce_state_causal.py::test_downgrade_waits_for_actual_state_writer_and_preserves_history",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_workforce_integrity.py::test_commit_ack_loss_replay",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_workforce_compensation.py::test_exact_change_two_versions_noop_and_current_replay",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_workforce_base.py::test_calendar_create_edit_cancel_receipts_and_initial_overlay",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_pt_catalog_browser.py::test_catalog_native",
+      "status": "passed"
+    },
+    {
+      "nodeid": "tests/test_workforce_browser.py::test_workforce_native",
+      "status": "passed"
+    }
+  ],
+  "native": {
+    "catalog": {
+      "report": {
+        "checks": {
+          "pending_blocks_new": true,
+          "same_uuid_reconciles": true,
+          "http503_keeps_uuid": true,
+          "actual_create_zero_one": true,
+          "explicit_empty": true,
+          "trusted_https": true,
+          "retry_conflict_refreshes_current": true,
+          "master_menu": true,
+          "stop_then_edit_stays_stopped": true,
+          "receipt_then_external_fresh": true,
+          "retry_new_uuid_uses_fresh_cas": true,
+          "new_selection_before_old_release": true,
+          "stale_refresh_cannot_reselect": true,
+          "retry_5xx_preserves_pending": true,
+          "actor_switch_clears": true,
+          "service_fixed": true,
+          "actor_switch_zero_posts": true,
+          "network_ack_keeps_uuid": true,
+          "paging_clears_edit": true,
+          "mobile_no_overflow": true,
+          "exact_big_count_price": true,
+          "paging_no_accidental_create": true
+        },
+        "browser": "151.0.7922.34",
+        "scope": "actual trusted HTTPS browser",
+        "mode": "catalog",
+        "run_id": "auto-e2b64c0c00d341bd8912827e6386ecbd"
+      },
+      "raw_sha256": "76aceaa15e5c10cf1f2861b1077952bc3f0649ffd61424e188a08d8e31baaccc",
+      "safe_sha256": "09732351fbb29e10de07151d0c39a541a126cd4c61bc5f2aa5fbd9644b3972f4",
+      "manifest_sha256": "ee204b82d71a7a6fabf8fa6908f08d1beb69f2af71fb26e75764995b0131eb94",
+      "count": 22
+    },
+    "workforce": {
+      "report": {
+        "checks": {
+          "authorized_replay": true,
+          "home_master_ui_move": true,
+          "compensation_history_initial_and_change": true,
+          "compensation_ack_reconciled": true,
+          "explicit_empty_values": true,
+          "explicit_new_operation": true,
+          "branch_same_operation": true,
+          "conflict": true,
+          "compensation_receipt_current": true,
+          "compensation_receipt_fresh_publication": true,
+          "compensation_initial_base": true,
+          "compensation_old_home_denied": true,
+          "nojs_disabled": true,
+          "compensation_double_click": true,
+          "compensation_current_ba": true,
+          "trusted_https": true,
+          "actual_master_login": true,
+          "actual_form_registration": true,
+          "actual_chunked_8193": true,
+          "foreign_home_denied": true,
+          "actual_chunked_8192": true,
+          "home_current_registration": true,
+          "exact_money_string": true,
+          "nojs_no_query_leak": true,
+          "home_receipt_keeps_current": true,
+          "nojs_post_method": true,
+          "home_double_click_one": true,
+          "home_stale_response_blocked": true,
+          "branch_actual_form": true,
+          "validation_no_echo": true,
+          "later_candidate_registered": true,
+          "compensation_no_mobile_overflow": true,
+          "explicit_new_clears": true,
+          "branch_scope": true,
+          "home_actor_switch_blocks": true,
+          "explicit_future_month": true,
+          "minimal_response": true,
+          "compensation_stale_same_trainer_version": true,
+          "home_old_admin_denied": true,
+          "mobile_no_overflow": true,
+          "actual_status_button": true,
+          "branch_login": true,
+          "actor_preserved": true,
+          "home_branch_name_display": true,
+          "compensation_noop": true,
+          "later_candidate_loaded": true,
+          "compensation_exact_string": true,
+          "home_ack_reconciled": true,
+          "current_other_actor_replay": true,
+          "compensation_actor_switch_blocks": true,
+          "branch_setup": true,
+          "compensation_actual_ui": true,
+          "mobile_input_width": true,
+          "double_click_one_operation": true
+        },
+        "browser": "151.0.7922.34",
+        "scope": "actual trusted HTTPS browser",
+        "mode": "workforce",
+        "run_id": "auto-e2b64c0c00d341bd8912827e6386ecbd"
+      },
+      "raw_sha256": "02a205f06e5fffa81d5e9f47663788f676a82dd296cfbbd102aa20bccd6c74c4",
+      "safe_sha256": "0184c759d74373df47f0621a9c603ae70e9d4a1a4a4752586e85ae3d2c05f8e6",
+      "manifest_sha256": "d04b8de33879e345ebcdc8c05fc43a5211b74577c0967573fa3df9601aef5465",
+      "count": 54
+    }
+  },
+  "final_postflight_checks": {
+    "source_330_exact": true,
+    "protected_42_exact": true,
+    "head_exact": true,
+    "branch_exact": true,
+    "index_exact": true,
+    "refs_exact": true,
+    "trust_exact": true,
+    "hosts_exact": true,
+    "native_binary_exact": true,
+    "first_failed_run_preserved": true
+  },
+  "final_cleanup": {
+    "fast_fixture_removed": true,
+    "pg_fixture_removed": true,
+    "owned_run_folders_absent": true,
+    "own_processes_absent": true,
+    "owned_ports_clear": true,
+    "owned_schema_candidates": 58,
+    "owned_schemas_remaining": [],
+    "all_auto_folders_absent": true
+  },
+  "raw_artifact_sha256": {
+    "independent-preflight-v2.json": "d14f993d2b17ac59272e04d000b3e15d31433f6bf51a9b916aa48a0caab81072",
+    "independent-fast-v2.raw.log": "049b4b642843645ddbb1f2a80b6d63ef1701b25c5a4fc92af95a1c9f5fabb9d8",
+    "independent-fast-cleanup-v2.json": "01f1423c0ffe0664d3a49223bd420144f18541a72ab2f41689b74d88364724f1",
+    "independent-postgres-v2.raw.log": "f85b2373bf25cda0c7d6dee7d8fdeca115af5473a1299024ee39c7f4bf52ad84",
+    "independent-postgres-v2.junit.xml": "ec0246d6d69af8ad27795d789b87a0558909b72aa987e651ab2743a66a0bb33c",
+    "independent-postgres-run-v2.json": "a130a9089eb1e86975c990ea1fd1543043465fdde65fc1531f80ba2ec7e6b5be",
+    "independent-postgres-cleanup-v2.json": "c933897fb0c9e80536d35f9c67b882777dbb056eb2f2095455b263922697057a",
+    "independent-selected-outcomes-v2.json": "878b752c531c12add5ce9dc643a6586cf3e4d4d4b5113d593dd1b78a9256804c",
+    "independent-postflight-v2.json": "837098b5a8188eaa890cc13e19ee81d0d81f174f466cd9534a593a710800f259",
+    "independent-schema-cleanup-v2.json": "b3fbb7b091473d78be73c3c4e3af0d793308ab16b78c74f85816878ee6d929aa",
+    "independent-native-catalog-raw-v2.json": "76aceaa15e5c10cf1f2861b1077952bc3f0649ffd61424e188a08d8e31baaccc",
+    "independent-native-catalog-safe-v2.json": "09732351fbb29e10de07151d0c39a541a126cd4c61bc5f2aa5fbd9644b3972f4",
+    "independent-native-workforce-raw-v2.json": "02a205f06e5fffa81d5e9f47663788f676a82dd296cfbbd102aa20bccd6c74c4",
+    "independent-native-workforce-safe-v2.json": "0184c759d74373df47f0621a9c603ae70e9d4a1a4a4752586e85ae3d2c05f8e6",
+    "independent-owned-auto-e2b64c0c00d341bd8912827e6386ecbd-v2.json": "82925d33ddf8e57f340094a256cc5c96ac785917d12d3ba86f0f12018553a782"
+  },
+  "initial_independent_failure": {
+    "report_sha256": "d78487fcd5fd04c399173e9eb3a7a2a20fc1cbd584db7e823251bc5fa9c454ca",
+    "selected": 58,
+    "executed": 33,
+    "passed": 32,
+    "failed": 1,
+    "unexecuted": 25,
+    "node": "tests/test_operator_withdrawn_move.py::test_withdrawn_history_blocks18_downgrade_before_ddl[both]",
+    "cause": "Observer included14 preparation DDL statements from actual22-to18 inverse; original18 history guard matched. The following outer fingerprint/shape assertions were not reached in that failed run.",
+    "correction": "Prepare actual18 in rollback-only Connection, verify exact head18, observe only original18 guard, assert targetDDL0, rollback then verify full22 fingerprint/shape/head. All3 parameters passed in final58.",
+    "scores_combined": false
+  },
+  "technical_corrections": [
+    "Preserve pending UUID/body for network/5xx; block new work while unresolved.",
+    "Clear old edit draft on pagination and reject stale list continuation.",
+    "After receipt404, a known effect-free retry business refusal requires original Actor proof, clears stale snapshot and pending, and fresh detail before new CAS. Unknown/5xx/Actor/invocation authorization failures retain original pending. Native22 includes actual other Master writer and new UUID/current CAS recovery.",
+    "Foreign-organization synthetic fixture required unique login identity/owner relation; policy counterexample must satisfy original installation checks before testing Catalog preflight. Original constraints unchanged.",
+    "Metadata-only collect exit1 and v2 preflight key-reading mismatch executed no functional test and are not successful runtime scores."
+  ],
+  "security_and_architecture": "Current Master/Org/ExpectedActor/CSRF and original request deadline proof; shared UoW atomic version/head/receipt/typed Audit; actual change only touch/Audit; canonical exact price/count strings; service implies FIXED; stopped edit preserves stopped; immutable append-only application version path.",
+  "preservation": "Original0001-21/ADR/helpers/lock/ownership/check/Compose protected42 unchanged; project/dependency/tool sections except importlinter unchanged; no global proposed decision promoted.",
+  "warnings": [
+    "Existing Starlette/httpx TestClient deprecation",
+    "Existing AnyIO BlockingPortal alias deprecation"
+  ],
+  "limits": [
+    "775 of833 PostgreSQL cases not executed in final selection.",
+    "Native verified installed Chromium151.0.7922.34 on WSL; not all supported platforms/browsers.",
+    "No Pass/PTSession/Session Payment/Settlement, sale resume/delete or general nonMaster browsing.",
+    "No original/shared DB migration or deployment."
+  ],
+  "current_scope_unresolved_decisions": [],
+  "post_runtime_change_policy": "Root Architecture acceptance/results plus one explicitly qualified whitespace-only new0022 SQL blank line. Runtime-frozen58 score is preserved; no runtime repeated for that nonsemantic change.",
+  "qa_retention": "Completed raw logs/captures/temporary executions may be removed after authorized commit review; this minimal committed summary and unresolved next gate remain.",
+  "post_runtime_nonsemantic_whitespace": {
+    "path": "backend/alembic/versions/0022_pt_product_catalog.py",
+    "line": 90,
+    "change": "Removed9U+0020 characters from a whitespace-only SQL string line; newline retained.",
+    "runtime_frozen_sha256": "b480455bcde8c340fc7f95ab635f27f974ef076b466c2f8f5e2a43218510dbaf",
+    "accepted_final_sha256": "1ca76c5a7ab261f64d26e871e2c4e74cbf3e0a8cb5f99a05d88fbba43673db6a",
+    "exact_single_blank_line_replacement": true,
+    "whole_file_whitespace_tokens_equal": true,
+    "sql_grammar_tokens_unchanged": true,
+    "runtime_repeated_after_whitespace_only_change": false,
+    "verification": "Root direct staged-runtime bytes vs final file; exact replacement/token comparison. Dedicated committer must restage and pass --cached --check.",
+    "reason": "Precommit staged check sees untracked new migration; previous unstaged-only check did not include it. No Product, schema or behavior change."
+  },
+  "runtime_backend_manifest_sha256": "3f6955c396ecc79c0c3b8be2c217c87189d4eb339644e8a14251fb6c2ea8c3c6",
+  "accepted_final_backend_manifest_sha256": "4fd3f099a5f4deafd5db24476256518f3e07989af3f2518a4b853aebe7b1e014"
+}

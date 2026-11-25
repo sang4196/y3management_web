@@ -25,6 +25,7 @@ from y3management.iam.public import (
     Setup,
     TrainerRoleRequest,
 )
+from y3management.pt_operations.public import CatalogCommand, ProductValues
 from y3management.use_cases import Service
 from y3management.workforce.public import (
     BaseCommand,
@@ -77,6 +78,24 @@ class BodyLimit:
 
 class Input(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+
+class ProductInput(Input):
+    operation_id: UUID
+    name: str = Field(strict=True, max_length=200)
+    price_won: str = Field(strict=True, max_length=1024)
+    session_count: str = Field(strict=True, max_length=19)
+    payment_type: Literal["RATE", "FIXED_AMOUNT"]
+    is_service: bool = Field(strict=True)
+
+
+class ProductUpdateInput(ProductInput):
+    expected_product_version: int = Field(strict=True, ge=1, le=9223372036854775807)
+
+
+class ProductStopInput(Input):
+    operation_id: UUID
+    expected_product_version: int = Field(strict=True, ge=1, le=9223372036854775807)
 
 
 class TrainerAccountInput(Input):
@@ -340,6 +359,8 @@ def attach(app: FastAPI, settings: Settings) -> None:
     async def validation_error(request: Request, error: RequestValidationError) -> Response:
         if request.url.path.startswith(
             (
+                "/api/v1/admin/products",
+                "/api/v1/admin/product-operations",
                 "/api/v1/admin/trainers",
                 "/api/v1/admin/trainer-registrations",
                 "/api/v1/admin/trainer-home-candidates",
@@ -1216,6 +1237,107 @@ p,li{overflow-wrap:anywhere}h1{font-size:1.6rem}""",
             media_type="text/css",
         )
 
+    @router.get("/admin/products")
+    def products(
+        request: Request, expected_actor: ExpectedOperatorActor, offset: int = 0, limit: int = 25
+    ) -> object:
+        workforce_query(request, {"offset", "limit"})
+        return asdict(
+            service(request).products(read(request), offset, limit, expected_actor=expected_actor)
+        )
+
+    @router.get("/admin/products/{ident}")
+    def product(request: Request, ident: UUID, expected_actor: ExpectedOperatorActor) -> object:
+        workforce_query(request, set())
+        return asdict(service(request).product(read(request), ident, expected_actor=expected_actor))
+
+    @router.get("/admin/product-operations/{operation}")
+    def product_operation(
+        request: Request, operation: UUID, expected_actor: ExpectedOperatorActor
+    ) -> object:
+        workforce_query(request, set())
+        return asdict(
+            service(request).product_operation(
+                read(request), operation, expected_actor=expected_actor
+            )
+        )
+
+    @router.post("/admin/products")
+    def create_product(
+        request: Request, body: ProductInput, expected_actor: ExpectedOperatorActor
+    ) -> object:
+        workforce_query(request, set())
+        auth, nonce = write(request)
+        values = ProductValues(**body.model_dump(exclude={"operation_id"}))
+        return asdict(
+            service(request).change_product(
+                auth,
+                nonce,
+                CatalogCommand(body.operation_id, "create", values=values),
+                expected_actor=expected_actor,
+            )
+        )
+
+    @router.post("/admin/products/{ident}")
+    def update_product(
+        request: Request,
+        ident: UUID,
+        body: ProductUpdateInput,
+        expected_actor: ExpectedOperatorActor,
+    ) -> object:
+        workforce_query(request, set())
+        auth, nonce = write(request)
+        values = ProductValues(
+            **body.model_dump(exclude={"operation_id", "expected_product_version"})
+        )
+        return asdict(
+            service(request).change_product(
+                auth,
+                nonce,
+                CatalogCommand(
+                    body.operation_id, "update", ident, body.expected_product_version, values
+                ),
+                expected_actor=expected_actor,
+            )
+        )
+
+    @router.post("/admin/products/{ident}/stop")
+    def stop_product(
+        request: Request, ident: UUID, body: ProductStopInput, expected_actor: ExpectedOperatorActor
+    ) -> object:
+        workforce_query(request, set())
+        auth, nonce = write(request)
+        return asdict(
+            service(request).change_product(
+                auth,
+                nonce,
+                CatalogCommand(body.operation_id, "stop", ident, body.expected_product_version),
+                expected_actor=expected_actor,
+            )
+        )
+
+    @app.get("/products", response_class=HTMLResponse)
+    def product_page(request: Request) -> str:
+        caller, _ = service(request).principal(read(request))
+        if not caller.master:
+            raise Rejected(403, "forbidden")
+        return PRODUCT_PAGE
+
+    @app.get("/products.css")
+    def product_style(request: Request) -> Response:
+        read(request)
+        return Response(
+            "#products button{max-width:100%;white-space:normal;overflow-wrap:anywhere;"
+            "text-align:left}#selection{max-width:100%;white-space:normal;overflow-wrap:anywhere}"
+            "nav{display:flex;flex-wrap:wrap}",
+            media_type="text/css",
+        )
+
+    @app.get("/products.js")
+    def product_script(request: Request) -> Response:
+        read(request)
+        return Response(PRODUCT_SCRIPT, media_type="application/javascript")
+
     app.include_router(router)
 
     @app.get("/operator-accounts", response_class=HTMLResponse)
@@ -1435,6 +1557,9 @@ if(identity.roles.some(role=>role.role==='ADMIN')){
  link.textContent='운영자 계정';out.after(link);}
 const old=document.getElementById('lifecycle-link');if(old)old.remove();
 if(identity.capabilities.includes('accounts:manage')){
+ document.getElementById('products-link')?.remove();
+ const products=document.createElement('a');products.id='products-link';products.href='/products';
+ products.textContent='PT 상품 관리';out.after(products);
  const link=document.createElement('a');link.id='lifecycle-link';link.href='/account-lifecycle';
  link.textContent='계정 관리';out.after(link);}}
 
@@ -2853,3 +2978,347 @@ addEventListener('pagehide',()=>{generation++;selected=null;writing=false;});
  controls();
 }catch{el('message').textContent='로그인과 관리 권한을 확인해 주세요.';}})();
 })();"""
+
+
+PRODUCT_PAGE = """<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/trainers.css">
+<link rel="stylesheet" href="/products.css">
+<title>PT 상품 관리</title>
+<h1>PT 상품 관리</h1>
+<p>조직 공통 상품 · 판매중단 후에도 정보는 수정할 수 있습니다.</p>
+<nav>
+<button id="refresh" disabled>목록 새로 조회</button>
+<button id="new" disabled>새 상품</button>
+</nav>
+<p id="list-status">
+</p>
+<ul id="products">
+</ul>
+<button id="prev" disabled>이전 목록</button>
+<button id="next" disabled>다음 목록</button>
+<form id="product-form" method="post" action="/api/v1/admin/products">
+<fieldset id="product-fields" disabled>
+<legend id="selection">새 상품</legend>
+<label>상품명<input id="product-name" required maxlength="200">
+</label>
+<label>판매가격 (원)<input id="product-price" required
+ inputmode="numeric" maxlength="1024" pattern="0|[1-9][0-9]*">
+</label>
+<label>총횟수<input id="product-count" required
+ inputmode="numeric" maxlength="19" pattern="[1-9][0-9]*">
+</label>
+<label>지급방식<select id="product-type" required>
+<option value="">선택</option>
+<option value="RATE">비율 지급</option>
+<option value="FIXED_AMOUNT">고정금액 지급</option>
+</select>
+</label>
+<label>서비스 상품<select id="product-service" required>
+<option value="">선택</option>
+<option value="false">일반 상품</option>
+<option value="true">서비스 상품</option>
+</select>
+</label>
+<p id="selling">
+</p>
+<button id="save" disabled>등록</button>
+<button id="stop" type="button" disabled>판매중단</button>
+</fieldset>
+</form>
+<p id="product-result" role="status">
+</p>
+<label>작업번호<input id="product-operation" readonly>
+</label>
+<button id="check" disabled>작업 결과 대사</button>
+<noscript>자바스크립트 사용 후 상품을 관리할 수 있습니다.</noscript>
+<script src="/products.js">
+</script>"""
+
+PRODUCT_SCRIPT = r"""(()=>{'use strict';
+
+const $=id=>document.getElementById(id),form=$('product-form'),fields=$('product-fields');
+
+const name=$('product-name'),price=$('product-price'),count=$('product-count');
+const type=$('product-type');
+
+const service=$('product-service'),out=$('product-result'),rows=$('products');
+
+let owner=null,selected=null,pending=null,busy=false,ready=false,generation=0;
+let offset=0,total=0,known=new Map();
+
+const buttons=['save','stop','check'];
+
+async function identity(){const r=await fetch('/api/v1/auth/me');
+if(!r.ok)throw Error();
+return r.json();
+}
+function clear(){ready=false;
+selected=null;
+known.clear();
+rows.replaceChildren();
+form.reset();
+$('selling').textContent='';
+
+ $('selection').textContent='새 상품';
+$('save').textContent='등록';
+fields.disabled=true;
+buttons.forEach(k=>$(k).disabled=true);
+}
+async function actor(){const me=await identity();
+
+ if(owner!==null&&owner!==me.account_id){owner=me.account_id;
+generation++;
+clear();
+
+ out.textContent='계정이 변경되었습니다. 새로 조회해 주세요.';
+throw Error('actor');
+}
+ if(!me.capabilities.includes('accounts:manage')){clear();
+throw Error('actor');
+}
+ owner=me.account_id;
+return owner;
+}
+async function api(path,body){const headers={'X-Y3-Expected-Actor':owner};
+
+ if(body){const r=await fetch('/api/v1/auth/csrf',{headers:{'X-Y3-Client':'catalog'}});
+
+ if(!r.ok)throw Error();
+headers['X-CSRF-Token']=(await r.json()).csrf_token;
+headers['Content-Type']='application/json';
+}
+ const r=await fetch('/api/v1'+path,{method:body?'POST':'GET',headers,
+...(body?{body:JSON.stringify(body)}:{})});
+
+ if(!r.ok){const e=Error('response');
+e.status=r.status;
+const data=await r.json().catch(()=>null);
+const safe=['conflict','version_exhausted','invalid_request','operation_conflict','actor_changed'];
+if(data&&safe.includes(data.detail))e.detail=data.detail;
+throw e;
+}return r.json();
+}
+function enable(){fields.disabled=busy||!ready;
+const blocked=busy||pending!==null;
+
+ $('save').disabled=blocked||!ready;
+$('stop').disabled=blocked||!ready||!selected||!selected.selling;
+
+ $('check').disabled=busy||!pending;
+$('refresh').disabled=false;
+$('new').disabled=busy||!!pending;
+
+ $('prev').disabled=busy||!!pending||offset===0;
+$('next').disabled=busy||!!pending||offset+25>=total;
+}
+function publish(p){const v=known.get(p.id)||0;
+if(p.version<v)return false;
+
+ known.set(p.id,p.version);
+ready=true;
+selected=p;
+name.value=p.values.name;
+price.value=p.values.price_won;
+
+ count.value=p.values.session_count;
+type.value=p.values.payment_type;
+service.value=String(p.values.is_service);
+
+ $('selection').textContent=p.values.name+' · 버전 '+p.version;
+$('save').textContent='정보 저장';
+
+ $('selling').textContent=p.selling?'판매 중':'판매중단';
+enable();
+return true;
+}
+async function detail(id){const g=++generation;
+await actor();
+const p=await api('/admin/products/'+id);
+
+ await actor();
+if(g!==generation)return false;
+return publish(p);
+}
+async function list(){const g=++generation;
+await actor();
+const page=await api('/admin/products?offset='+offset+'&limit=25');
+
+ await actor();
+if(g!==generation)return false;
+rows.replaceChildren();
+total=page.total;
+
+ for(const p of page.items){const li=document.createElement('li');
+const b=document.createElement('button');
+
+ b.type='button';
+b.dataset.product=p.id;
+b.textContent=p.values.name+' · '+p.values.price_won+'원 · '+
+ p.values.session_count+'회 · '+(p.selling?'판매 중':'판매중단');
+b.onclick=()=>{if(!busy&&!pending)detail(p.id).catch(failure);
+};
+
+ li.append(b);
+rows.append(li);
+}
+ ready=true;
+$('list-status').textContent='전체 '+total+'개 · 이번 요청의 목록';
+enable();
+return true;
+}
+function failure(e){if(e.message==='actor')return;
+
+ out.textContent=e.status===409?'정보가 변경되었습니다. 새로 조회해 주세요.':
+'처리하지 못했습니다. 새로 조회해 주세요.';
+}
+function newProduct(){generation++;
+ready=true;
+selected=null;
+form.reset();
+$('selection').textContent='새 상품';
+
+ $('save').textContent='등록';
+$('selling').textContent='등록하면 판매가 시작됩니다.';
+out.textContent='';
+enable();
+}
+async function fresh(result){const g=++generation;
+const p=await api('/admin/products/'+result.committed_product.id);
+
+ await actor();
+if(g!==generation||!publish(p))return false;
+
+ out.textContent='작업 당시 '+result.kind+' · 버전 '+result.committed_product.version+
+ ' · 현재 상품은 새로 조회한 정보입니다.';
+return true;
+}
+async function reconcile(){if(!pending||busy)return;
+busy=true;
+enable();
+const original=pending;
+
+ try{await actor();
+if(original.actor!==owner)throw Error('actor');
+
+ let result;try{result=await api('/admin/product-operations/'+original.body.operation_id);}
+catch(e){if(e.status!==404)throw e;await actor();
+try{result=await api(original.path,original.body);}
+catch(retryError){
+const refused=(retryError.status===409&&
+ ['conflict','version_exhausted'].includes(retryError.detail))||
+ (retryError.status===422&&retryError.detail==='invalid_request');
+if(!refused)throw retryError;
+await actor();
+if(original.actor!==owner)throw Error('actor');
+pending=null;
+generation++;
+ready=false;
+selected=null;
+form.reset();
+$('selling').textContent='';
+$('selection').textContent=original.product_id?'현재 상품 새로 조회':'새 상품';
+$('save').textContent=original.product_id?'정보 저장':'등록';
+out.textContent='원 작업이 거부되었습니다. 현재 정보를 확인하고 있습니다.';
+try{
+const published=original.product_id?await detail(original.product_id):await list();
+if(published)out.textContent='원 작업이 거부되었습니다. 현재 정보를 새로 조회했습니다.';
+}catch(refreshError){
+if(refreshError.message!=='actor')
+ out.textContent='원 작업이 거부되었습니다. 현재 정보를 다시 조회해 주세요.';
+}
+return;
+}}
+
+ await actor();
+if(await fresh(result)){pending=null;
+enable();
+}}
+ catch(e){if(e.message!=='actor')
+out.textContent='작업 결과를 확인하지 못했습니다. 같은 작업번호로 다시 대사해 주세요.';
+}
+ finally{busy=false;
+enable();
+}}
+async function submit(kind){if(busy||pending)return;
+busy=true;
+enable();
+
+ try{await actor();
+const snap=selected;
+if(kind!=='create'&&!snap)throw Error();
+
+ const body={operation_id:crypto.randomUUID()};
+
+ if(kind!=='stop')Object.assign(body,{name:name.value,price_won:price.value,session_count:count.value,
+ payment_type:type.value,is_service:service.value==='true'});
+
+ if(kind!=='stop'&&service.value==='')throw Error();
+
+ if(kind!=='create')body.expected_product_version=snap.version;
+
+ const path='/admin/products'+(kind==='create'?'':'/'+snap.id)+(kind==='stop'?'/stop':'');
+
+ pending={actor:owner,body,path,product_id:snap?snap.id:null};
+$('product-operation').value=body.operation_id;
+
+ let result;
+try{result=await api(path,body);
+}catch(e){if(e.status&&e.status<500){pending=null;
+throw e;
+}
+ out.textContent='저장 결과가 불명확합니다. 같은 작업번호로 결과를 대사해 주세요.';
+return;
+}
+ await actor();
+if(await fresh(result))pending=null;
+
+ }catch(e){if(pending&&e.message!=='actor')
+out.textContent='현재 정보를 확인하지 못했습니다. 같은 작업번호로 결과를 대사해 주세요.';
+
+ else failure(e);
+}finally{busy=false;
+enable();
+}}
+form.addEventListener('submit',e=>{e.preventDefault();
+submit(selected?'update':'create');
+});
+
+$('stop').onclick=()=>{if(selected&&confirm(selected.values.name+' 상품의 판매를 중단할까요?'))
+submit('stop');
+};
+
+$('check').onclick=reconcile;
+
+$('refresh').onclick=()=>{const id=selected?.id;
+const keep=pending;
+clear();
+pending=keep;
+
+ list().then(published=>published&&id?detail(id):undefined).catch(failure);
+};
+
+$('new').onclick=()=>{if(pending||busy)return;
+actor().then(newProduct).catch(failure);
+};
+
+$('prev').onclick=()=>{offset=Math.max(0,offset-25);
+clear();
+list().catch(failure);
+};
+
+$('next').onclick=()=>{offset+=25;
+clear();
+list().catch(failure);
+};
+
+service.onchange=()=>{if(service.value==='true')type.value='FIXED_AMOUNT';
+};
+
+actor().then(()=>{newProduct();
+return list();
+}).catch(failure);
+
+})();
+"""

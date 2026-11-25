@@ -10,11 +10,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 from tests.password_helpers import password_app  # noqa: F401
+from tests.pt_catalog_seed import assert_revision_loss_guard
 from tests.test_password_transition import migrate
 from tests.test_workforce import Scene, scene  # noqa: F401
 from tests.test_workforce_base import command, register, send
 from tests.test_workforce_compensation_storage import projected
-from tests.workforce_base_seed import assert_revision_loss_guard
 from y3management.application import create_app
 
 pytestmark = pytest.mark.postgres

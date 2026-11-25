@@ -18,6 +18,7 @@ from y3management.audit.public import (
     OperatorAccountEvent,
     OperatorRoleEvent,
     PasswordEmergencyEvent,
+    ProductEvent,
     TrainerHomeEvent,
     TrainerIdentityEvent,
     TrainerRegistered,
@@ -54,6 +55,7 @@ from y3management.iam.public import (
     TrainerRoleState,
 )
 from y3management.organization.public import AssignmentCandidate, Branch, BranchPage
+from y3management.pt_operations.public import CatalogCommand, CatalogResult, Product, ProductPage
 from y3management.uow import UnitOfWork, Work
 from y3management.workforce.public import (
     BaseCommand,
@@ -1876,3 +1878,52 @@ class Service:
             w.workforce.confirm_base(prepared, a.caller)
             clock = w.roles.confirm_actor(actor, self_change=False, touch=prepared.mutation.changed)
             return w.workforce.seal_base(prepared, clock)
+
+    def _catalog_actor(self, w: Work, auth: str | None, expected_actor: UUID) -> Authentication:
+        a = w.iam.authenticate(auth, management=True, touch=False)
+        if a.caller.account_id != expected_actor:
+            raise Rejected(409, "actor_changed")
+        w.iam.require_master(a.caller)
+        return a
+
+    def products(
+        self, auth: str | None, offset: int, limit: int, *, expected_actor: UUID
+    ) -> ProductPage:
+        with self.uow.open() as w:
+            a = self._catalog_actor(w, auth, expected_actor)
+            actor = w.roles.snapshot(a)
+            result = w.catalog.list(a.caller, offset, limit)
+            w.roles.confirm_actor(actor, self_change=False)
+            return result
+
+    def product(self, auth: str | None, ident: UUID, *, expected_actor: UUID) -> Product:
+        with self.uow.open() as w:
+            a = self._catalog_actor(w, auth, expected_actor)
+            actor = w.roles.snapshot(a)
+            result = w.catalog.get(a.caller, ident)
+            w.roles.confirm_actor(actor, self_change=False)
+            return result
+
+    def product_operation(
+        self, auth: str | None, operation: UUID, *, expected_actor: UUID
+    ) -> CatalogResult:
+        with self.uow.open() as w:
+            a = self._catalog_actor(w, auth, expected_actor)
+            actor = w.roles.snapshot(a)
+            result = w.catalog.operation(a.caller, operation)
+            w.roles.confirm_actor(actor, self_change=False)
+            return result
+
+    def change_product(
+        self, auth: str | None, nonce: str | None, command: CatalogCommand, *, expected_actor: UUID
+    ) -> CatalogResult:
+        with self.uow.open() as w:
+            a = self._catalog_actor(w, auth, expected_actor)
+            w.iam.csrf(a, nonce)
+            actor = w.roles.snapshot(a)
+            result, mutation = w.catalog.change(a.caller, command)
+            if mutation is not None:
+                w.audit.append_product(ProductEvent(**asdict(mutation)))
+            w.catalog.confirm(a.caller, result)
+            clock = w.roles.confirm_actor(actor, self_change=False, touch=mutation is not None)
+            return w.catalog.seal(a.caller, result, clock)

@@ -1,3 +1,11 @@
+# PT-001 로컬 인수 완료 — Organization 공통 상품 관리
+
+[CAT-1/CAT-2](../product/product-decisions.md#review-20261125-catalog-input-state)의 입력·초기 판매 상태를 반영했다.
+[제한 계약](pt-001-product-catalog-design.md)의 구현·교정·재동결·새 독립 실행을 설계자가 인수했다.
+[결과](pt-001-product-catalog-results.md)/[최소 근거](pt-001-product-catalog-review.json)는 fast218·선정PG58 단일 실행·native22/54와 초기 실패/보존/정리를 기록한다. PG775는 미실행이다.
+Master의 create/read/update/stop/본인 receipt로 한정하며 기존 Pass·보상 규칙, 다른 OPEN/전역 PROPOSED를 보존한다.
+판매재개/삭제/일반 NonMaster 조회·Pass/PT/정산·원본 DB/운영 배포는 후속이다.
+
 # WORKFORCE-005 로컬 인수 완료 — 미래 기본급 일정 편집
 
 [WF5-1](../product/product-decisions.md#review-20261123-future-base-cancellation)의 미래 취소 승인을 Product에 반영했다.

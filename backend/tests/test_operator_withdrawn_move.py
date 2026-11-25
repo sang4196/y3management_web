@@ -221,8 +221,14 @@ def test_withdrawn_move_audit_rollback(
 def test_withdrawn_history_blocks18_downgrade_before_ddl(
     trainer: TrainerScene, history: str
 ) -> None:
+    from alembic.config import Config
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+    from alembic.script import ScriptDirectory
+    from sqlalchemy.exc import DBAPIError
+
+    from tests.pt_catalog_seed import prepare_revision_guard
     from tests.test_account_lifecycle import lifecycle_fingerprints
-    from tests.workforce_base_seed import assert_revision_loss_guard
 
     t = trainer
     row = withdrawn(t)
@@ -243,21 +249,39 @@ def test_withdrawn_history_blocks18_downgrade_before_ddl(
                 )
             )
     before, constraints = lifecycle_fingerprints(t.base.db), shape(t.base.db)
-    ddl = []
+    ddl: list[str] = []
 
     def observe(_c: Any, _cursor: Any, sql: str, *_args: Any) -> None:
         if sql.lstrip().split()[0].upper() in {"CREATE", "DROP", "ALTER"}:
             ddl.append(sql)
 
-    event.listen(t.base.db.engine, "before_cursor_execute", observe)
-    try:
-        assert_revision_loss_guard(
-            t.base.db, "0018_withdrawn_operator_move.py", "WITHDRAWN_OPERATOR_MOVE_HISTORY_PRESENT"
-        )
-    finally:
-        event.remove(t.base.db.engine, "before_cursor_execute", observe)
-    assert ddl == []
+    scripts = ScriptDirectory.from_config(Config("alembic.ini"))
+    script = scripts.get_revision("0018_withdrawn_operator_move")
+    assert script is not None
+    with t.base.db.engine.connect() as connection:
+        transaction = connection.begin()
+        try:
+            # Real22 -> actual18 preparation is outside the target18 DDL observation.
+            prepare_revision_guard(connection, "0018_withdrawn_operator_move")
+            context = MigrationContext.configure(connection)
+            assert context.get_current_revision() == "0018_withdrawn_operator_move"
+            event.listen(connection, "before_cursor_execute", observe)
+            try:
+                with pytest.raises(
+                    (ValueError, DBAPIError), match="WITHDRAWN_OPERATOR_MOVE_HISTORY_PRESENT"
+                ):
+                    with Operations.context(context):
+                        script.module.downgrade()
+            finally:
+                event.remove(connection, "before_cursor_execute", observe)
+            assert ddl == []
+        finally:
+            transaction.rollback()
     assert lifecycle_fingerprints(t.base.db) == before and shape(t.base.db) == constraints
+    with t.base.db.session() as reader:
+        assert reader.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == (
+            "0022_pt_product_catalog"
+        )
 
 
 @pytest.mark.parametrize("before,after", [(True, False), (False, True)])
@@ -616,8 +640,8 @@ def test_false_move_and_actual18_downgrade_installation_gate(
     from alembic.operations import Operations
     from alembic.script import ScriptDirectory
 
+    from tests.pt_catalog_seed import prepare_revision_guard
     from tests.test_workforce_integrity import wait_for_owned_block
-    from tests.workforce_base_seed import prepare_revision_guard
     from y3management.audit.infrastructure import Audit
 
     t = trainer
@@ -718,7 +742,7 @@ def test_false_move_and_actual18_downgrade_installation_gate(
         )
         assert s.scalar(text("SELECT granted FROM iam_operator_grants")) is False
         assert s.scalar(text("SELECT version_num FROM alembic_version")) == (
-            "0021_workforce_base_schedule" if writer_first else "0017_operator_management"
+            "0022_pt_product_catalog" if writer_first else "0017_operator_management"
         )
 
 

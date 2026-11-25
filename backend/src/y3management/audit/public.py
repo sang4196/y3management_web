@@ -83,6 +83,8 @@ class OperatorAccountEvent:
 
 
 class AuditPort(Protocol):
+    def append_product(self, event: ProductEvent) -> None: ...
+
     def append_base_schedule(self, event: BaseScheduleEvent) -> None: ...
     def base_schedule_history(
         self, organization: UUID, trainer: UUID, offset: int, limit: int
@@ -312,3 +314,18 @@ class BaseHistoryItem:
 class BaseHistoryPage:
     items: tuple[BaseHistoryItem, ...]
     total: int
+
+
+@dataclass(frozen=True, repr=False)
+class ProductEvent:
+    organization_id: UUID
+    operation_id: UUID
+    product_id: UUID
+    actor_id: UUID
+    actor_role: str
+    actor_branch: UUID | None
+    kind: str
+    before_version: int | None
+    after_version: int
+    changed: bool
+    recorded_at: datetime

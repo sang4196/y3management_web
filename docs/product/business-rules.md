@@ -34,6 +34,10 @@ BR-PAY-001–013의 일반 Session Payment 계산·적용·등록 시 확정 규
 
 Status: APPROVED
 
+2026-11-25 CAT-1/CAT-2: 상품명·가격·총횟수·지급방식은 완성 등록의 명시 필수값이다.
+가격0원 이상 정수 원/모든 상품의 총횟수1회 이상 정수를 적용하며 누락 기본값은 없다.
+새 상품은 즉시 판매 가능하고, 판매중단 후 상품 정보 수정은 가능하되 중단 상태를 유지한다. [CAT-1/CAT-2 승인](product-decisions.md#review-20261125-catalog-input-state).
+
 각 PT Product는 총 횟수(Product Session Count), 판매가격(Product Price), Payment Type으로 설명한다. Payment Type은 RATE 또는 FIXED_AMOUNT다. 지급 계산에 관한 Product 설정은 방식이며 Trainer 지급률·고정 지급금액은 Product 값이 아니다. Master Admin이 주요 기준정보로 관리한다.
 
 2026-10-10 사용자 확정(BR-011 CLOSED): 기존 Pass는 발급 당시 상품 가격·총횟수·Payment Type을 유지한다. 상품 변경은 이후 새로 발급하는 Pass부터 적용하며 기존 Pass의 조건·잔여를 덮어쓰지 않는다. 이 문서의 Session Payment 계산에 쓰는 Product Price/Session Count/Payment Type은 소비 Pass 발급 당시 상품 조건을 뜻한다. Trainer Rate/Fixed Amount는 발급 시 고정하지 않고 BR-PAY-011의 등록 시점 적용을 유지한다. 수동 횟수 조정(BR-002)과 타 지점 추가실적 산정(BR-013)은 별도 정책이다. 조건 보존의 물리 저장 구조는 Architecture 결정이다.

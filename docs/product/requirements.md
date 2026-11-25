@@ -1239,3 +1239,12 @@ WF5-1에서 미래 미적용 일반 Base Salary 변경의 취소를 허용했다
 최초 필수 설정 삭제나 이미 적용된 월/과거 월 취소를 추가하지 않는다. 다른 일정·수동 지정·확정본을 자동 변경하지 않는다.
 시작 월/지속/0원/미래 상한과 AA1 이전 월 처리는 기존 승인이며 재질문하지 않는다. [WF5-1 승인](product-decisions.md#review-20261123-future-base-cancellation).
 이번 부분 해결로 다른 OPEN/전역 PROPOSED를 닫지 않으며 실제 기능·검증은 후속 Architecture 계약/구현에 따른다.
+
+
+## 2026-11-25 — PR-006 상품 등록·수정·판매중단
+
+CAT-1/CAT-2는 상품명·가격·총횟수·지급방식 명시 필수, 가격0+정수 원/서비스 포함 횟수1+정수,
+생성 즉시 판매 가능·중단 상품 정보 수정 허용/중단 유지다. 누락을 기본값으로 대신하거나 수정으로 자동 재개하지 않는다.
+기존 Master Organization 전용 관리/공통 Catalog·서비스⇒FIXED와 Product에 Trainer 지급값 없음·발급 Pass 조건 불변을 유지한다.
+판매재개/삭제·NonMaster 일반 조회/Pass 발급·PT/정산은 별도 범위다. [CAT-1/CAT-2 승인](product-decisions.md#review-20261125-catalog-input-state).
+이번 부분 해결로 전체 BR-010이나 다른 OPEN/전역 PROPOSED를 닫지 않으며 구현·자동 검증은 후속이다.

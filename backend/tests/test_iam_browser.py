@@ -46,6 +46,7 @@ def run_browser(
     workforce: bool = False,
     base_schedule: bool = False,
     base_races: bool = False,
+    catalog: bool = False,
     trainer: bool = False,
     trainer_roles: bool = False,
 ) -> None:
@@ -174,7 +175,9 @@ def run_browser(
     shutil.copy(
         Path(__file__).parent
         / (
-            "browser/base-schedule-races.cjs"
+            "browser/catalog.cjs"
+            if catalog
+            else "browser/base-schedule-races.cjs"
             if base_races
             else "browser/base-schedule.cjs"
             if base_schedule
@@ -195,7 +198,9 @@ def run_browser(
     shutil.copy(
         Path(__file__).parent
         / (
-            "browser/base-schedule-races-checks.json"
+            "browser/catalog-checks.json"
+            if catalog
+            else "browser/base-schedule-races-checks.json"
             if base_races
             else "browser/base-schedule-checks.json"
             if base_schedule
@@ -413,7 +418,7 @@ def run_browser(
                     {"stage": safe_stage, "diagnostic": json.loads(diagnostic.group(1))},
                 )
         if (
-            base_races or base_schedule or workforce or trainer or trainer_roles
+            catalog or base_races or base_schedule or workforce or trainer or trainer_roles
         ) and result.returncode != 0:
             diagnostic = re.search(rb"(?:WORKFORCE|TRAINER)_DIAGNOSTIC=(.*)", result.stderr)
             values = json.loads(diagnostic.group(1)) if diagnostic else {}
@@ -421,7 +426,9 @@ def run_browser(
             _qa_write(
                 qa_root()
                 / (
-                    "latest-base-races-failure.json"
+                    "latest-catalog-failure.json"
+                    if catalog
+                    else "latest-base-races-failure.json"
                     if base_races
                     else "latest-base-failure.json"
                     if base_schedule
@@ -462,7 +469,9 @@ def run_browser(
             "browser": version if re.fullmatch(r"\d+(\.\d+){1,3}", version) else "unknown",
             "scope": "actual trusted HTTPS browser",
             "mode": (
-                "base-races"
+                "catalog"
+                if catalog
+                else "base-races"
                 if base_races
                 else "base"
                 if base_schedule
@@ -473,7 +482,9 @@ def run_browser(
             "run_id": root.parents[2].name,
         }
         evidence = (
-            "latest-base-races-browser.json"
+            "latest-catalog-browser.json"
+            if catalog
+            else "latest-base-races-browser.json"
             if base_races
             else "latest-base-browser.json"
             if base_schedule

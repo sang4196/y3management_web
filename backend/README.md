@@ -621,3 +621,26 @@ Rate0~100 정수, Fixed0원 이상 정확한 정수원 문자열(기존1024자�
 거부한다. 원래0001–0020 및 역사 helper는 보존하고 WF5-local 실제 inverse 후 원래 guard를 검사한다.
 선정 검사는 `test_workforce_base*.py`, 기존 workforce native54와 별도 짧은 Base native mode다.
 기존 TLS/NSS/소유권/90초/정리는 동일 fixture를 유지한다. 개발 부분 결과와 독립 검증을 구별한다.
+
+
+## PT-001 Catalog (0022)
+
+현재 같은 Organization Master의 `/products`에서 공통 PT 상품을 등록·조회·정보 수정·판매중단한다.
+이 화면은 상품명/정수 원 가격/양수 정수 횟수/지급방식/서비스 여부를 명시 입력한다.
+가격·횟수는 API와 화면에서 정확한 십진 문자열이며 횟수의 DB 표현 범위는 bigint다.
+서비스는 FIXED_AMOUNT만 가능하고, 일반 FIXED_AMOUNT도 가능하다. 처음 판매 중이며 중단 후 수정해도 중단이다.
+Product는 Trainer 지급률·고정 지급액·기본급을 갖지 않는다. Pass 발급·사용·정산/판매재개·삭제는 후속이다.
+
+`/api/v1/admin/products` GET/POST, `/{id}` GET/POST, `/{id}/stop` POST와
+`/api/v1/admin/product-operations/{uuid}` GET을 제공한다. 성공 쓰기는200이며 모든 신규 API에
+현재 Actor UUID `X-Y3-Expected-Actor`, 쓰기에 기존 Origin/CSRF가 필요하다.
+상품 version CAS와 원래 Actor·UUID·명령 전체에 결속한 receipt를 사용한다.
+원래 성공 결과와 현재 조회는 분리하며 저장 응답이 불명확하면 같은 작업번호로 대사한다.
+미확정 작업 동안 새 작업은 차단한다. 목록은 created_at/id 순서로 한 요청 안에서 일관되고 페이지 간 고정 snapshot은 아니다.
+
+0022는 기존0001–0021과 원래 RF/Base/Home/IAM 사실을 변경하지 않는다. 새 Catalog 사실이 하나라도 있으면
+파괴 downgrade를 거부한다. 빈 Catalog만21로 역변환한다. 현재 앱은 정확0022에서만 인증 업무를 실행한다.
+검사는 기존 `bash check.sh fast`와 소유권 검증된 전용 PostgreSQL fixture를 사용한다.
+Catalog 선택은 `tests/test_pt_catalog.py`, `tests/test_pt_catalog_storage.py`,
+`tests/test_pt_catalog_browser.py`이며 native는 기존 신뢰 HTTPS runner의22-key Catalog profile이다.
+최종 실행 성적·미실행 범위는 실행별 `.local/qa/` 근거를 따른다.

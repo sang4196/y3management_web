@@ -1,3 +1,9 @@
+## 2026-11-25 — 상품 입력·최초 판매 상태 승인
+
+[CAT-1/CAT-2 승인](product-decisions.md#review-20261125-catalog-input-state): 상품명/가격/횟수/지급방식 필수, 가격0+정수 원/서비스 포함 횟수1+정수다.
+생성 즉시 판매 가능하며 중단 후 정보 수정은 중단을 유지한다. Master 공통 Catalog·발급 Pass 원본 조건을 보존한다.
+판매재개/삭제/NonMaster 일반 조회·PT/정산은 이번 범위 밖이고 다른 OPEN/전역 PROPOSED를 유지한다. 구현/검증은 후속이다.
+
 ## 2026-11-24 반영 — 미래 기본급 변경 취소 승인
 
 [WF5-1 승인](product-decisions.md#review-20261123-future-base-cancellation): 미래 미적용 일반 변경은 취소 가능하며 원래 계획/취소 이력을 보존한다.

@@ -1,3 +1,10 @@
+# 2026-11-25 PT-001 로컬 인수
+
+[CAT-1/CAT-2](../product/product-decisions.md#review-20261125-catalog-input-state)는 승인됐고 [제한 계약](pt-001-product-catalog-design.md)을 구현·독립 검증·설계자 인수했다.
+[결과](pt-001-product-catalog-results.md)의 새 fast218/정확58 단일PG/native22·54와 원본/환경 보존·정리에 한정한다. PG775는 미실행이다.
+Master 공통 Catalog의 create/read/update/stop/본인 receipt다. 전담 한글 커밋·일반 feature push가 후속이며 원본 DB/운영 배포는 아니다.
+판매재개/삭제/일반 NonMaster 조회·Pass/PT/정산과 다른 Product OPEN/전역 PROPOSED를 이번 인수로 닫지 않는다.
+
 # 2026-11-24 WORKFORCE-005 현재 게이트
 
 [WF5-1](../product/product-decisions.md#review-20261123-future-base-cancellation) 미래 미적용 변경 취소1은 승인됐다. 재질문하지 않는다.

@@ -20,6 +20,7 @@ from y3management.audit.public import (
     OperatorAccountEvent,
     OperatorRoleEvent,
     PasswordEmergencyEvent,
+    ProductEvent,
     TrainerHomeEvent,
     TrainerIdentityEvent,
     TrainerRegistered,
@@ -300,3 +301,16 @@ class Audit:
             for r in rows
         )
         return BaseHistoryPage(items, total)
+
+    def append_product(self, event: ProductEvent) -> None:
+        columns = tuple(asdict(event))
+        self.s.execute(
+            text(
+                "INSERT INTO audit_product_events(id,"
+                + ",".join(columns)
+                + ") VALUES(:id,"
+                + ",".join(":" + c for c in columns)
+                + ")"
+            ),
+            {"id": uuid4(), **asdict(event)},
+        )
