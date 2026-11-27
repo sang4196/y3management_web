@@ -123,3 +123,26 @@ class Catalog:
     def seal(self, caller: Caller, result: CatalogResult, clock: datetime) -> CatalogResult:
         self.repo.seal(caller.organization_id, result.operation_id, clock)
         return result
+
+    def issue_product(self, caller: Caller, branch: UUID, ident: UUID) -> Product:
+        if not (
+            caller.master
+            or caller.branch_id == branch
+            or (caller.operator and caller.operator.branch_id == branch)
+        ):
+            raise Rejected(404, "not_found")
+        product = self.repo.get(caller.organization_id, ident)
+        if not product.selling:
+            raise Rejected(409, "product_stopped")
+        return product
+
+    def issue_products(self, caller: Caller, branch: UUID, offset: int, limit: int) -> ProductPage:
+        if not (
+            caller.master
+            or caller.branch_id == branch
+            or (caller.operator and caller.operator.branch_id == branch)
+        ):
+            raise Rejected(404, "not_found")
+        if offset < 0 or not 1 <= limit <= 100:
+            raise Rejected(422, "invalid_request")
+        return self.repo.issue_products(caller.organization_id, offset, limit)

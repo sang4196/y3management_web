@@ -201,3 +201,21 @@ class Repository:
           WHERE organization_id=:o AND operation_id=:i AND validated_at IS NULL"""),
             {"o": org, "i": operation, "t": clock},
         )
+
+    def issue_search(
+        self, org: UUID, query: str, offset: int, limit: int
+    ) -> tuple[tuple[UUID, ...], int]:
+        # strpos is a literal substring; %, _ and backslash never become wildcards.
+        phone = query.replace(" ", "").replace("-", "")
+        if phone.startswith("+82"):
+            phone = "0" + phone[3:]
+        base = """FROM membership_members m JOIN membership_member_versions v
+          ON (v.organization_id,v.member_id,v.version)=(m.organization_id,m.id,m.current_version)
+          WHERE m.organization_id=:o AND v.active AND
+            (strpos(lower(v.name),lower(:q))>0 OR strpos(v.phone,:phone)>0)"""
+        args = {"o": org, "q": query, "phone": phone or query, "off": offset, "lim": limit}
+        total = int(self.s.execute(text("SELECT count(*) " + base), args).scalar_one())
+        rows = self.s.execute(
+            text("SELECT m.id " + base + " ORDER BY m.created_at,m.id OFFSET :off LIMIT :lim"), args
+        )
+        return tuple(rows.scalars()), total

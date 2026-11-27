@@ -26,7 +26,7 @@ from y3management.iam.public import (
     TrainerRoleRequest,
 )
 from y3management.membership.public import MemberCommand, MemberValues
-from y3management.pt_operations.public import CatalogCommand, ProductValues
+from y3management.pt_operations.public import CatalogCommand, IssueCommand, ProductValues
 from y3management.use_cases import Service
 from y3management.workforce.public import (
     BaseCommand,
@@ -93,6 +93,25 @@ class MemberUpdateInput(Input):
     expected_member_version: int = Field(strict=True, ge=1, le=9223372036854775807)
     name: str = Field(strict=True, repr=False)
     phone: str = Field(strict=True, repr=False)
+
+
+class PassSearchInput(Input):
+    issued_branch_id: UUID
+    query: str = Field(strict=True, min_length=1, max_length=200, repr=False)
+    offset: int = Field(default=0, strict=True, ge=0)
+    limit: int = Field(default=25, strict=True, ge=1, le=100)
+
+
+class PassIssueInput(Input):
+    operation_id: UUID
+    issued_branch_id: UUID
+    expected_branch_version: int = Field(strict=True, ge=1, le=9223372036854775807)
+    member_id: UUID
+    expected_member_version: int = Field(strict=True, ge=1, le=9223372036854775807)
+    trainer_id: UUID
+    expected_trainer_version: int = Field(strict=True, ge=1, le=9223372036854775807)
+    product_id: UUID
+    expected_product_version: int = Field(strict=True, ge=1, le=9223372036854775807)
 
 
 class MemberHomeInput(Input):
@@ -385,6 +404,9 @@ def attach(app: FastAPI, settings: Settings) -> None:
     async def validation_error(request: Request, error: RequestValidationError) -> Response:
         if request.url.path.startswith(
             (
+                "/api/v1/admin/pass-issuance",
+                "/api/v1/admin/pass-operations",
+                "/api/v1/admin/passes",
                 "/api/v1/admin/members",
                 "/api/v1/admin/member-operations",
                 "/api/v1/admin/member-home-operations",
@@ -1373,6 +1395,73 @@ p,li{overflow-wrap:anywhere}h1{font-size:1.6rem}""",
         read(request)
         return Response(PRODUCT_SCRIPT, media_type="application/javascript")
 
+    @router.get("/admin/pass-issuance/branches")
+    def pass_branches(
+        request: Request, expected_actor: ExpectedOperatorActor, offset: int = 0, limit: int = 25
+    ) -> object:
+        workforce_query(request, {"offset", "limit"})
+        return [
+            asdict(b)
+            for b in service(request).pass_branches(
+                read(request), offset, limit, expected_actor=expected_actor
+            )
+        ]
+
+    @router.post("/admin/pass-issuance/members/search")
+    def pass_member_search(
+        request: Request, body: PassSearchInput, expected_actor: ExpectedOperatorActor
+    ) -> object:
+        workforce_query(request, set())
+        auth, nonce = write(request)
+        return asdict(
+            service(request).pass_members(
+                auth,
+                nonce,
+                body.issued_branch_id,
+                body.query,
+                body.offset,
+                body.limit,
+                expected_actor=expected_actor,
+            )
+        )
+
+    @router.get("/admin/pass-issuance/{kind}")
+    def pass_choices(
+        request: Request,
+        kind: Literal["trainers", "products"],
+        issued_branch_id: UUID,
+        expected_actor: ExpectedOperatorActor,
+        offset: int = 0,
+        limit: int = 25,
+    ) -> object:
+        workforce_query(request, {"issued_branch_id", "offset", "limit"})
+        return asdict(
+            service(request).pass_choices(
+                read(request), issued_branch_id, kind, offset, limit, expected_actor=expected_actor
+            )
+        )
+
+    @router.post("/admin/passes")
+    def issue_pass(
+        request: Request, body: PassIssueInput, expected_actor: ExpectedOperatorActor
+    ) -> object:
+        workforce_query(request, set())
+        auth, nonce = write(request)
+        return asdict(
+            service(request).issue_pass(
+                auth, nonce, IssueCommand(**body.model_dump()), expected_actor=expected_actor
+            )
+        )
+
+    @router.get("/admin/pass-operations/{operation}")
+    def pass_operation(
+        request: Request, operation: UUID, expected_actor: ExpectedOperatorActor
+    ) -> object:
+        workforce_query(request, set())
+        return asdict(
+            service(request).pass_operation(read(request), operation, expected_actor=expected_actor)
+        )
+
     @router.get("/admin/members/{ident}/home-candidates")
     def member_home_candidates(
         request: Request,
@@ -1539,6 +1628,20 @@ p,li{overflow-wrap:anywhere}h1{font-size:1.6rem}""",
             raise Rejected(403, "forbidden")
         return MEMBER_PAGE
 
+    @app.get("/passes")
+    def passes_page() -> HTMLResponse:
+        return HTMLResponse(PASS_PAGE)
+
+    @app.get("/passes.js")
+    def passes_script() -> Response:
+        return Response(PASS_SCRIPT, media_type="text/javascript")
+
+    @app.get("/passes.css")
+    def passes_style() -> Response:
+        return Response(
+            MEMBER_STYLE + "\n#receipt{overflow-wrap:anywhere;min-width:0}", media_type="text/css"
+        )
+
     @app.get("/members.css")
     def members_style(request: Request) -> Response:
         read(request)
@@ -1622,6 +1725,7 @@ p,li{overflow-wrap:anywhere}h1{font-size:1.6rem}""",
 
         link = (
             '<a id="members-link" href="/members">회원 관리</a>'
+            '<a id="passes-link" href="/passes">이용권 발급</a>'
             if caller.master or caller.branch_id or caller.operator
             else ""
         )
@@ -1776,7 +1880,10 @@ if(identity.roles.some(role=>role.role==='ADMIN')){
 document.getElementById('members-link')?.remove();
 if(identity.roles.some(r=>r.role==='ADMIN'||r.role==='OPERATOR')){
  const members=document.createElement('a');members.id='members-link';members.href='/members';
- members.textContent='회원 관리';out.after(members);}
+ members.textContent='회원 관리';out.after(members);
+ document.getElementById('passes-link')?.remove();
+ const passes=document.createElement('a');passes.id='passes-link';passes.href='/passes';
+ passes.textContent='이용권 발급';out.after(passes);}
 const old=document.getElementById('lifecycle-link');if(old)old.remove();
 if(identity.capabilities.includes('accounts:manage')){
  document.getElementById('products-link')?.remove();
@@ -3570,6 +3677,7 @@ MEMBER_PAGE = """<!doctype html>
 <a href="/branches">지점</a>
 <a href="/trainers">트레이너</a>
 <a href="/members">회원</a>
+<a href="/passes">이용권 발급</a>
 <a href="/products">상품</a>
 <a href="/account">내 계정</a>
 </nav>
@@ -3990,5 +4098,162 @@ addEventListener('pagehide',invalidate);
 actor().then(list).then(newMember).catch(failure);
 controls();
 
+})();
+"""
+
+
+PASS_PAGE = """<!doctype html><html lang="ko"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>이용권 발급</title><link rel="stylesheet" href="/passes.css">
+<nav><a href="/account">내 계정</a> <a href="/members">회원 관리</a></nav>
+<h1>기본 PT 이용권 발급</h1>
+<label>실제 발급 지점<select id="issued"></select></label>
+<form id="search-form"><label>회원 이름 또는 휴대전화 일부
+<input id="query" maxlength="200" required autocomplete="off"></label>
+<button id="search">회원 검색</button></form>
+<div id="members"></div><p id="page"></p>
+<button id="prev">이전 검색 결과</button><button id="next">다음 검색 결과</button>
+<p id="selection"></p>
+<label>최초 담당 Trainer<select id="trainer"></select></label>
+<label>판매 상품<select id="product"></select></label>
+<p>상품의 가격·총횟수·지급방식을 그대로 발급합니다. 별도 시작일이나 만료일은 없습니다.</p>
+<button id="issue">이용권 발급</button>
+<p id="operation"></p><button id="reconcile">발급 결과 확인</button>
+<button id="acknowledge" hidden>결과 불명 확인 후 새 업무로</button>
+<p id="receipt"></p><p id="message" role="status"></p>
+<script src="/passes.js" defer></script></html>"""
+
+PASS_SCRIPT = r"""'use strict';
+(()=>{
+const $=id=>document.getElementById(id);
+let owner=null,nonce=null,roles=[],invalid=false,busy=false,pending=null,generation=0;
+let choicesLoading=false;
+let branches=[],trainers=[],products=[],member=null,offset=0,total=0,searchQuery='';
+const scope=m=>JSON.stringify([m.account_id,m.organization_id,
+ m.roles.filter(r=>r.role==='ADMIN'||r.role==='OPERATOR')]);
+async function json(r){let v;try{v=await r.json();}catch{throw Error('network');}
+ if(!r.ok){const e=Error('request');e.status=r.status;e.detail=v.detail;throw e;}return v;}
+function clearMember(){member=null;$('selection').textContent='';}
+function clearPersonal(){clearMember();$('query').value='';searchQuery='';offset=0;total=0;
+ $('members').replaceChildren();$('page').textContent='';}
+function invalidate(){invalid=true;generation++;owner=null;nonce=null;pending=null;
+ clearPersonal();$('issued').replaceChildren();$('trainer').replaceChildren();
+ $('product').replaceChildren();$('operation').textContent='';$('receipt').textContent='';
+ $('message').textContent='로그인 또는 발급 범위가 변경되었습니다. '+
+ '페이지를 다시 열어 주세요.';controls();}
+async function actor(){if(invalid)throw Error('actor');
+ const m=await json(await fetch('/api/v1/auth/me'));
+ const c=await json(await fetch('/api/v1/auth/csrf',{headers:{'X-Y3-Client':'pass-issuance'}}));
+ const n=await json(await fetch('/api/v1/auth/me')),stamp=scope(n);
+ if(scope(m)!==stamp||!n.roles.some(r=>r.role==='ADMIN'||r.role==='OPERATOR')||
+ (owner&&(owner.stamp!==stamp||nonce!==c.csrf_token))){invalidate();throw Error('actor');}
+ owner={id:n.account_id,stamp};nonce=c.csrf_token;roles=n.roles;return owner;
+}
+async function api(path,body){if(!owner||invalid)throw Error('actor');
+ return json(await fetch('/api/v1/admin'+path,{method:body?'POST':'GET',
+ headers:{'X-Y3-Expected-Actor':owner.id,...(body?
+ {'Content-Type':'application/json','X-CSRF-Token':nonce}:{})},
+ ...(body?{body:JSON.stringify(body)}:{})}));}
+function controls(){const locked=invalid||busy||choicesLoading||!!pending;
+ const branch=!!$('issued').value;
+ for(const id of ['issued','trainer','product','query'])$(id).disabled=locked;
+ $('search').disabled=locked||!branch;
+ $('issue').disabled=locked||!branch||!member||!$('trainer').value||!$('product').value;
+ $('prev').disabled=locked||offset===0;
+ $('next').disabled=locked||offset+25>=total;
+ $('reconcile').disabled=invalid||busy||!pending;
+ $('acknowledge').hidden=!pending;$('acknowledge').disabled=invalid||busy;
+ for(const b of $('members').querySelectorAll('button'))b.disabled=locked;
+}
+function failure(e){if(e.message==='actor')return;
+ if(e.status===401||e.status===403){invalidate();return;}
+ $('message').textContent=pending?'발급 결과가 불명확합니다. 같은 작업번호로 확인해 주세요.':
+ '현재 발급 가능한 대상을 다시 선택해 주세요.';controls();}
+async function pages(path){const items=[];for(let n=0;;n+=100){
+ const page=await api(path+(path.includes('?')?'&':'?')+'offset='+n+'&limit=100');
+ items.push(...page.items);if(page.items.length<100||items.length>=page.total)return items;}}
+async function loadBranches(){const g=++generation,rows=[];
+ for(let n=0;;n+=100){const page=await api('/pass-issuance/branches?offset='+n+'&limit=100');
+ await actor();if(g!==generation||invalid)return;
+ rows.push(...page);if(page.length<100)break;}
+ branches=rows;$('issued').replaceChildren(new Option('발급 지점 선택',''),
+ ...rows.map(b=>new Option(b.name,b.id)));controls();}
+async function choices(){if(pending||invalid)return;const g=++generation,branch=$('issued').value;
+ clearPersonal();$('trainer').replaceChildren();$('product').replaceChildren();
+ $('receipt').textContent='';trainers=[];products=[];controls();if(!branch)return;
+ choicesLoading=true;controls();try{await actor();
+ const ts=await pages('/pass-issuance/trainers?issued_branch_id='+branch);
+ const ps=await pages('/pass-issuance/products?issued_branch_id='+branch);
+ await actor();if(g!==generation||branch!==$('issued').value||invalid)return;
+ trainers=ts;products=ps;
+ $('trainer').replaceChildren(new Option('활성 Trainer 선택',''),
+ ...ts.map(t=>new Option(t.name+' · '+t.home_branch_name,t.id)));
+ $('product').replaceChildren(new Option('판매 상품 선택',''),...ps.map(p=>
+ new Option(p.values.name+' · '+p.values.price_won+'원 · '+p.values.session_count+'회 · '+
+ p.values.payment_type+(p.values.is_service?' · 서비스':''),p.id)));
+ }finally{if(g===generation){choicesLoading=false;controls();}}}
+async function search(reset){if(busy||choicesLoading||pending||invalid||!$('issued').value)return;
+ const query=reset?$('query').value.trim():searchQuery;if(!query)return;
+ const g=++generation,branch=$('issued').value;if(reset)offset=0;
+ searchQuery=query;clearMember();$('members').replaceChildren();busy=true;controls();
+ try{await actor();const result=await api('/pass-issuance/members/search',
+ {issued_branch_id:branch,query,offset,limit:25});await actor();
+ if(g!==generation||branch!==$('issued').value||invalid)return;
+ total=result.total;$('members').replaceChildren();
+ for(const m of result.items){const b=document.createElement('button');
+ b.textContent=m.name+' · '+m.phone+' · '+m.home_branch_name+' · 회원 식별번호 '+m.id;
+ b.onclick=()=>{if(pending||busy||invalid)return;member=m;
+ $('selection').textContent='선택: '+m.name+' · '+m.phone+' · '+m.home_branch_name+
+ ' · 회원 식별번호 '+m.id;controls();};
+ $('members').append(b);}
+ $('page').textContent=String(total)+'명 · '+String(offset+1)+'부터';
+ }catch(e){failure(e);}finally{busy=false;controls();}}
+function exactRejection(e){return (e.status===409&&
+ ['conflict','operation_conflict','branch_inactive',
+ 'member_inactive','trainer_inactive','product_stopped'].includes(e.detail))||e.status===422;}
+async function rejected(original){await actor();if(pending!==original||invalid)return;
+ pending=null;$('operation').textContent='';await choices();
+ $('message').textContent='발급되지 않았습니다. 현재 대상을 다시 검색·선택해 주세요.';}
+async function completed(original,result){await actor();if(pending!==original||invalid)return;
+ pending=null;clearPersonal();$('operation').textContent='작업번호: '+result.operation_id;
+ const p=result.pass_record;
+ $('receipt').textContent='발급 완료 · 이용권 '+p.id+' · '+p.product.name+' · 발급 당시 '+
+ p.product.price_won+'원 / '+p.purchased_sessions+'회 / '+p.product.payment_type+
+ ' · 최초 잔여 '+p.initial_remaining_sessions+'회 · 발급 시각 '+p.issued_at;
+ $('message').textContent='원 발급 결과입니다. '+
+ '이후 조정·담당 교체의 현재 값이 아닙니다.';controls();}
+async function issue(){if(busy||pending||invalid||!member)return;
+ const b=branches.find(b=>b.id===$('issued').value),t=trainers.find(t=>t.id===$('trainer').value);
+ const p=products.find(p=>p.id===$('product').value),m=member;if(!b||!t||!p)return;
+ busy=true;controls();try{await actor();const body={operation_id:crypto.randomUUID(),
+ issued_branch_id:b.id,expected_branch_version:b.version,member_id:m.id,expected_member_version:m.version,
+ trainer_id:t.id,expected_trainer_version:t.version,product_id:p.id,expected_product_version:p.version};
+ const original={body,stamp:owner.stamp};pending=original;clearPersonal();
+ $('receipt').textContent='';
+ $('operation').textContent='작업번호: '+body.operation_id;
+ let result;try{result=await api('/passes',body);}catch(e){
+ if(exactRejection(e)){await rejected(original);return;}throw e;}
+ await completed(original,result);
+ }catch(e){failure(e);}finally{busy=false;controls();}}
+async function reconcile(){if(busy||!pending||invalid)return;const original=pending;
+ busy=true;controls();try{await actor();if(owner.stamp!==original.stamp)throw Error('actor');
+ let result;try{result=await api('/pass-operations/'+original.body.operation_id);}catch(e){
+ if(e.status!==404)throw e;
+ try{result=await api('/passes',original.body);}catch(retry){
+ if(exactRejection(retry)){await rejected(original);return;}throw retry;}}
+ await completed(original,result);
+ }catch(e){failure(e);}finally{busy=false;controls();}}
+$('issued').onchange=()=>choices().catch(failure);
+$('trainer').onchange=$('product').onchange=controls;
+$('search-form').onsubmit=e=>{e.preventDefault();search(true);};
+$('prev').onclick=()=>{offset=Math.max(0,offset-25);search(false);};
+$('next').onclick=()=>{offset+=25;search(false);};
+$('issue').onclick=issue;$('reconcile').onclick=reconcile;
+$('acknowledge').onclick=async()=>{if(busy||invalid||!pending)return;
+ busy=true;controls();try{await actor();pending=null;await choices();
+ $('message').textContent='이전 발급 결과는 불명입니다. '+
+ '작업번호를 확인한 뒤 새 업무를 진행해 주세요.';
+ }catch(e){failure(e);}finally{busy=false;controls();}};
+addEventListener('pagehide',invalidate);actor().then(loadBranches).catch(failure);controls();
 })();
 """

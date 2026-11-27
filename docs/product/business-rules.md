@@ -561,6 +561,12 @@ Traceability: PD-007/010; PR-003/009/030; BR-OPS-001/004/008; NFR-001/002/003/00
 
 Status: APPROVED
 
+2026-11-27 [A-1/B-1](product-decisions.md#review-20261127-pass-issuance-trainer): 새 이용권의 최초 담당은
+업무상 활성 Trainer이면 비활성 Home과 로그인 불가(계정 미발급·설정/복구 대기·차단·역할 회수)를 각각 허용한다.
+계정 접근/역할·Home·업무 상태를 자동 복구하지 않는다. Member는 활성이고 Issued Branch는 활성/현재 허용 Scope여야 하며,
+Member Home 상태는 Issued Branch와 구분한다. 기존 담당 교체·다른 업무의 남은 상태 게이트를 일괄 확정하지 않는다.
+
+
 2026-10-12 사용자 확정(다른 지점에서 새 이용권 구매·발급 질문의 1번): Member는 같은 Organization의 Home Branch 밖 지점에서도 새 PT Pass를 구매·발급받을 수 있다. 수원 소속 회원이 강남에서 발급받으면 Member Home Branch는 수원으로 유지하고 새 Pass의 Issued Branch는 강남으로 기록한다. Member Home Branch와 Issued Branch가 같아야 한다는 제한을 두지 않는다. 기존 Member 식별자/소속·보유 Pass와 과거 PT/지급·정산 이력은 유지하며 타 지점 발급을 위해 Member를 지점별로 복제하거나 소속을 자동 이동하지 않는다(BR-OPS-001/010, PD-004/007, PR-002/003/030).
 
 인가/조회 경계: 발급 업무의 실제 Issued Branch를 식별하고 검증된 현재 Caller의 발급 권한/Organization·허용 발급 Branch Scope와 Member/Product/Branch의 실제 Organization 관계를 Backend에서 확인한다. Member Home Branch가 다르다는 사실만으로 허용된 발급을 차단하지 않되 요청의 role/organization_id/branch_id/Member ID·고객이 방문했다는 표시만으로 발급 권한을 인정하지 않는다. 타 지점 Member를 대상으로 발급할 수 있다는 결정이 그 지점 전체 회원 목록/전화번호·다른 Pass/PT/보상 자료의 일반 조회나 Member Home Branch 변경 권한을 부여하지 않는다. 발급용 같은 Organization 전체 지점 Member의 이름·전화번호 일부 검색은 아래 2번 후속 승인으로 해결됐고 추가 공개 정보·Member 선택용 최소 식별 응답/계약은 Product/Architecture 후속이며 Trainer의 기존 담당/개별 지원 회원 조회 범위를 확대하지 않는다.

@@ -15,6 +15,7 @@ from y3management.workforce.public import (
     CompensationRequest,
     CompensationResult,
     CompensationState,
+    IssueTrainerPage,
     ManagedTrainer,
     RegisterTrainer,
     RegistrationResult,
@@ -256,3 +257,19 @@ class Workforce(BaseSchedules):
     def confirm_compensation(self, caller: Caller, result: CompensationResult) -> None:
         if self.compensation_operation(caller, result.operation_id) != result:
             raise Rejected(409, "conflict")
+
+    def issue_trainers(self, caller: Caller, offset: int, limit: int) -> IssueTrainerPage:
+        if not (caller.master or caller.branch_id or caller.operator):
+            raise Rejected(403, "forbidden")
+        if offset < 0 or not 1 <= limit <= 100:
+            raise Rejected(422, "invalid_request")
+        return self.repo.issue_trainers(caller.organization_id, offset, limit)
+
+    def issue_trainer(self, caller: Caller, ident: UUID) -> TrainerIdentityFact:
+        if not (caller.master or caller.branch_id or caller.operator):
+            raise Rejected(403, "forbidden")
+        fact = self.lock_identity(caller.organization_id, ident)
+        if not fact.active:
+            raise Rejected(409, "trainer_inactive")
+        # Deliberately no IAM/credential/Trainer Home Branch active predicate.
+        return fact

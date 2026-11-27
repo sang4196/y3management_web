@@ -168,3 +168,19 @@ class Repository:
           WHERE organization_id=:o AND operation_id=:i AND validated_at IS NULL"""),
             {"o": org, "i": operation, "t": clock},
         )
+
+    def issue_products(self, org: UUID, offset: int, limit: int) -> ProductPage:
+        base = """FROM pt_products p JOIN pt_product_versions v
+            ON (v.organization_id,v.product_id,v.version)=(p.organization_id,p.id,p.current_version)
+            WHERE p.organization_id=:o AND v.selling"""
+        args = {"o": org, "off": offset, "lim": limit}
+        total = int(self.s.execute(text("SELECT count(*) " + base), args).scalar_one())
+        rows = self.s.execute(
+            text(
+                "SELECT p.id,p.current_version "
+                + base
+                + " ORDER BY p.created_at,p.id OFFSET :off LIMIT :lim"
+            ),
+            args,
+        )
+        return ProductPage(tuple(self.version(org, r.id, r.current_version) for r in rows), total)

@@ -659,7 +659,7 @@ Member/기존 Home 비활성에도 이름·전화 수정은 허용하고 각각�
 현재 Actor UUID 헤더와 쓰기의 Origin/CSRF가 필요하며 version CAS·원 Actor/명령 전체의 operation receipt로 결과를 대사한다.
 원래 확정 사실과 fresh 현재값은 다르다. 읽기/no-op/replay는 활동을 갱신하지 않는다.
 
-현재 앱은 정확0024에서만 인증 업무를 실행한다. 원래0001–0022·정책2/target14와 모든 기존 업무 행을 보존한다.
+현재 앱은 정확0025에서만 인증 업무를 실행한다. 원래0001–0022·정책2/target14와 모든 기존 업무 행을 보존한다.
 Membership가 비어 있을 때만22로 lossless inverse를 허용하며 receipt/no-op 등 새 사실도 파괴 downgrade를 막는다.
 검사는 기존 fast와 전용PG fixture를 사용한다. 새 파일은 `test_membership_policy.py`, `test_membership.py`,
 `test_membership_storage.py`, `test_membership_browser.py`이며 native는 기존90초 runner의 독립 Membership/경합/Scope profile이다.
@@ -673,3 +673,12 @@ Membership가 비어 있을 때만22로 lossless inverse를 허용하며 receipt
 초기 성공은 PII 없는 최소 ACK, `/admin/member-home-operations/{uuid}`와 replay는 원 Actor+현재 Home 관리자 인가다.
 이동으로 권한을 잃은 출발 BA는 ACK 유실 후404를 실패로 확정하지 않고 UI의 명시 확인을 통해 현재 목록으로 복귀한다.
 활성 동일 Home은 CAS no-op이며 버전/Audit/touch가 없다. 0024는 기존23 행/column을 변경하지 않고 이동/no-op 이력이 있으면23 downgrade를 거부한다.
+
+## 기본 PT 이용권 발급 (0025, 독립 검증 대기)
+
+`/passes`에서 허용 발급 지점·기존 활성 Member·활성 Trainer·판매 상품을 명시 선택한다.
+Member 부분검색은 PII가 URL에 남지 않는 POST `/api/v1/admin/pass-issuance/members/search`이며,
+`POST /api/v1/admin/passes`는 원 Actor/UUID/선택 version을 묶어 원자적으로1건을 발급한다.
+`GET /api/v1/admin/pass-operations/{uuid}`는 현재 Issued Scope의 원 Actor에게 불변 발급 결과만 제공한다.
+초기 담당/상품 조건/최초 잔여/최종 발급 시각은 이후 상태의 현재값이 아니다. 재시도는 같은 UUID로 대사하고 시각/감사/잔여를 바꾸지 않는다.
+Trainer 업무 활성은 Home 활성·계정 로그인 가능 여부와 독립이다. 조정/만료/교체/실제 PT·정산은 별도다.

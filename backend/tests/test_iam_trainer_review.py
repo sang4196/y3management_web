@@ -408,7 +408,7 @@ def test_downgrade_waits_for_actual_issue_then_preserves_history(
             with t.base.db.session() as reader:
                 assert (
                     reader.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                    == "0024_membership_home_move"
+                    == "0025_pt_pass_issuance"
                 )
             assert t.complete(source(issued)).status_code == 204
         finally:

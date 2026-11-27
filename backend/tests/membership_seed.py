@@ -1,4 +1,4 @@
-"""Membership-local actual23 inverse, preserving every original migration/helper."""
+"""Limited feature inverses to actual23/24, preserving original migrations/helpers."""
 
 from pathlib import Path
 
@@ -17,6 +17,15 @@ from y3management.database import Database
 
 def prepare_revision_guard(connection: Connection, target: str) -> None:
     context = MigrationContext.configure(connection)
+    if context.get_current_revision() == target:
+        return
+    if context.get_current_revision() == "0025_pt_pass_issuance":
+        scripts = ScriptDirectory.from_config(Config("alembic.ini"))
+        script = scripts.get_revision("0025_pt_pass_issuance")
+        assert script is not None
+        with Operations.context(context):
+            script.module.downgrade()
+            context.stamp(scripts, "0024_membership_home_move")
     if context.get_current_revision() == target:
         return
     if context.get_current_revision() == "0024_membership_home_move":

@@ -94,3 +94,32 @@ typed FK/NULL/큰 index key 회피, 실제21↔22/빈inverse/새사실 lossguard
 개발→동결→새 독립 fast/의미 있는 선정PG/native→설계자 인수→전담 한글 상세 커밋/일반 feature push다.
 Source/raw SHA·HEAD/index/ref/trust/hosts·실제 node/실패·미실행/경고와 자기 process/schema/auto 환경 정리를 대조한다.
 원본 DB 적용/배포·새 lifecycle tool/framework/dependency·Pass/PT 지급/정산·다른 Product OPEN/전역 PROPOSED는 범위 밖이다.
+
+## 2026-11-27 후속 증분 — 기본 PT 이용권 발급 (로컬 인수)
+
+Parent `bfa1e1dec5c136ece20b8ed1e968db8715ac2de4`, branch `codex/pt-pass-issuance`.
+[담당 A-1/B-1](../product/product-decisions.md#review-20261127-pass-issuance-trainer), BR-OPS-010/B3/B4/J3/B6/T1/T2를 적용한다.
+현재 Master Organization/BA 관리 Branch/Operator 업무 Branch를 독립 union으로 검사하고 활성 Issued Branch에서 발급한다.
+같은 조직 활성 Member는 Home 활성과 무관하며, 최초 담당은 실제 활성 Trainer만이다. Trainer Home/IAM 로그인 상태는 각각 독립이다.
+선택용 Member의 이름/전체 전화/현재 Home 및 UUID/version, Trainer 최소 식별·Home/version, 판매 상품/허용 지점만 공개한다.
+일반 Member/Trainer/상품 관리·보상/계정 권한을 확대하지 않고 기존 공개 port/상위 UoW를 조합해 Import Linter 경계를 유지한다.
+
+Member 검색은 nonempty bounded POST JSON이며 query는 repr/error·URL/일반 로그에 노출하지 않는다.
+`strpos` literal 부분 검색으로 %, _와 빈 정규화가 무조건 browse가 되지 않으며 동명/동일 번호·Home도 UUID로 명시 선택한다.
+UI는 지점 선택지 로딩 중 검색을 막고 짧은/빈 후보 페이지에서 종료한다. Actor/Org/Scope/세션 nonce 세대와 늦은 응답 차단을 적용한다.
+
+PT Operations가 발급 원본/원 Actor receipt를 소유한다. operation UUID+전체 명령/Actor·Org·선택 Branch/Member/Trainer/Product version을 묶고,
+기존 설치행 FOR UPDATE→Branch 사실→Member UPDATE/Home 재검증→Trainer SHARE/Product UPDATE→typed Audit/최종 Actor proof를 사용한다.
+최종 proof는 최초 세션 기한을 유지하며 성공 시각에 Pass/receipt/Audit를 함께 seal한다. 이 Audit 시각은 발급 완료 시각이다.
+receipt/replay는 원 Actor+현재 Issued Branch 발급 Scope로 읽고 새 발급 적격성/최신 Member PII를 재공개하지 않으며 seal/touch에 도달하지 않는다.
+상품 version의 정수 가격/총횟수/지급방식/서비스 snapshot을 FK로 정확히 묶는다. numeric key는 기존1024자리 상한 안이며 이름/PII를 넣지 않는다.
+최초 잔여=상품 횟수·최초 담당·실제 발급 완료 시각은 원 발급 사실이다. receipt/UI는 최초 잔여를 표시하며 이후 조정/교체의 현재 값으로 해석하지 않는다.
+할인/금액·횟수 입력/증빙·별도 시작일/만료일·후속 조정/만료/담당 교체/PT 진행/정산은 구현하지 않는다.
+
+새0025만 추가하고 기존0001–24/행·정책2 target14를 보존한다. 정확25 runtime, 실제24↔25 rows/shape inverse와
+발급/receipt/Audit가 있으면 손실 거부하는 guard를 검증했다. 개발자는 정적/로컬 검사, 독립 tester는 동결 뒤 PG/native를 수행했다.
+기존 native runner의 selector/manifest만 확장하고 TLS/NSS/bwrap/90초 cap과 소유 환경 정리는 유지한다.
+2026-11-28 이 기본 발급 증분을 설계자가 로컬 인수했다.
+독립 PG는 실제24↔25 smoke1·1차 신규33·교정 native1·잔여32의 고유67개이며 fast279와 native4(16/22/9/14)를 통과했다.
+최초 native 실패는 option의 visible 대기 결함으로 CJS1파일만 교정했고 실제 제품 byte는 불변이며 소유 실행 환경 정리를 완료했다.
+기존 경고2건(Starlette httpx TestClient 사용·anyio BlockingPortal alias 폐기 예정)은 남아 있고 전체 PG 전수검사·원본 DB/운영 검증은 범위 밖이며 다른 Product OPEN·전역 PROPOSED/ADR은 유지한다.

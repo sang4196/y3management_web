@@ -15,6 +15,8 @@ from y3management.workforce.public import (
     CompensationRequest,
     CompensationResult,
     CompensationState,
+    IssueTrainer,
+    IssueTrainerPage,
     ManagedTrainer,
     RegisterTrainer,
     TrainerHomeChange,
@@ -461,3 +463,20 @@ class Repository:
             now,
             self.compensation(fact.organization_id, fact.trainer_id),
         ), (change if changed else None)
+
+    def issue_trainers(self, org: UUID, offset: int, limit: int) -> IssueTrainerPage:
+        args = {"o": org, "off": offset, "lim": limit}
+        total = int(
+            self.s.execute(
+                text("SELECT count(*) FROM workforce_trainers WHERE organization_id=:o AND active"),
+                args,
+            ).scalar_one()
+        )
+        rows = self.s.execute(
+            text(
+                "SELECT id,name,home_branch_id,row_version FROM workforce_trainers "
+                "WHERE organization_id=:o AND active ORDER BY id OFFSET :off LIMIT :lim"
+            ),
+            args,
+        )
+        return IssueTrainerPage(tuple(IssueTrainer(*r) for r in rows), total)

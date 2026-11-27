@@ -18,6 +18,7 @@ from y3management.audit.public import (
     MemberEvent,
     OperatorAccountEvent,
     OperatorRoleEvent,
+    PassIssued,
     PasswordEmergencyEvent,
     ProductEvent,
     TrainerHomeEvent,
@@ -56,6 +57,7 @@ from y3management.iam.public import (
     TrainerRoleState,
 )
 from y3management.membership.public import (
+    IssueMemberPage,
     Member,
     MemberCommand,
     MemberMoveAck,
@@ -63,7 +65,14 @@ from y3management.membership.public import (
     MemberResult,
 )
 from y3management.organization.public import AssignmentCandidate, Branch, BranchPage
-from y3management.pt_operations.public import CatalogCommand, CatalogResult, Product, ProductPage
+from y3management.pt_operations.public import (
+    CatalogCommand,
+    CatalogResult,
+    IssueCommand,
+    IssueResult,
+    Product,
+    ProductPage,
+)
 from y3management.uow import UnitOfWork, Work
 from y3management.workforce.public import (
     BaseCommand,
@@ -74,6 +83,7 @@ from y3management.workforce.public import (
     CompensationRequest,
     CompensationResult,
     CompensationState,
+    IssueTrainerPage,
     ManagedTrainer,
     RegisterTrainer,
     RegistrationResult,
@@ -2027,3 +2037,118 @@ class Service:
             w.membership.confirm_move(a.caller, ack, proof)
             clock = w.roles.confirm_actor(actor, self_change=False, touch=mutation is not None)
             return w.membership.seal_move(a.caller, ack, clock)
+
+    def pass_branches(
+        self, auth: str | None, offset: int, limit: int, *, expected_actor: UUID
+    ) -> tuple[AssignmentCandidate, ...]:
+        with self.uow.open() as w:
+            a = self._member_actor(w, auth, expected_actor)
+            actor = w.roles.snapshot(a)
+            result = w.organization.issue_branches(a.caller, offset, limit)
+            w.roles.confirm_actor(actor, self_change=False)
+            return result
+
+    def pass_members(
+        self,
+        auth: str | None,
+        nonce: str | None,
+        branch: UUID,
+        query: str,
+        offset: int,
+        limit: int,
+        *,
+        expected_actor: UUID,
+    ) -> IssueMemberPage:
+        with self.uow.open() as w:
+            a = self._member_actor(w, auth, expected_actor)
+            actor = w.roles.snapshot(a)
+            w.iam.csrf(a, nonce)
+            result = w.membership.issue_search(a.caller, branch, query, offset, limit)
+            w.roles.confirm_actor(actor, self_change=False)
+            return result
+
+    def pass_choices(
+        self,
+        auth: str | None,
+        branch: UUID,
+        kind: str,
+        offset: int,
+        limit: int,
+        *,
+        expected_actor: UUID,
+    ) -> ProductPage | IssueTrainerPage:
+        with self.uow.open() as w:
+            a = self._member_actor(w, auth, expected_actor)
+            actor = w.roles.snapshot(a)
+            fact = w.organization.lock_member_branch(a.caller, branch)
+            if not fact.active:
+                raise Rejected(409, "branch_inactive")
+            if kind == "products":
+                result: ProductPage | IssueTrainerPage = w.catalog.issue_products(
+                    a.caller, branch, offset, limit
+                )
+            else:
+                trainers = w.workforce.issue_trainers(a.caller, offset, limit)
+                result = replace(
+                    trainers,
+                    items=tuple(
+                        replace(
+                            t,
+                            home_branch_name=w.organization.issue_home(
+                                a.caller, branch, t.home_branch_id
+                            ).name,
+                        )
+                        for t in trainers.items
+                    ),
+                )
+            w.roles.confirm_actor(actor, self_change=False)
+            return result
+
+    def pass_operation(
+        self, auth: str | None, operation: UUID, *, expected_actor: UUID
+    ) -> IssueResult:
+        with self.uow.open() as w:
+            a = self._member_actor(w, auth, expected_actor)
+            actor = w.roles.snapshot(a)
+            result = w.passes.operation(a.caller, operation)
+            w.roles.confirm_actor(actor, self_change=False)
+            return result
+
+    def issue_pass(
+        self, auth: str | None, nonce: str | None, command: IssueCommand, *, expected_actor: UUID
+    ) -> IssueResult:
+        with self.uow.open() as w:
+            a = self._member_actor(w, auth, expected_actor)
+            w.iam.csrf(a, nonce)
+            actor = w.roles.snapshot(a)
+            replay = w.passes.replay(a.caller, command)
+            if replay is not None:
+                w.roles.confirm_actor(actor, self_change=False)
+                return replay
+            branch = w.organization.lock_member_branch(a.caller, command.issued_branch_id)
+            if not branch.active:
+                raise Rejected(409, "branch_inactive")
+            member = w.membership.issue_member(a.caller, branch.branch_id, command.member_id)
+            trainer = w.workforce.issue_trainer(a.caller, command.trainer_id)
+            product = w.catalog.issue_product(a.caller, branch.branch_id, command.product_id)
+            if (
+                branch.version != command.expected_branch_version
+                or member.version != command.expected_member_version
+                or trainer.version != command.expected_trainer_version
+                or product.version != command.expected_product_version
+            ):
+                raise Rejected(409, "conflict")
+            result, mutation = w.passes.issue(a.caller, command, product)
+            w.audit.append_pass_issue(PassIssued(**asdict(mutation)))
+            if (
+                w.organization.lock_member_branch(a.caller, branch.branch_id) != branch
+                or w.membership.issue_member(a.caller, branch.branch_id, member.id) != member
+                or w.workforce.issue_trainer(a.caller, trainer.trainer_id) != trainer
+                or w.catalog.issue_product(a.caller, branch.branch_id, product.id) != product
+            ):
+                raise Rejected(409, "conflict")
+            w.passes.confirm(a.caller, result)
+            clock = w.roles.confirm_actor(actor, self_change=False, touch=True)
+            # The final successful proof time is the immutable issuance-completion time.
+            w.audit.seal_pass_issue(a.caller.organization_id, result.operation_id, clock)
+            return w.passes.seal(a.caller, result, clock)

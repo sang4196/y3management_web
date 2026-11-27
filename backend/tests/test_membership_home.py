@@ -18,7 +18,12 @@ from sqlalchemy import event, text
 from sqlalchemy.exc import IntegrityError
 
 from tests.historical_backend import archive_backend, execute_original
-from tests.membership_seed import assert_revision_loss_guard, full_shape, projected
+from tests.membership_seed import (
+    assert_revision_loss_guard,
+    full_shape,
+    prepare_revision_guard,
+    projected,
+)
 from tests.password_helpers import call
 from tests.test_iam import ORIGIN, csrf
 from tests.test_membership import body, edit, get, grant_operator, headers, receipt, send
@@ -313,6 +318,7 @@ def test_24_preflight_has_no_target_ddl(scene: Scene, damage: str) -> None:
     with db.engine.connect() as conn:
         tx = conn.begin()
         try:
+            prepare_revision_guard(conn, "0024_membership_home_move")
             context = MigrationContext.configure(conn)
             if damage == "checks":
                 with Operations.context(context):

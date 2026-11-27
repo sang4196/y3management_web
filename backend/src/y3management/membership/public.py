@@ -1,5 +1,7 @@
 """Immutable Member contracts; private personal values never appear in repr."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal, Protocol
@@ -85,6 +87,11 @@ class MemberMoveProof:
 
 
 class MembershipPort(Protocol):
+    def issue_search(
+        self, caller: Caller, branch: UUID, query: str, offset: int, limit: int
+    ) -> IssueMemberPage: ...
+    def issue_member(self, caller: Caller, branch: UUID, ident: UUID) -> IssueMember: ...
+
     def home_candidates(
         self, caller: Caller, ident: UUID, offset: int, limit: int
     ) -> tuple[AssignmentCandidate, ...]: ...
@@ -105,3 +112,19 @@ class MembershipPort(Protocol):
     ) -> tuple[MemberResult, MemberMutation | None]: ...
     def confirm(self, caller: Caller, result: MemberResult) -> None: ...
     def seal(self, caller: Caller, result: MemberResult, clock: datetime) -> MemberResult: ...
+
+
+@dataclass(frozen=True, repr=False)
+class IssueMember:
+    id: UUID
+    version: int
+    name: str
+    phone: str
+    home_branch_id: UUID
+    home_branch_name: str
+
+
+@dataclass(frozen=True, repr=False)
+class IssueMemberPage:
+    items: tuple[IssueMember, ...]
+    total: int

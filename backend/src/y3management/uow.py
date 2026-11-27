@@ -36,7 +36,9 @@ from y3management.organization.infrastructure import Organization as Organizatio
 from y3management.organization.public import OrganizationPort
 from y3management.pt_operations.application import Catalog
 from y3management.pt_operations.infrastructure import Repository as CatalogRepository
-from y3management.pt_operations.public import CatalogPort
+from y3management.pt_operations.pass_repository import PassRepository
+from y3management.pt_operations.passes import Passes
+from y3management.pt_operations.public import CatalogPort, PassPort
 from y3management.workforce.application import Workforce
 from y3management.workforce.infrastructure import Repository as WorkforceRepository
 from y3management.workforce.public import WorkforcePort
@@ -56,6 +58,7 @@ class Work:
     operators: OperatorRolesPort
     catalog: CatalogPort
     membership: MembershipPort
+    passes: PassPort
 
 
 class UnitOfWork:
@@ -100,6 +103,7 @@ class UnitOfWork:
                     OperatorRoles(iam),
                     Catalog(CatalogRepository(session)),
                     Membership(MembershipRepository(session), organization),
+                    Passes(PassRepository(session)),
                 )
                 try:
                     yield work

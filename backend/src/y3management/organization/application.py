@@ -117,3 +117,14 @@ class Organization:
             for ident in sorted({source, target}, key=str)
         }
         return facts[source], facts[target]
+
+    def issue_branches(
+        self, caller: Caller, offset: int, limit: int
+    ) -> tuple[AssignmentCandidate, ...]:
+        return self.member_assignment_candidates(caller, offset, limit)
+
+    def issue_home(self, caller: Caller, issued: UUID, home: UUID) -> MemberBranchFact:
+        branch = self.lock_member_branch(caller, issued)
+        if not branch.active:
+            raise Rejected(409, "branch_inactive")
+        return self._repo.member_branch(caller.organization_id, home)

@@ -12,6 +12,8 @@ from y3management.contracts import Rejected
 from y3management.iam.public import Caller
 from y3management.membership.infrastructure import Repository
 from y3management.membership.public import (
+    IssueMember,
+    IssueMemberPage,
     Member,
     MemberCommand,
     MemberMoveAck,
@@ -307,3 +309,42 @@ class Membership:
     def seal_move(self, caller: Caller, ack: MemberMoveAck, clock: datetime) -> MemberMoveAck:
         self.repo.seal(caller.organization_id, ack.operation_id, clock)
         return ack
+
+    def issue_member(self, caller: Caller, branch: UUID, ident: UUID) -> IssueMember:
+        # Explicit issuance permission, never ordinary current-Home edit permission.
+        fact = self.organization.lock_member_branch(caller, branch)
+        if not fact.active:
+            raise Rejected(409, "branch_inactive")
+        hinted_home = self.repo.home(caller.organization_id, ident)
+        home = self.organization.issue_home(caller, branch, hinted_home)
+        member = self.repo.get(caller.organization_id, ident)
+        if member.home_branch_id != hinted_home:
+            raise Rejected(409, "conflict")
+        if not member.active:
+            raise Rejected(409, "member_inactive")
+        return IssueMember(
+            member.id,
+            member.version,
+            member.values.name,
+            member.values.phone,
+            member.home_branch_id,
+            home.name,
+        )
+
+    def issue_search(
+        self, caller: Caller, branch: UUID, query: str, offset: int, limit: int
+    ) -> IssueMemberPage:
+        fact = self.organization.lock_member_branch(caller, branch)
+        if not fact.active:
+            raise Rejected(409, "branch_inactive")
+        if (
+            not isinstance(query, str)
+            or not query.strip()
+            or len(query) > 200
+            or any(unicodedata.category(c) in {"Cc", "Cs"} for c in query)
+            or offset < 0
+            or not 1 <= limit <= 100
+        ):
+            raise Rejected(422, "invalid_request")
+        ids, total = self.repo.issue_search(caller.organization_id, query.strip(), offset, limit)
+        return IssueMemberPage(tuple(self.issue_member(caller, branch, i) for i in ids), total)

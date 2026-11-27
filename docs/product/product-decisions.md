@@ -1,5 +1,14 @@
 # Product Decisions — 승인 반영
 
+<a id="review-20261127-pass-issuance-trainer"></a>
+## 2026-11-27 승인 — 기본 PT 이용권 발급 담당 A-1 / B-1
+
+A-1: 업무상 활성 Trainer는 Home Branch가 비활성이어도 새 이용권의 최초 담당으로 지정할 수 있다.
+B-1: 계정 미발급·설정/복구 대기·차단·역할 회수 등 로그인 불가 상태여도 업무상 활성이면 새 이용권 담당 지정이 가능하다.
+두 조건은 독립이며 실제 Trainer 비활성은 허용하지 않는다. 지정으로 계정/역할·로그인 접근이나 Home 상태를 바꾸지 않는다.
+기존 BR-OPS-010/B3/B4/J3/B6의 현재 발급 Scope·활성 Member/Issued Branch·판매 상품·필수 담당·상품 최초 횟수와
+발급 시각/불변 조건을 유지한다. 조정/만료/담당 교체/PT/정산과 다른 OPEN·전역 PROPOSED/ADR은 이번 승인 범위 밖이다.
+
 <a id="review-20261127-membership-home-inactive"></a>
 ## 2026-11-27 승인 — 비활성 회원의 일반 소속 지점 이동
 

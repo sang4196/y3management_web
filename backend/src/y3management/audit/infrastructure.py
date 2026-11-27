@@ -1,6 +1,7 @@
 """Atomic audit writer; never accepts arbitrary event payloads."""
 
 from dataclasses import asdict
+from datetime import datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -20,6 +21,7 @@ from y3management.audit.public import (
     MemberEvent,
     OperatorAccountEvent,
     OperatorRoleEvent,
+    PassIssued,
     PasswordEmergencyEvent,
     ProductEvent,
     TrainerHomeEvent,
@@ -327,4 +329,26 @@ class Audit:
                 + ")"
             ),
             {"id": uuid4(), **asdict(event)},
+        )
+
+    def append_pass_issue(self, event: PassIssued) -> None:
+        columns = tuple(asdict(event))
+        self.s.execute(
+            text(
+                "INSERT INTO audit_pass_issue_events(id,"
+                + ",".join(columns)
+                + ") VALUES(:id,"
+                + ",".join(":" + c for c in columns)
+                + ")"
+            ),
+            {"id": uuid4(), **asdict(event)},
+        )
+
+    def seal_pass_issue(self, org: UUID, operation: UUID, clock: datetime) -> None:
+        self.s.execute(
+            text(
+                "UPDATE audit_pass_issue_events SET recorded_at=:t "
+                "WHERE organization_id=:o AND operation_id=:i"
+            ),
+            {"o": org, "i": operation, "t": clock},
         )

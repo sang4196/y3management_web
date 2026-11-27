@@ -66,6 +66,11 @@ class CatalogResult:
 
 
 class CatalogPort(Protocol):
+    def issue_products(
+        self, caller: Caller, branch: UUID, offset: int, limit: int
+    ) -> ProductPage: ...
+    def issue_product(self, caller: Caller, branch: UUID, ident: UUID) -> Product: ...
+
     def get(self, caller: Caller, ident: UUID) -> Product: ...
     def list(self, caller: Caller, offset: int, limit: int) -> ProductPage: ...
     def operation(self, caller: Caller, ident: UUID) -> CatalogResult: ...
@@ -74,3 +79,60 @@ class CatalogPort(Protocol):
     ) -> tuple[CatalogResult, CatalogMutation | None]: ...
     def confirm(self, caller: Caller, result: CatalogResult) -> None: ...
     def seal(self, caller: Caller, result: CatalogResult, clock: datetime) -> CatalogResult: ...
+
+
+@dataclass(frozen=True)
+class IssueCommand:
+    operation_id: UUID
+    issued_branch_id: UUID
+    expected_branch_version: int
+    member_id: UUID
+    expected_member_version: int
+    trainer_id: UUID
+    expected_trainer_version: int
+    product_id: UUID
+    expected_product_version: int
+
+
+@dataclass(frozen=True)
+class IssuedPass:
+    id: UUID
+    member_id: UUID
+    initial_trainer_id: UUID
+    product_id: UUID
+    product_version: int
+    product: ProductValues
+    issued_branch_id: UUID
+    purchased_sessions: str
+    initial_remaining_sessions: str
+    issued_at: datetime
+
+
+@dataclass(frozen=True)
+class IssueResult:
+    operation_id: UUID
+    pass_record: IssuedPass
+
+
+@dataclass(frozen=True)
+class PassIssueEvent:
+    organization_id: UUID
+    operation_id: UUID
+    pass_id: UUID
+    member_id: UUID
+    trainer_id: UUID
+    issued_branch_id: UUID
+    actor_id: UUID
+    actor_role: str
+    actor_branch: UUID | None
+    recorded_at: datetime
+
+
+class PassPort(Protocol):
+    def operation(self, caller: Caller, ident: UUID) -> IssueResult: ...
+    def replay(self, caller: Caller, command: IssueCommand) -> IssueResult | None: ...
+    def issue(
+        self, caller: Caller, command: IssueCommand, product: Product
+    ) -> tuple[IssueResult, PassIssueEvent]: ...
+    def confirm(self, caller: Caller, result: IssueResult) -> None: ...
+    def seal(self, caller: Caller, result: IssueResult, clock: datetime) -> IssueResult: ...

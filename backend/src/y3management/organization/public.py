@@ -32,6 +32,11 @@ class MemberBranchFact:
 
 
 class OrganizationPort(Protocol):
+    def issue_branches(
+        self, caller: Caller, offset: int, limit: int
+    ) -> tuple[AssignmentCandidate, ...]: ...
+    def issue_home(self, caller: Caller, issued: UUID, home: UUID) -> MemberBranchFact: ...
+
     def member_home_candidates(
         self, caller: Caller, source: UUID, offset: int, limit: int
     ) -> tuple[AssignmentCandidate, ...]: ...

@@ -63,6 +63,9 @@ class RegistrationResult:
 
 
 class WorkforcePort(Protocol):
+    def issue_trainers(self, caller: Caller, offset: int, limit: int) -> IssueTrainerPage: ...
+    def issue_trainer(self, caller: Caller, ident: UUID) -> TrainerIdentityFact: ...
+
     def base_head(self, caller: Caller, trainer: UUID) -> BaseSnapshot: ...
     def base_history_token(
         self,
@@ -352,3 +355,18 @@ class BaseResult:
     validated_business_month: str
     current_base_ledger_version: int
     current_change: BaseFact
+
+
+@dataclass(frozen=True)
+class IssueTrainer:
+    id: UUID
+    name: str
+    home_branch_id: UUID
+    version: int
+    home_branch_name: str = ""
+
+
+@dataclass(frozen=True)
+class IssueTrainerPage:
+    items: tuple[IssueTrainer, ...]
+    total: int

@@ -280,7 +280,7 @@ def test_withdrawn_history_blocks18_downgrade_before_ddl(
     assert lifecycle_fingerprints(t.base.db) == before and shape(t.base.db) == constraints
     with t.base.db.session() as reader:
         assert reader.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == (
-            "0024_membership_home_move"
+            "0025_pt_pass_issuance"
         )
 
 
@@ -742,7 +742,7 @@ def test_false_move_and_actual18_downgrade_installation_gate(
         )
         assert s.scalar(text("SELECT granted FROM iam_operator_grants")) is False
         assert s.scalar(text("SELECT version_num FROM alembic_version")) == (
-            "0024_membership_home_move" if writer_first else "0017_operator_management"
+            "0025_pt_pass_issuance" if writer_first else "0017_operator_management"
         )
 
 
