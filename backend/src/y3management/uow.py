@@ -28,6 +28,9 @@ from y3management.iam.public import (
 )
 from y3management.iam.roles import TrainerRoles
 from y3management.iam.security import Security
+from y3management.membership.application import Membership
+from y3management.membership.infrastructure import Repository as MembershipRepository
+from y3management.membership.public import MembershipPort
 from y3management.organization.application import Organization
 from y3management.organization.infrastructure import Organization as OrganizationRepository
 from y3management.organization.public import OrganizationPort
@@ -52,6 +55,7 @@ class Work:
     roles: TrainerRolesPort
     operators: OperatorRolesPort
     catalog: CatalogPort
+    membership: MembershipPort
 
 
 class UnitOfWork:
@@ -77,9 +81,10 @@ class UnitOfWork:
                     self.settings.iam_mode,
                 )
                 iam.policy()
+                organization = Organization(OrganizationRepository(session))
                 work = Work(
                     iam,
-                    Organization(OrganizationRepository(session)),
+                    organization,
                     Audit(session),
                     Security(
                         session,
@@ -94,6 +99,7 @@ class UnitOfWork:
                     TrainerRoles(iam),
                     OperatorRoles(iam),
                     Catalog(CatalogRepository(session)),
+                    Membership(MembershipRepository(session), organization),
                 )
                 try:
                     yield work

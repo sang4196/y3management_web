@@ -579,7 +579,7 @@ assert started==EXPECTED
 def test_operator_receipt_audit_identity_fk_and_downgrade_guard(trainer: TrainerScene) -> None:
     from sqlalchemy.exc import IntegrityError
 
-    from tests.pt_catalog_seed import assert_revision_loss_guard
+    from tests.membership_seed import assert_revision_loss_guard
 
     t = trainer
     assert t.complete(source(t.issue())).status_code == 204
@@ -1426,7 +1426,7 @@ def test_operator_noninitial_audit_requires_prior_grant(
 @pytest.mark.parametrize("cause", ["admin_auth", "source_branch"])
 def test_operator17_isolated_synthetic_loss_guards(trainer: TrainerScene, cause: str) -> None:
     """Synthetic migration input, not public mixed-role login reachability."""
-    from tests.pt_catalog_seed import assert_revision_loss_guard
+    from tests.membership_seed import assert_revision_loss_guard
     from tests.test_account_lifecycle import lifecycle_fingerprints
 
     t = trainer
@@ -1496,7 +1496,7 @@ def test_operator17_isolated_synthetic_loss_guards(trainer: TrainerScene, cause:
         )
         assert (auth, snapshots) == ((1, 0) if cause == "admin_auth" else (0, 1))
         shape = db.execute(text(query)).all()
-    from tests.pt_catalog_seed import prepare_revision_guard
+    from tests.membership_seed import prepare_revision_guard
 
     with t.base.db.engine.begin() as connection:
         prepare_revision_guard(connection, "0017_operator_management")

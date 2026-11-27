@@ -1,5 +1,11 @@
 # Open Questions / 후속 TODO
 
+2026-11-27 [MEM-1=A-2 / MEM-2=B-1](product-decisions.md#review-20261127-membership-basics) 부분 해결:
+회원 번호는 국내 휴대전화만 허용하고, 현재 권한 범위의 이름·전화번호 수정은 Member/기존 Home 비활성에도 허용하며 상태를 유지한다.
+신규 비활성 Branch 배정 금지·기존 필수값/중복/UUID·역할별 현재 Scope는 확정돼 재질문하지 않는다.
+표기 정규화는 [Membership 기술 제안](../architecture/membership-001-basic-management-design.md)이며 외국번호 허용과 구분한다.
+LEGAL-001의 보존/필요 삭제·다른 공개/필드, MB-002의 역사 사실/정정·후속 업무와 다른22 OPEN/8 CLOSED는 유지한다.
+
 2026-11-22 답변/2026-11-23 반영: [WF3-1](product-decisions.md#review-20261122-trainer-home-states)=1로 BR-OPS-013의 이동 대상
 Trainer/연결 계정 상태 부분을 해결했다. ACTIVE/INACTIVE·계정 없음/최초 설정·차단·reset/recovery 대기·
 Trainer 역할 회수 모두 포함하며 상태를 보존한다. Master 전용/활성 목적지·비활성 출발 허용·즉시 적용·
@@ -540,6 +546,9 @@ Status: OPEN
 <a id="legal-001"></a>
 ## LEGAL-001. 최소 개인정보·보존·필요 삭제
 
+2026-11-27 MEM-1로 Member 국내 휴대전화 범위를 확정했다. Trainer 연락처 범위나 번호 소유/SMS 인증은 변경하지 않는다.
+동일 국내번호 표현의 정규화는 한정 기술 설계에서 검토한다. 나머지 개인정보·감사 보존/필요 삭제/다른 공개·필드는 계속 OPEN이다.
+
 Question / TODO: Member/Trainer 전화번호 형식/정규화·추가 항목별 수집 필요성/행위별 공개·개인정보 및 감사기록 보존/필요 삭제와 과거 이력 보존의 관계를 구체화한다. R1 Trainer 전화번호 필수/일반 수정 필수값 유지·Login ID/본인인증 수단으로 사용하지 않음은 확정됐다. I2 회원 이름/전화번호/단일 Home 필수·생년월일/성별 v1 제외, Trainer의 인가된 담당/지원 회원 전체 전화번호 읽기·회원 번호 중복 허용/별도 식별도 유지한다. R2 자기 지점 지점명/대표 연락처 수정 인가는 다른 개인정보/공개·보존/삭제 정책 승인이 아니다.
 
 Related decisions / requirements: PD-011/022; NFR-004/005. [결정](product-decisions.md), [요구사항](requirements.md)
@@ -796,6 +805,10 @@ Backend는 현재 검증된 Caller 역할/Organization·관리 Branch와 실제 
 
 <a id="mb-002"></a>
 ## MB-002. Branch / Member
+
+2026-11-27 MEM-2로 현재 허용 역할/현재 Home Scope에서 Member 또는 기존 Home이 비활성이어도 이름·번호 수정이 가능하다.
+각 비활성 상태를 유지하고 비활성 Branch 신규 배정은 계속 불가다. 기존 J1/J2/J3를 다시 묻지 않으며
+Home 이동/개별 지원·역사 사실/정정·다른 공개·후속 Pass/PT의 기술 계약과 남은 상세만 OPEN으로 유지한다.
 
 Question / TODO: Member 과거 Home 오류의 구체 정정 범위/현재 Home 영향·역사 사실/상태·최소 계약과 타 지점 발급용 추가 공개 정보/선택 응답·나머지 계정 절차를 구체화한다. V1로 이미 기록된 과거 Home 오류는 Master Organization 전용/사유 필수·원래 이력 보존으로 정정한다. 현재 Home Branch Admin의 일반 이동 권한으로 과거 이력을 정정하지 않는다. 일반 이동의 기존 Actor/현재 Home 기준·즉시 적용/미래 예약 미지원·활성 대상/받는 지점 별도 승인 없음·지원 조회 유지와 타 지점 새 Pass 발급/Member Home 유지/실제 Issued 기록은 유지한다. 과거 PT/지급/정산을 자동 변경하지 않으며 이미 승인된 이동/정정 허용을 재질문하지 않는다.
 

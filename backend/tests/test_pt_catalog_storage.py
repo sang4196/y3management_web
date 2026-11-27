@@ -12,11 +12,11 @@ from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from alembic.script import ScriptDirectory
 from fastapi.testclient import TestClient
-from sqlalchemy import text
+from sqlalchemy import event, text
 
 from tests.historical_backend import archive_backend, execute_original
+from tests.membership_seed import assert_revision_loss_guard, prepare_revision_guard, projected
 from tests.password_helpers import password_app  # noqa: F401
-from tests.pt_catalog_seed import assert_revision_loss_guard, prepare_revision_guard, projected
 from tests.test_password_transition import migrate
 from tests.test_pt_catalog import body, send
 from tests.test_workforce import Scene, scene  # noqa: F401
@@ -142,34 +142,83 @@ def test_each_catalog_fact_blocks_destructive_inverse(scene: Scene, kind: str) -
 
 @pytest.mark.parametrize("damage", ["head", "policy"])
 def test_schema_policy_preflight_before_ddl_leaves_every_row(scene: Scene, damage: str) -> None:
+    from tests.membership_seed import full_shape
+
     db = scene.db
-    with db.session() as s:
-        if damage == "head":
-            s.execute(text("UPDATE alembic_version SET version_num='0021_workforce_base_schedule'"))
-        else:
-            s.execute(
-                text(
-                    "UPDATE iam_policy_transitions "
-                    "SET target_schema_revision='synthetic_policy_mismatch'"
-                )
-            )
-        s.commit()
     before = projected(db)
+    before_shape = full_shape(db)
     scripts = ScriptDirectory.from_config(Config("alembic.ini"))
     script = scripts.get_revision("0022_pt_product_catalog")
     assert script is not None
+    observed: list[str] = []
+
+    def observe(_conn: Any, _cursor: Any, sql: str, *args: Any) -> None:
+        if sql.lstrip().upper().startswith(("CREATE ", "ALTER ", "DROP ")):
+            observed.append(sql)
+
     with db.engine.connect() as conn:
         tx = conn.begin()
         try:
-            with pytest.raises(
-                ValueError,
-                match="CATALOG_SCHEMA_MISMATCH" if damage == "head" else "CATALOG_POLICY_MISMATCH",
-            ):
-                with Operations.context(MigrationContext.configure(conn)):
-                    script.module.downgrade()
+            # Actual23 empty inverse preserves the original logged-in Session and Branch rows.
+            prepare_revision_guard(conn, "0022_pt_product_catalog")
+            assert (
+                MigrationContext.configure(conn).get_current_revision() == "0022_pt_product_catalog"
+            )
+            assert conn.scalar(text("SELECT count(*) FROM iam_sessions")) > 0
+            assert conn.scalar(text("SELECT count(*) FROM organization_branches")) > 0
+            assert conn.scalar(text("SELECT to_regclass('membership_members')")) is None
+            if damage == "head":
+                conn.execute(
+                    text("UPDATE alembic_version SET version_num='0021_workforce_base_schedule'")
+                )
+            else:
+                conn.execute(
+                    text(
+                        "UPDATE iam_policy_transitions "
+                        "SET target_schema_revision='synthetic_policy_mismatch'"
+                    )
+                )
+
+            def rows() -> dict[str, str]:
+                tables = list(
+                    conn.execute(
+                        text(
+                            "SELECT tablename FROM pg_tables "
+                            "WHERE schemaname=current_schema() ORDER BY tablename"
+                        )
+                    ).scalars()
+                )
+                return {
+                    table: conn.execute(
+                        text(
+                            "SELECT md5(COALESCE(string_agg("
+                            "to_jsonb(t)::text,',' ORDER BY to_jsonb(t)::text),'')) FROM "
+                            + table
+                            + " t"
+                        )
+                    ).scalar_one()
+                    for table in tables
+                }
+
+            target_before = rows()
+            event.listen(conn, "before_cursor_execute", observe)
+            try:
+                with pytest.raises(
+                    ValueError,
+                    match="CATALOG_SCHEMA_MISMATCH"
+                    if damage == "head"
+                    else "CATALOG_POLICY_MISMATCH",
+                ):
+                    with Operations.context(MigrationContext.configure(conn)):
+                        script.module.downgrade()
+            finally:
+                event.remove(conn, "before_cursor_execute", observe)
+            assert rows() == target_before
+            assert not observed
         finally:
             tx.rollback()
     assert projected(db) == before
+    assert full_shape(db) == before_shape
 
 
 def test_empty_catalog_adapter_reaches_actual21_and_keeps_original_base_guard(scene: Scene) -> None:

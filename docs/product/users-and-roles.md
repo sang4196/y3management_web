@@ -1,5 +1,11 @@
 # 사용자 및 역할
 
+2026-11-27 [MEM-1/2](product-decisions.md#review-20261127-membership-basics): 국내 휴대전화만 입력하는 회원 기본관리에서
+Master는 자기 Organization, Branch Admin은 현재 관리 Branch, Operator는 현재 단일 업무 Branch를 각각 사용한다.
+겸임 BA(A)+Operator(B)는 A와 B의 등록/현재 Home 회원 이름·전화번호 수정을 각 일치 역할로 수행한다.
+Member/기존 Home Branch가 비활성이어도 해당 Scope의 정보 수정은 허용하며 상태는 유지한다. 신규 비활성 Home 배정은 불가다.
+Member 상태 변경은 기존 Master·현재 Home Branch Admin만 허용하고 Operator/Trainer 단독은 불가다. Member는 로그인 Actor가 아니다.
+
 2026-11-22 답변/2026-11-23 반영: [WF3-1](product-decisions.md#review-20261122-trainer-home-states). Trainer Home 변경의 Actor는 계속
 같은 조직 Master뿐이다. Trainer가 비활성이거나 계정 없음/설정·차단·reset/recovery 대기/역할 회수 상태여도
 소속을 변경할 수 있으나 원래 상태와 독립 관리자/Operator Scope는 유지한다. 이동은 로그인 자격 복원이 아니다.

@@ -1,0 +1,11 @@
+[
+  "trusted_https",
+  "operator_account_menu",
+  "operator_candidate_scope",
+  "operator_real_create_update_no_admin_state",
+  "operator_other_home_denied",
+  "same_actor_actual_scope_change_old_post_zero",
+  "scope_change_clears_selection_personal_values",
+  "new_scope_blocks_old_direct_id",
+  "new_scope_candidate_current"
+]

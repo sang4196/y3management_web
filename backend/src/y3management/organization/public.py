@@ -22,7 +22,21 @@ class BranchPage:
     total: int
 
 
+@dataclass(frozen=True)
+class MemberBranchFact:
+    organization_id: UUID
+    branch_id: UUID
+    active: bool
+    version: int
+    name: str
+
+
 class OrganizationPort(Protocol):
+    def lock_member_branch(self, caller: Caller, ident: UUID) -> MemberBranchFact: ...
+    def member_assignment_candidates(
+        self, caller: Caller, offset: int, limit: int
+    ) -> tuple[AssignmentCandidate, ...]: ...
+
     def lock_scoped_branch(self, caller: Caller, ident: UUID) -> ScopedBranchFact: ...
     def require_assignable(self, fact: ScopedBranchFact) -> None: ...
     def confirm_scoped_branch(self, caller: Caller, fact: ScopedBranchFact) -> None: ...

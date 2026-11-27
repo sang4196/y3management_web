@@ -106,7 +106,7 @@ def test_current_operator_onboarding(trainer: TrainerScene) -> None:
         assert t.signin().status_code == 204
         assert t.signin().status_code == 409
         profile = recipient.get("/api/v1/auth/me").json()
-        assert profile["roles"] == [{"role": "OPERATOR", "branch_id": t.base.branch}]
+        assert profile["roles"] == [{"role": "OPERATOR", "branch_id": t.base.branch, "version": 1}]
         assert profile["capabilities"] == []
         assert recipient.get("/api/v1/branches").status_code == 403
         assert recipient.get("/api/v1/operator/branches/" + t.base.branch).status_code == 200
@@ -173,7 +173,7 @@ def test_current_operator_onboarding(trainer: TrainerScene) -> None:
 def test_two_scopes_source_gc_and_schema_loss_guard(
     trainer: TrainerScene, password_app: tuple[Settings, Database, str]
 ) -> None:
-    from tests.pt_catalog_seed import assert_revision_loss_guard
+    from tests.membership_seed import assert_revision_loss_guard
     from tests.test_iam_trainer_roles import body
     from y3management.uow import UnitOfWork
 
@@ -275,7 +275,7 @@ def test_two_scopes_source_gc_and_schema_loss_guard(
         assert t.signin().status_code == 204
         roles = t.recipient.get("/api/v1/auth/me").json()["roles"]
         assert roles == [
-            {"role": "OPERATOR", "branch_id": work_branch},
+            {"role": "OPERATOR", "branch_id": work_branch, "version": 1},
             {"role": "TRAINER", "trainer_id": t.trainer, "home_branch_id": t.base.branch},
         ]
         with closing(TestClient(master.app, base_url=ORIGIN)) as second:
@@ -643,7 +643,7 @@ def test_migration_waits_for_operator_issue(
         # Observe the actual revision independently of the CLI's process exclusion.
         with t.base.db.engine.connect() as conn:
             waiters.append(conn.execute(text("SELECT pg_backend_pid()")).scalar_one())
-            from tests.pt_catalog_seed import prepare_revision_guard
+            from tests.membership_seed import prepare_revision_guard
 
             prepare_revision_guard(conn, "0016_operator_onboarding")
             with Operations.context(MigrationContext.configure(conn)):
@@ -671,7 +671,7 @@ def test_migration_waits_for_operator_issue(
     with t.base.db.session() as reader:
         assert (
             reader.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-            == "0022_pt_product_catalog"
+            == "0023_membership_basics"
         )
         assert (
             reader.execute(text("SELECT count(*) FROM audit_operator_account_events")).scalar_one()
@@ -780,7 +780,7 @@ def test_downgrade_serializes_trainer_issue_cleanup(
     from sqlalchemy.engine import Connection
     from sqlalchemy.orm import Session
 
-    from tests.pt_catalog_seed import password_downgrade_guard
+    from tests.membership_seed import password_downgrade_guard
     from tests.test_iam_trainer import counts
     from tests.test_workforce_integrity import wait_for_owned_block
     from y3management.audit.infrastructure import Audit
@@ -886,7 +886,7 @@ def test_downgrade_serializes_trainer_issue_cleanup(
     assert counts(trainer) == (1, 1, 1, 1)
     with db.session() as reader:
         assert reader.scalar(text("SELECT version_num FROM alembic_version")) == (
-            "0022_pt_product_catalog"
+            "0023_membership_basics"
         )
     credential = source(issued)
     assert trainer.complete(credential).status_code == 204

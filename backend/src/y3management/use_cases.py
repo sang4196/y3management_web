@@ -15,6 +15,7 @@ from y3management.audit.public import (
     CompensationHistoryPage,
     Event,
     InitialCompensationSet,
+    MemberEvent,
     OperatorAccountEvent,
     OperatorRoleEvent,
     PasswordEmergencyEvent,
@@ -54,6 +55,7 @@ from y3management.iam.public import (
     TrainerRoleResult,
     TrainerRoleState,
 )
+from y3management.membership.public import Member, MemberCommand, MemberPage, MemberResult
 from y3management.organization.public import AssignmentCandidate, Branch, BranchPage
 from y3management.pt_operations.public import CatalogCommand, CatalogResult, Product, ProductPage
 from y3management.uow import UnitOfWork, Work
@@ -1927,3 +1929,61 @@ class Service:
             w.catalog.confirm(a.caller, result)
             clock = w.roles.confirm_actor(actor, self_change=False, touch=mutation is not None)
             return w.catalog.seal(a.caller, result, clock)
+
+    def _member_actor(self, w: Work, auth: str | None, expected_actor: UUID) -> Authentication:
+        a, _ = self._current_principal(w, auth, management=True)
+        if a.caller.account_id != expected_actor:
+            raise Rejected(409, "actor_changed")
+        return a
+
+    def members(
+        self, auth: str | None, offset: int, limit: int, *, expected_actor: UUID
+    ) -> MemberPage:
+        with self.uow.open() as w:
+            a = self._member_actor(w, auth, expected_actor)
+            actor = w.roles.snapshot(a)
+            result = w.membership.list(a.caller, offset, limit)
+            w.roles.confirm_actor(actor, self_change=False)
+            return result
+
+    def member_branches(
+        self, auth: str | None, offset: int, limit: int, *, expected_actor: UUID
+    ) -> tuple[AssignmentCandidate, ...]:
+        with self.uow.open() as w:
+            a = self._member_actor(w, auth, expected_actor)
+            actor = w.roles.snapshot(a)
+            result = w.organization.member_assignment_candidates(a.caller, offset, limit)
+            w.roles.confirm_actor(actor, self_change=False)
+            return result
+
+    def member(self, auth: str | None, ident: UUID, *, expected_actor: UUID) -> Member:
+        with self.uow.open() as w:
+            a = self._member_actor(w, auth, expected_actor)
+            actor = w.roles.snapshot(a)
+            result = w.membership.get(a.caller, ident)
+            w.roles.confirm_actor(actor, self_change=False)
+            return result
+
+    def member_operation(
+        self, auth: str | None, operation: UUID, *, expected_actor: UUID
+    ) -> MemberResult:
+        with self.uow.open() as w:
+            a = self._member_actor(w, auth, expected_actor)
+            actor = w.roles.snapshot(a)
+            result = w.membership.operation(a.caller, operation)
+            w.roles.confirm_actor(actor, self_change=False)
+            return result
+
+    def change_member(
+        self, auth: str | None, nonce: str | None, command: MemberCommand, *, expected_actor: UUID
+    ) -> MemberResult:
+        with self.uow.open() as w:
+            a = self._member_actor(w, auth, expected_actor)
+            w.iam.csrf(a, nonce)
+            actor = w.roles.snapshot(a)
+            result, mutation = w.membership.change(a.caller, command)
+            if mutation is not None:
+                w.audit.append_member(MemberEvent(**asdict(mutation)))
+            w.membership.confirm(a.caller, result)
+            clock = w.roles.confirm_actor(actor, self_change=False, touch=mutation is not None)
+            return w.membership.seal(a.caller, result, clock)

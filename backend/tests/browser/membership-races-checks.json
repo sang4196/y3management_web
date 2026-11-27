@@ -1,0 +1,11 @@
+[
+  "trusted_https",
+  "late_list_keeps_new_selection",
+  "late_detail_keeps_new_selection",
+  "ack_unknown_uuid_preserved",
+  "ack_same_uuid_one_effect",
+  "receipt404_retry409_fresh",
+  "fresh_new_uuid_recovers",
+  "same_actor_new_session_old_post_zero",
+  "same_actor_new_session_clears_personal_ui"
+]

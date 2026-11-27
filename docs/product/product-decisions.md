@@ -1,5 +1,23 @@
 # Product Decisions — 승인 반영
 
+<a id="review-20261127-membership-basics"></a>
+## 2026-11-27 승인 — 회원 기본관리 MEM-1 / MEM-2
+
+| 질문 ID | 사용자 선택 | 승인된 정책 | 유지하는 경계 |
+| --- | --- | --- | --- |
+| MEM-1 | A-2 | Member 전화번호는 국내 휴대전화만 허용한다. | 유선·외국번호를 허용하는 범위를 선택하지 않았다. +82 표기가 동일 국내번호를 나타내는 경우의 정규화와 외국번호 허용은 별개다. 번호 소유/SMS 인증을 추가하지 않는다. |
+| MEM-2 | B-1 | 현재 권한 범위 안에서 Member 또는 기존 Home Branch가 비활성이어도 이름·전화번호 수정을 허용하고 각각의 비활성 상태를 유지한다. | 신규 Member의 Home을 비활성 Branch에 배정하거나 수정과 함께 Member/Branch를 자동 재활성화하지 않는다. |
+
+기존 I2/J1/J2/J3 및 BR-OPS-006/020/021/022를 유지한다. 이름·전화번호·단일 Home은 필수이며 전화번호 중복을 허용한다.
+같은 이름/번호도 별도 Member UUID로 식별하고 자동 병합·첫 검색 결과 자동 선택·Member 로그인을 도입하지 않는다.
+등록/이름·번호 수정은 Master 자기 Organization, Branch Admin 현재 관리 Branch, Operator 현재 단일 업무 Branch 범위다.
+등록은 지정할 Home, 수정은 실제 현재 Home으로 인가한다. 겸임은 각 역할의 자기 Scope를 독립적으로 합쳐 판단하며 Trainer 단독은 불가다.
+비활성화/재활성화의 기존 Master·현재 Home Branch Admin 전용 권한을 Operator에게 확대하지 않는다.
+
+전화 입력 표현·canonical 저장·최소 관리 응답·버전/receipt/UoW·새0023은 [한정 설계](../architecture/membership-001-basic-management-design.md)의 기술 제안이다.
+국내 휴대전화라는 확정 범위를 다시 질문하지 않으며 다른 필드/공개·보존/필요 삭제·역사 사실/정정은 LEGAL-001·MB-002 등 기존 게이트에 남는다.
+전체22 OPEN/8 CLOSED·다른 ADR/전역 모듈 PROPOSED는 유지한다. 이번 반영은 문서이며 코드/migration·DB/native 검증 완료가 아니다.
+
 <a id="review-20261122-trainer-home-states"></a>
 ## 2026-11-22 승인 / 2026-11-23 반영 — Trainer Home 이동 대상 상태
 

@@ -1,3 +1,12 @@
+# MEMBERSHIP-001 로컬 인수 완료 — 회원 기본관리
+
+[MEM-1/2](../product/product-decisions.md#review-20261127-membership-basics)의 국내 휴대전화/비활성 상태 유지 수정을 반영했다.
+[한정 계약](membership-001-basic-management-design.md)의 최소 편집대상 조회/등록·이름/번호 수정·기존 BR-OPS-022 관리자 상태 명령/원 Actor-kind receipt를 설계자가 인수했다.
+[결과](membership-001-basic-management-results.md)/[최소 근거](membership-001-basic-management-review.json)는 fast258·독립 보존28+잔여64의 고유92와 같은 retry run native5(12/9/9/22/54)를 기록한다.
+최초29 실행의 관찰기 metadata 실패1/63 미실행과 ignored observer 교정을 보존하며 단일92 성공으로 부르지 않는다.
+source350/Backend228/보호42 및 환경 전후 보존·자기 자원 잔존0을 확인했다. PG875 중783·다른 플랫폼/원본 DB/운영 배포는 미검증이다.
+Home 이동/Trainer 조회·Pass/PT/정산과 다른 OPEN·전역 모듈/UoW PROPOSED·ADR은 유지한다.
+
 # PT-001 로컬 인수 완료 — Organization 공통 상품 관리
 
 [CAT-1/CAT-2](../product/product-decisions.md#review-20261125-catalog-input-state)의 입력·초기 판매 상태를 반영했다.

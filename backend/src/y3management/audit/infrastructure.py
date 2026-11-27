@@ -17,6 +17,7 @@ from y3management.audit.public import (
     CompensationHistoryPage,
     Event,
     InitialCompensationSet,
+    MemberEvent,
     OperatorAccountEvent,
     OperatorRoleEvent,
     PasswordEmergencyEvent,
@@ -307,6 +308,19 @@ class Audit:
         self.s.execute(
             text(
                 "INSERT INTO audit_product_events(id,"
+                + ",".join(columns)
+                + ") VALUES(:id,"
+                + ",".join(":" + c for c in columns)
+                + ")"
+            ),
+            {"id": uuid4(), **asdict(event)},
+        )
+
+    def append_member(self, event: MemberEvent) -> None:
+        columns = tuple(asdict(event))
+        self.s.execute(
+            text(
+                "INSERT INTO audit_member_events(id,"
                 + ",".join(columns)
                 + ") VALUES(:id,"
                 + ",".join(":" + c for c in columns)

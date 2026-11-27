@@ -47,6 +47,9 @@ def run_browser(
     base_schedule: bool = False,
     base_races: bool = False,
     catalog: bool = False,
+    membership: bool = False,
+    membership_races: bool = False,
+    membership_scope: bool = False,
     trainer: bool = False,
     trainer_roles: bool = False,
 ) -> None:
@@ -175,7 +178,13 @@ def run_browser(
     shutil.copy(
         Path(__file__).parent
         / (
-            "browser/catalog.cjs"
+            "browser/membership-scope.cjs"
+            if membership_scope
+            else "browser/membership-races.cjs"
+            if membership_races
+            else "browser/membership.cjs"
+            if membership
+            else "browser/catalog.cjs"
             if catalog
             else "browser/base-schedule-races.cjs"
             if base_races
@@ -198,7 +207,13 @@ def run_browser(
     shutil.copy(
         Path(__file__).parent
         / (
-            "browser/catalog-checks.json"
+            "browser/membership-scope-checks.json"
+            if membership_scope
+            else "browser/membership-races-checks.json"
+            if membership_races
+            else "browser/membership-checks.json"
+            if membership
+            else "browser/catalog-checks.json"
             if catalog
             else "browser/base-schedule-races-checks.json"
             if base_races
@@ -418,7 +433,15 @@ def run_browser(
                     {"stage": safe_stage, "diagnostic": json.loads(diagnostic.group(1))},
                 )
         if (
-            catalog or base_races or base_schedule or workforce or trainer or trainer_roles
+            membership_scope
+            or membership
+            or membership_races
+            or catalog
+            or base_races
+            or base_schedule
+            or workforce
+            or trainer
+            or trainer_roles
         ) and result.returncode != 0:
             diagnostic = re.search(rb"(?:WORKFORCE|TRAINER)_DIAGNOSTIC=(.*)", result.stderr)
             values = json.loads(diagnostic.group(1)) if diagnostic else {}
@@ -426,7 +449,13 @@ def run_browser(
             _qa_write(
                 qa_root()
                 / (
-                    "latest-catalog-failure.json"
+                    "latest-membership-scope-failure.json"
+                    if membership_scope
+                    else "latest-membership-races-failure.json"
+                    if membership_races
+                    else "latest-membership-failure.json"
+                    if membership
+                    else "latest-catalog-failure.json"
                     if catalog
                     else "latest-base-races-failure.json"
                     if base_races
@@ -469,7 +498,13 @@ def run_browser(
             "browser": version if re.fullmatch(r"\d+(\.\d+){1,3}", version) else "unknown",
             "scope": "actual trusted HTTPS browser",
             "mode": (
-                "catalog"
+                "membership-scope"
+                if membership_scope
+                else "membership-races"
+                if membership_races
+                else "membership"
+                if membership
+                else "catalog"
                 if catalog
                 else "base-races"
                 if base_races
@@ -482,7 +517,13 @@ def run_browser(
             "run_id": root.parents[2].name,
         }
         evidence = (
-            "latest-catalog-browser.json"
+            "latest-membership-scope-browser.json"
+            if membership_scope
+            else "latest-membership-races-browser.json"
+            if membership_races
+            else "latest-membership-browser.json"
+            if membership
+            else "latest-catalog-browser.json"
             if catalog
             else "latest-base-races-browser.json"
             if base_races

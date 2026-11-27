@@ -83,6 +83,8 @@ class OperatorAccountEvent:
 
 
 class AuditPort(Protocol):
+    def append_member(self, event: MemberEvent) -> None: ...
+
     def append_product(self, event: ProductEvent) -> None: ...
 
     def append_base_schedule(self, event: BaseScheduleEvent) -> None: ...
@@ -324,6 +326,22 @@ class ProductEvent:
     actor_id: UUID
     actor_role: str
     actor_branch: UUID | None
+    kind: str
+    before_version: int | None
+    after_version: int
+    changed: bool
+    recorded_at: datetime
+
+
+@dataclass(frozen=True, repr=False)
+class MemberEvent:
+    organization_id: UUID
+    operation_id: UUID
+    member_id: UUID
+    actor_id: UUID
+    actor_role: str
+    actor_branch: UUID | None
+    home_branch_id: UUID
     kind: str
     before_version: int | None
     after_version: int

@@ -1,3 +1,11 @@
+## 2026-11-27 — 회원 기본관리 입력·비활성 수정 승인
+
+[MEM-1=A-2 / MEM-2=B-1](product-decisions.md#review-20261127-membership-basics): 회원 연락처는 국내 휴대전화만 허용한다.
+현재 권한 범위 안에서는 Member 또는 기존 Home Branch가 비활성이어도 이름·전화번호를 수정하며 각각의 비활성 상태를 유지한다.
+필수 이름/전화번호/단일 Home·전화 중복 허용/별도 UUID/자동 병합 금지·Member 로그인 제외와 기존 역할별 현재 Home Scope를 유지한다.
+비활성 Branch 신규 배정 금지는 그대로다. +82 등 동일 국내번호의 표기 정규화는 외국번호 허용과 구분하는 기술 계약이다.
+정책 승인은 확정됐고 [MEMBERSHIP-001 설계](../architecture/membership-001-basic-management-design.md)는 한정 기술 진입 승인 후 구현/개발 검증 중이다. 코드·0023/개발 검증과 독립 실행 인수는 [현재 단계](../architecture/README.md)로 구분한다.
+
 ## 2026-11-25 — 상품 입력·최초 판매 상태 승인
 
 [CAT-1/CAT-2 승인](product-decisions.md#review-20261125-catalog-input-state): 상품명/가격/횟수/지급방식 필수, 가격0+정수 원/서비스 포함 횟수1+정수다.

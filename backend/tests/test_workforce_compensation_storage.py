@@ -200,7 +200,7 @@ def test_compensation_information_loss_is_blocked(trainer: TrainerScene, kind: s
             )
             s.commit()
     before = lifecycle_fingerprints(t.base.db)
-    from tests.pt_catalog_seed import assert_revision_loss_guard
+    from tests.membership_seed import assert_revision_loss_guard
 
     assert_revision_loss_guard(
         t.base.db,
@@ -213,7 +213,7 @@ def test_compensation_information_loss_is_blocked(trainer: TrainerScene, kind: s
 
 
 def test_actual0019_guard_retains_home_receipt(trainer: TrainerScene) -> None:
-    from tests.pt_catalog_seed import assert_revision_loss_guard
+    from tests.membership_seed import assert_revision_loss_guard
     from tests.test_workforce_home import body as home_body
     from tests.test_workforce_home import destination, move
 

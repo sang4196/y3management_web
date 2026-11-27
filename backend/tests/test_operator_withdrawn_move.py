@@ -227,7 +227,7 @@ def test_withdrawn_history_blocks18_downgrade_before_ddl(
     from alembic.script import ScriptDirectory
     from sqlalchemy.exc import DBAPIError
 
-    from tests.pt_catalog_seed import prepare_revision_guard
+    from tests.membership_seed import prepare_revision_guard
     from tests.test_account_lifecycle import lifecycle_fingerprints
 
     t = trainer
@@ -280,7 +280,7 @@ def test_withdrawn_history_blocks18_downgrade_before_ddl(
     assert lifecycle_fingerprints(t.base.db) == before and shape(t.base.db) == constraints
     with t.base.db.session() as reader:
         assert reader.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == (
-            "0022_pt_product_catalog"
+            "0023_membership_basics"
         )
 
 
@@ -640,7 +640,7 @@ def test_false_move_and_actual18_downgrade_installation_gate(
     from alembic.operations import Operations
     from alembic.script import ScriptDirectory
 
-    from tests.pt_catalog_seed import prepare_revision_guard
+    from tests.membership_seed import prepare_revision_guard
     from tests.test_workforce_integrity import wait_for_owned_block
     from y3management.audit.infrastructure import Audit
 
@@ -742,7 +742,7 @@ def test_false_move_and_actual18_downgrade_installation_gate(
         )
         assert s.scalar(text("SELECT granted FROM iam_operator_grants")) is False
         assert s.scalar(text("SELECT version_num FROM alembic_version")) == (
-            "0022_pt_product_catalog" if writer_first else "0017_operator_management"
+            "0023_membership_basics" if writer_first else "0017_operator_management"
         )
 
 

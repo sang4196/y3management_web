@@ -9,8 +9,8 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
+from tests.membership_seed import assert_revision_loss_guard
 from tests.password_helpers import password_app  # noqa: F401
-from tests.pt_catalog_seed import assert_revision_loss_guard
 from tests.test_password_transition import migrate
 from tests.test_workforce import Scene, scene  # noqa: F401
 from tests.test_workforce_base import command, register, send

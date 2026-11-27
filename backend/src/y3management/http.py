@@ -25,6 +25,7 @@ from y3management.iam.public import (
     Setup,
     TrainerRoleRequest,
 )
+from y3management.membership.public import MemberCommand, MemberValues
 from y3management.pt_operations.public import CatalogCommand, ProductValues
 from y3management.use_cases import Service
 from y3management.workforce.public import (
@@ -78,6 +79,25 @@ class BodyLimit:
 
 class Input(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+
+class MemberInput(Input):
+    operation_id: UUID
+    name: str = Field(strict=True, repr=False)
+    phone: str = Field(strict=True, repr=False)
+    home_branch_id: UUID
+
+
+class MemberUpdateInput(Input):
+    operation_id: UUID
+    expected_member_version: int = Field(strict=True, ge=1, le=9223372036854775807)
+    name: str = Field(strict=True, repr=False)
+    phone: str = Field(strict=True, repr=False)
+
+
+class MemberStateInput(Input):
+    operation_id: UUID
+    expected_member_version: int = Field(strict=True, ge=1, le=9223372036854775807)
 
 
 class ProductInput(Input):
@@ -427,7 +447,13 @@ def attach(app: FastAPI, settings: Settings) -> None:
                 }
             )
         if c.operator:
-            roles.append({"role": "OPERATOR", "branch_id": str(c.operator.branch_id)})
+            roles.append(
+                {
+                    "role": "OPERATOR",
+                    "branch_id": str(c.operator.branch_id),
+                    "version": c.operator.version,
+                }
+            )
         if trainer is not None and trainer.active:
             roles.append(
                 {
@@ -1338,6 +1364,134 @@ p,li{overflow-wrap:anywhere}h1{font-size:1.6rem}""",
         read(request)
         return Response(PRODUCT_SCRIPT, media_type="application/javascript")
 
+    @router.get("/admin/member-branches")
+    def member_branches(
+        request: Request, expected_actor: ExpectedOperatorActor, offset: int = 0, limit: int = 25
+    ) -> object:
+        workforce_query(request, {"offset", "limit"})
+        return [
+            asdict(b)
+            for b in service(request).member_branches(
+                read(request), offset, limit, expected_actor=expected_actor
+            )
+        ]
+
+    @router.get("/admin/members")
+    def members(
+        request: Request, expected_actor: ExpectedOperatorActor, offset: int = 0, limit: int = 25
+    ) -> object:
+        workforce_query(request, {"offset", "limit"})
+        return asdict(
+            service(request).members(read(request), offset, limit, expected_actor=expected_actor)
+        )
+
+    @router.get("/admin/members/{ident}")
+    def member(request: Request, ident: UUID, expected_actor: ExpectedOperatorActor) -> object:
+        workforce_query(request, set())
+        return asdict(service(request).member(read(request), ident, expected_actor=expected_actor))
+
+    @router.get("/admin/member-operations/{operation}")
+    def member_operation(
+        request: Request, operation: UUID, expected_actor: ExpectedOperatorActor
+    ) -> object:
+        workforce_query(request, set())
+        return asdict(
+            service(request).member_operation(
+                read(request), operation, expected_actor=expected_actor
+            )
+        )
+
+    @router.post("/admin/members")
+    def create_member(
+        request: Request, body: MemberInput, expected_actor: ExpectedOperatorActor
+    ) -> object:
+        workforce_query(request, set())
+        auth, nonce = write(request)
+        return asdict(
+            service(request).change_member(
+                auth,
+                nonce,
+                MemberCommand(
+                    body.operation_id,
+                    "create",
+                    home_branch_id=body.home_branch_id,
+                    values=MemberValues(body.name, body.phone),
+                ),
+                expected_actor=expected_actor,
+            )
+        )
+
+    @router.post("/admin/members/{ident}")
+    def update_member(
+        request: Request,
+        ident: UUID,
+        body: MemberUpdateInput,
+        expected_actor: ExpectedOperatorActor,
+    ) -> object:
+        workforce_query(request, set())
+        auth, nonce = write(request)
+        return asdict(
+            service(request).change_member(
+                auth,
+                nonce,
+                MemberCommand(
+                    body.operation_id,
+                    "update",
+                    ident,
+                    body.expected_member_version,
+                    values=MemberValues(body.name, body.phone),
+                ),
+                expected_actor=expected_actor,
+            )
+        )
+
+    @router.post("/admin/members/{ident}/deactivate")
+    def deactivate_member(
+        request: Request, ident: UUID, body: MemberStateInput, expected_actor: ExpectedOperatorActor
+    ) -> object:
+        workforce_query(request, set())
+        auth, nonce = write(request)
+        return asdict(
+            service(request).change_member(
+                auth,
+                nonce,
+                MemberCommand(body.operation_id, "deactivate", ident, body.expected_member_version),
+                expected_actor=expected_actor,
+            )
+        )
+
+    @router.post("/admin/members/{ident}/reactivate")
+    def reactivate_member(
+        request: Request, ident: UUID, body: MemberStateInput, expected_actor: ExpectedOperatorActor
+    ) -> object:
+        workforce_query(request, set())
+        auth, nonce = write(request)
+        return asdict(
+            service(request).change_member(
+                auth,
+                nonce,
+                MemberCommand(body.operation_id, "reactivate", ident, body.expected_member_version),
+                expected_actor=expected_actor,
+            )
+        )
+
+    @app.get("/members", response_class=HTMLResponse)
+    def members_page(request: Request) -> str:
+        caller, _ = service(request).principal(read(request))
+        if not (caller.master or caller.branch_id or caller.operator):
+            raise Rejected(403, "forbidden")
+        return MEMBER_PAGE
+
+    @app.get("/members.css")
+    def members_style(request: Request) -> Response:
+        read(request)
+        return Response(MEMBER_STYLE, media_type="text/css")
+
+    @app.get("/members.js")
+    def members_script(request: Request) -> Response:
+        read(request)
+        return Response(MEMBER_SCRIPT, media_type="application/javascript")
+
     app.include_router(router)
 
     @app.get("/operator-accounts", response_class=HTMLResponse)
@@ -1397,8 +1551,8 @@ p,li{overflow-wrap:anywhere}h1{font-size:1.6rem}""",
 
     @app.get("/account", response_class=HTMLResponse)
     def self_account_page(request: Request) -> str:
-        service(request).principal(read(request))
-        return """<!doctype html><html lang="ko"><meta charset="utf-8">
+        caller, _ = service(request).principal(read(request))
+        page = """<!doctype html><html lang="ko"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>내 계정</title>
 <h1>내 계정</h1><pre id="identity"></pre><form id="self-password" method="post" action="/account">
@@ -1408,6 +1562,13 @@ p,li{overflow-wrap:anywhere}h1{font-size:1.6rem}""",
 <input id="new-password" type="password" autocomplete="new-password" required></label>
 <button disabled>비밀번호 변경</button></form><button id="signout" disabled>로그아웃</button>
 <p id="result" role="status"></p><script src="/trainer-account.js"></script></html>"""
+
+        link = (
+            '<a id="members-link" href="/members">회원 관리</a>'
+            if caller.master or caller.branch_id or caller.operator
+            else ""
+        )
+        return page.replace("<h1>내 계정</h1>", "<h1>내 계정</h1>" + link)
 
     @app.get("/trainer-account.js")
     def trainer_account_script(request: Request) -> Response:
@@ -1555,6 +1716,10 @@ if(identity.roles.some(role=>role.role==='ADMIN')){
  document.getElementById('operator-link')?.remove();
  const link=document.createElement('a');link.id='operator-link';link.href='/operator-accounts';
  link.textContent='운영자 계정';out.after(link);}
+document.getElementById('members-link')?.remove();
+if(identity.roles.some(r=>r.role==='ADMIN'||r.role==='OPERATOR')){
+ const members=document.createElement('a');members.id='members-link';members.href='/members';
+ members.textContent='회원 관리';out.after(members);}
 const old=document.getElementById('lifecycle-link');if(old)old.remove();
 if(identity.capabilities.includes('accounts:manage')){
  document.getElementById('products-link')?.remove();
@@ -3319,6 +3484,390 @@ service.onchange=()=>{if(service.value==='true')type.value='FIXED_AMOUNT';
 actor().then(()=>{newProduct();
 return list();
 }).catch(failure);
+
+})();
+"""
+
+
+MEMBER_STYLE = """
+body{font-family:system-ui,sans-serif;max-width:860px;margin:auto;padding:16px;
+box-sizing:border-box}
+*{box-sizing:border-box}nav{display:flex;flex-wrap:wrap;gap:12px}
+input,select,button{max-width:100%;font:inherit}
+label{display:block;margin:12px 0}
+input,select{display:block;width:100%;padding:8px}
+button{padding:8px;margin:4px;white-space:normal;overflow-wrap:anywhere}
+#members button{display:block;width:100%;text-align:left;margin:4px 0}
+p,li,#selection{overflow-wrap:anywhere}
+fieldset{min-width:0}
+"""
+
+
+MEMBER_PAGE = """<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>회원 관리</title>
+<link rel="stylesheet" href="/members.css">
+<nav>
+<a href="/branches">지점</a>
+<a href="/trainers">트레이너</a>
+<a href="/members">회원</a>
+<a href="/products">상품</a>
+<a href="/account">내 계정</a>
+</nav>
+<h1>회원 기본관리</h1>
+<p>현재 관리할 수 있는 회원의 이름과 국내 휴대전화 번호를 관리합니다.</p>
+<button id="new">새 회원</button>
+<button id="refresh">목록 새로고침</button>
+<div id="members">
+</div>
+<button id="prev">이전</button>
+<button id="next">다음</button>
+<p id="page">
+</p>
+<p id="selection">
+</p>
+<form id="form">
+<fieldset id="fields">
+<legend>회원 정보</legend>
+<label>이름<input id="name" maxlength="200" required autocomplete="off">
+</label>
+<label>휴대전화<input id="phone" type="tel" maxlength="64" required autocomplete="off"
+placeholder="010-2000-0000">
+</label>
+<label>등록 Home Branch<select id="home" required>
+</select>
+</label>
+<button id="save" type="submit">등록</button>
+</fieldset>
+</form>
+<button id="deactivate">비활성화</button>
+<button id="reactivate">재활성화</button>
+<p id="operation">
+</p>
+<button id="reconcile">저장 결과 확인</button>
+<p id="message" role="status">
+</p>
+<script src="/members.js" defer>
+</script>
+</html>"""
+
+MEMBER_SCRIPT = r"""'use strict';
+
+(()=>{
+const $=id=>document.getElementById(id);
+
+let owner=null,nonce=null,invalid=false,generation=0,selected=null,pending=null;
+
+let busy=false,ready=false,offset=0,total=0,canState=false,roles=[];
+
+function scope(me){return JSON.stringify([me.account_id,me.organization_id,
+ me.roles.filter(r=>r.role==='ADMIN'||r.role==='OPERATOR')]);
+}
+async function json(response){let value;
+try{value=await response.json();
+}catch{throw Error('network');
+}
+ if(!response.ok){const e=Error('request');
+e.status=response.status;
+e.detail=value.detail;
+throw e;
+}return value;
+}
+function clearSelection(){selected=null;
+ready=false;
+$('form').reset();
+$('selection').textContent='';
+$('home').disabled=false;
+}
+function invalidate(){invalid=true;
+generation++;
+owner=null;
+nonce=null;
+pending=null;
+busy=false;
+
+ clearSelection();
+$('members').replaceChildren();
+$('home').replaceChildren();
+$('operation').textContent='';
+$('page').textContent='';
+
+ $('message').textContent='로그인 또는 관리 범위가 변경되었습니다. 페이지를 다시 열어 주세요.';
+controls();
+}
+async function actor(){if(invalid)throw Error('actor');
+
+ const me=await json(await fetch('/api/v1/auth/me'));
+
+ const token=await json(await fetch('/api/v1/auth/csrf',{headers:{'X-Y3-Client':'membership'}}));
+
+ const current=await json(await fetch('/api/v1/auth/me'));
+
+ const stamp=scope(current);
+
+ if(scope(me)!==stamp||
+ !current.roles.some(r=>r.role==='ADMIN'||r.role==='OPERATOR')){invalidate();
+throw Error('actor');
+}
+ if(owner===null){owner={id:current.account_id,stamp};
+nonce=token.csrf_token;
+}
+ else if(owner.stamp!==stamp||nonce!==token.csrf_token){invalidate();
+throw Error('actor');
+}
+ roles=current.roles;
+
+ canState=roles.some(r=>r.role==='ADMIN'&&(r.scope==='ORGANIZATION'||r.branch_id===selected?.home_branch_id));
+
+ return current;
+
+}
+async function api(path,body){await actor();
+if(invalid||!owner)throw Error('actor');
+
+ const headers={'X-Y3-Expected-Actor':owner.id};
+
+ if(body){headers['Content-Type']='application/json';
+headers['X-CSRF-Token']=nonce;
+}
+ return json(await fetch('/api/v1/admin'+path,{
+ method:body?'POST':'GET',headers,...(body?{body:JSON.stringify(body)}:{})}));
+}
+function controls(){const locked=invalid||busy||!!pending;
+
+ $('fields').disabled=locked||!ready;
+$('save').textContent=selected?'저장':'등록';
+
+ $('home').disabled=!!selected||locked;
+
+ $('new').disabled=locked;
+$('refresh').disabled=locked;
+$('prev').disabled=locked||offset===0;
+$('next').disabled=locked||offset+25>=total;
+
+ $('deactivate').hidden=!selected||!canState||!selected.active;
+
+ $('reactivate').hidden=!selected||!canState||selected.active;
+
+ $('deactivate').disabled=locked;
+$('reactivate').disabled=locked;
+$('reconcile').disabled=invalid||busy||!pending;
+
+}
+function publish(member){
+ if(selected&&selected.id===member.id&&selected.version>member.version)return false;
+
+ selected=member;
+ready=true;
+
+ canState=roles.some(r=>r.role==='ADMIN'&&
+ (r.scope==='ORGANIZATION'||r.branch_id===member.home_branch_id));
+$('name').value=member.values.name;
+$('phone').value=member.values.phone;
+
+ $('home').replaceChildren(new Option(member.home_branch_name,member.home_branch_id));
+
+ $('selection').textContent=`${member.values.name} · ${member.active?'활성 회원':'비활성 회원'}`+
+ ` · Home ${member.home_branch_name} (${member.home_active?'활성':'비활성'}) · v${member.version}`;
+
+ controls();
+return true;
+}
+async function detail(id){const g=++generation;
+clearSelection();
+controls();
+
+ const member=await api('/members/'+id);
+await actor();
+if(g!==generation||invalid)return false;
+
+ publish(member);
+await actor();
+controls();
+return true;
+}
+async function list(){const g=++generation;
+clearSelection();
+controls();
+
+ const page=await api('/members?offset='+offset+'&limit=25');
+await actor();
+if(g!==generation||invalid)return false;
+
+ total=page.total;
+$('members').replaceChildren();
+for(const m of page.items){const b=document.createElement('button');
+b.type='button';
+
+ b.textContent=`${m.values.name} · ${m.values.phone} · ${m.home_branch_name}`+
+ ` · ${m.active?'활성':'비활성'}`;
+
+ b.onclick=()=>{if(!busy&&!pending)detail(m.id).catch(failure);
+};
+$('members').append(b);
+}
+ $('page').textContent=`${total}명 · ${Math.floor(offset/25)+1}쪽`;
+controls();
+return true;
+}
+async function newMember(){const g=++generation;
+clearSelection();
+controls();
+
+ const branches=[];
+
+ for(let start=0;;start+=100){
+ const page=await api('/member-branches?offset='+start+'&limit=100');
+
+ await actor();
+if(g!==generation||invalid)return;
+
+ branches.push(...page);
+if(page.length<100)break;
+
+ }
+ $('home').replaceChildren(new Option('Home Branch 선택',''),
+ ...branches.map(b=>new Option(b.name,b.id)));
+
+ ready=branches.length>0;
+controls();
+}
+function failure(e){if(e.message==='actor')return;
+
+ if(e.status===401||e.status===403){invalidate();
+return;
+}
+ $('message').textContent=pending?
+ '저장 결과가 확인되지 않았습니다. 같은 작업번호로 확인해 주세요.':
+ '현재 관리할 수 있는 정보를 다시 조회해 주세요.';
+controls();
+}
+function known(e){return (e.status===409&&
+ ['conflict','operation_conflict','version_exhausted','branch_inactive'].includes(e.detail))||
+ (e.status===422&&['invalid_request','Invalid request'].includes(e.detail));
+}
+async function fresh(result){const g=++generation;
+
+ const member=await api('/members/'+result.current_member.id);
+await actor();
+if(g!==generation||invalid)return false;
+
+ return publish(member);
+}
+async function rejected(original){await actor();
+if(pending!==original||invalid)return;
+
+ pending=null;
+$('operation').textContent='';
+generation++;
+clearSelection();
+
+ if(original.id)await detail(original.id);
+else await newMember();
+
+ $('message').textContent='변경이 적용되지 않았습니다. 현재값을 확인한 뒤 다시 저장해 주세요.';
+}
+async function reconcile(){if(!pending||busy||invalid)return;
+
+ const original=pending;
+busy=true;
+controls();
+
+ try{await actor();
+if(!owner||original.stamp!==owner.stamp)throw Error('actor');
+
+ let result;
+try{result=await api('/member-operations/'+original.body.operation_id);
+}
+ catch(e){if(e.status!==404)throw e;
+
+ try{result=await api(original.path,original.body);
+}catch(retry){if(known(retry)){await rejected(original);
+return;
+}throw retry;
+}}
+ await actor();
+if(pending!==original||invalid)return;
+
+ if(await fresh(result)){pending=null;
+$('operation').textContent='';
+$('message').textContent='원래 저장 결과를 확인하고 현재값을 조회했습니다.';
+}
+ }catch(e){failure(e);
+}finally{busy=false;
+controls();
+}}
+async function submit(kind){if(busy||pending||invalid||!ready)return;
+
+ const snap=selected;
+busy=true;
+controls();
+
+ try{await actor();
+const body={operation_id:crypto.randomUUID()};
+let path='/members';
+
+ if(kind==='create'){body.name=$('name').value;
+body.phone=$('phone').value;
+body.home_branch_id=$('home').value;
+}
+ else{if(!snap)throw Error('selection');
+path+='/'+snap.id;
+body.expected_member_version=snap.version;
+
+ if(kind==='update'){body.name=$('name').value;
+body.phone=$('phone').value;
+}else path+='/'+kind;
+}
+ if(invalid||!owner)return;
+
+ pending={body,path,id:snap?.id||null,stamp:owner.stamp};
+const original=pending;
+
+ $('operation').textContent='작업번호: '+body.operation_id;
+
+ let result;
+try{result=await api(path,body);
+}catch(e){if(known(e)){await rejected(original);
+return;
+}throw e;
+}
+ await actor();
+if(pending!==original||invalid)return;
+
+ if(await fresh(result)){pending=null;
+$('operation').textContent='';
+$('message').textContent=result.changed?'저장했습니다.':'변경된 정보가 없습니다.';
+}
+ }catch(e){failure(e);
+}finally{busy=false;
+controls();
+}}
+$('form').onsubmit=e=>{e.preventDefault();
+submit(selected?'update':'create');
+};
+
+$('deactivate').onclick=()=>submit('deactivate');
+$('reactivate').onclick=()=>submit('reactivate');
+
+$('reconcile').onclick=reconcile;
+$('new').onclick=()=>{newMember().catch(failure);
+};
+
+$('refresh').onclick=()=>{list().catch(failure);
+};
+
+for(const [id,d] of [['prev',-25],['next',25]])$(id).onclick=()=>{if(busy||pending)return;
+offset=Math.max(0,offset+d);
+list().catch(failure);
+};
+
+addEventListener('pagehide',invalidate);
+
+actor().then(list).then(newMember).catch(failure);
+controls();
 
 })();
 """

@@ -644,3 +644,23 @@ Product는 Trainer 지급률·고정 지급액·기본급을 갖지 않는다. P
 Catalog 선택은 `tests/test_pt_catalog.py`, `tests/test_pt_catalog_storage.py`,
 `tests/test_pt_catalog_browser.py`이며 native는 기존 신뢰 HTTPS runner의22-key Catalog profile이다.
 최종 실행 성적·미실행 범위는 실행별 `.local/qa/` 근거를 따른다.
+
+## MEMBERSHIP-001 회원 기본관리 (0023)
+
+현재 Master의 자기 Organization, Branch Admin의 관리 Branch, Operator의 단일 업무 Branch에 있는 회원의
+최소 편집대상 목록/상세·등록·이름/국내 휴대전화 수정을 제공한다. `/members`는 로그인 또는 내 계정의 회원 관리 링크로 들어간다.
+BA(A)+Operator(B)는 각 일치 역할로 두 범위를 사용한다. 상태 변경은 Master·현재 Home Branch Admin만 가능하다.
+Member/기존 Home 비활성에도 이름·전화 수정은 허용하고 각각의 상태를 유지한다. 새 비활성 Home 배정은 불가다.
+
+이름·전화·단일 Home은 필수다. 전화는 국내010 휴대전화와 같은 국내번호의 +82 표기를 canonical11자리로 정규화한다.
+번호 중복을 허용하며 각각 다른 Member UUID로 식별한다. 자동 병합·Member 로그인·Home 이동/타 지점 발급용 검색은 없다.
+`/api/v1/admin/members` GET/POST, `/{id}` GET/POST, `/{id}/deactivate`·`/reactivate` POST,
+`/api/v1/admin/member-operations/{uuid}` GET와 `/api/v1/admin/member-branches` GET을 사용한다.
+현재 Actor UUID 헤더와 쓰기의 Origin/CSRF가 필요하며 version CAS·원 Actor/명령 전체의 operation receipt로 결과를 대사한다.
+원래 확정 사실과 fresh 현재값은 다르다. 읽기/no-op/replay는 활동을 갱신하지 않는다.
+
+현재 앱은 정확0023에서만 인증 업무를 실행한다. 원래0001–0022·정책2/target14와 모든 기존 업무 행을 보존한다.
+Membership가 비어 있을 때만22로 lossless inverse를 허용하며 receipt/no-op 등 새 사실도 파괴 downgrade를 막는다.
+검사는 기존 fast와 전용PG fixture를 사용한다. 새 파일은 `test_membership_policy.py`, `test_membership.py`,
+`test_membership_storage.py`, `test_membership_browser.py`이며 native는 기존90초 runner의 독립 Membership/경합/Scope profile이다.
+실제 실행/실패·미실행/독립 인수 경계는 [결과](../docs/architecture/membership-001-basic-management-results.md)를 따른다.

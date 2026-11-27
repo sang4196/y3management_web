@@ -253,3 +253,10 @@ E 승인 후 남은 것: 운영 설치 담당/권한 지급·회수/보호 입�
 2026-10-13 X1 범위 보완: S1에 Master 자기 Organization Branch Admin 정확한 Login ID 조회/설정 대기 링크 재발급을 포함하며, X1 범위의 account ID 미확보만으로 개발 run 중단/S2 재조회 보완을 요구하던 초안을 대체한다. A4 30분 단일 사용/이전 링크 폐기·현재 인가/대상 상태/version 재검사·감사와 K3 후속 수명/Trainer 분리는 유지한다. ARCH-001/002 나머지 수명/역할/보안·운영 및 T-01/T-05/T-09 구체 모듈/API/공개 계약/UoW/잠금은 남는다. 22 OPEN/8 CLOSED·별도 구현 지시 유지; [X 승인](../product/product-decisions.md#review-20261013-x-batch); V-126 미구성·미실행.
 
 S1 구체 검토안: [TX01–TX06](iam-001-decision-pack.md#review-20261013-s1-contracts)은 IAM/Organization/Audit 한정 소유권/공유UoW·두 버전/target 철회·잠금/링크/오류·import 계약의 PROPOSED다. [전달안](iam-001-decision-pack.md#s1-implementation-handoff-20261013)은 보안 공급 등 선행 근거→게이트 충족→S1a/S1b 구현/실제 인수 순서로 제한한다. 현재 정책 승인으로 기술계약/코드 착수를 일괄 채택하지 않는다. T-05 적합성/자원·실제DB/브라우저/worker 검증, T-01/T-09 및 관련 운영 게이트는 남고 Product OPEN 상태/직접 DB 읽기 예외0건은 유지한다. V-138 미구성·미실행.
+
+## 2026-11-27 MEMBERSHIP-001 한정 로컬 인수
+
+MEM-1/2와 [한정 계약](membership-001-basic-management-design.md)의 최소 편집대상 조회/등록·이름/전화 수정·기존 BR-OPS-022 관리자 상태 명령/원 Actor-kind receipt를 IMPLEMENTED/VERIFIED/ACCEPTED로 로컬 인수했다.
+[결과](membership-001-basic-management-results.md)/[근거](membership-001-basic-management-review.json)는 fast258·독립 보존28+교정 후64의 고유92 및 같은 retry run native5를 구분한다.
+최초 관찰기 metadata 실패·63 미실행/이전11키 제외를 보존하며 단일92 성공으로 부르지 않는다. Backend228/보호42·기준 환경은 보존됐다.
+이 인수는 전역 모듈/UoW PROPOSED·ADR/Product OPEN·Home 이동/Pass/PT/Trainer 조회·정산 게이트를 닫지 않는다. PG783과 다른 플랫폼/원본 DB/운영 배포는 미검증이다.

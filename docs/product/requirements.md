@@ -1,5 +1,9 @@
 # 기능 요구사항 — 승인된 제품 기준
 
+2026-11-27 [MEM-1=A-2 / MEM-2=B-1](product-decisions.md#review-20261127-membership-basics): PR-002의 전화번호는 국내 휴대전화만 허용한다.
+현재 권한 범위에서는 Member/기존 Home Branch가 비활성이어도 이름·전화번호를 수정하며 두 상태를 유지한다.
+비활성 Branch 신규 배정 금지와 기존 필수정보·중복/UUID·현재 역할별 Scope·Member 로그인 제외를 유지한다. 구현/검증과 정책 승인은 구분한다.
+
 2026-11-22 답변/2026-11-23 반영: PR-005/021/026/029/030의 [WF3-1](product-decisions.md#review-20261122-trainer-home-states)로
 Master의 Trainer Home 변경은 모든 업무/연결 계정 상태에 허용한다. 계정 없음도 포함한다. 활성 목적 지점,
 같은 조직·Master 전용·즉시 적용·기존 상태/독립 역할/보상/과거 사실 보존과 감사/실패 원자성을 따른다.
@@ -83,9 +87,9 @@ v1 범위: IN-V1
 
 출처: AS-IS-DERIVED
 
-제품 요구: Master Admin은 자기 Organization 전체, Branch Admin·Operator는 자기 지점의 Member를 등록하고 이름/전화번호를 수정한다(J1, BR-OPS-021). 신규 등록은 지정할 Home Branch, 기존 수정은 현재 Home Branch 기준이며 Trainer 역할만으로는 불가다. Member는 단일 Home Branch를 가지며 허용된 타 지점 PT를 이용한다. 타 지점 발급용 최소 검색과 일반 목록/상세·수정 권한은 구별한다.
+제품 요구: Master Admin은 자기 Organization 전체, Branch Admin·Operator는 자기 지점의 Member를 등록하고 이름/전화번호를 수정한다(J1, BR-OPS-021). MEM-1/2(2026-11-27)에 따라 국내 휴대전화만 입력하고, 기존 Member/현재 Home의 비활성 상태를 유지한 정보 수정을 허용한다. 신규 등록은 지정할 Home Branch, 기존 수정은 현재 Home Branch 기준이며 Trainer 역할만으로는 불가다. Member는 단일 Home Branch를 가지며 허용된 타 지점 PT를 이용한다. 타 지점 발급용 최소 검색과 일반 목록/상세·수정 권한은 구별한다.
 
-수용 기준 / 범위 경계: 이름·전화번호·하나의 Home Branch를 필수로 관리하며 생년월일·성별은 v1에서 제외한다(I2, BR-OPS-020). 누락/빈 이름·번호 또는 Home Branch 없는 정상 등록은 허용하지 않는다. 일반 수정으로 필수값을 비우지 않고 변경하지 않는 필수값은 유지한다. 기존 전화번호 중복 허용·별도 Member 식별/인가된 검색·열람 범위와 Home Branch 변경 권한/이력을 유지한다. 다른 필드 채택·전화번호 형식/검증·보존/필요 삭제는 LEGAL-001 후속이다. [2026-10-12 I 일괄 승인](product-decisions.md#review-20261012-i-batch).
+수용 기준 / 범위 경계: 이름·전화번호·하나의 Home Branch를 필수로 관리하며 생년월일·성별은 v1에서 제외한다(I2, BR-OPS-020). 누락/빈 이름·번호 또는 Home Branch 없는 정상 등록은 허용하지 않는다. 일반 수정으로 필수값을 비우지 않고 변경하지 않는 필수값은 유지한다. 기존 전화번호 중복 허용·별도 Member 식별/인가된 검색·열람 범위와 Home Branch 변경 권한/이력을 유지한다. 국내 휴대전화 범위는 MEM-1로 확정됐으며 표기 정규화는 한정 기술 계약으로 구체화한다. 다른 필드 채택·번호 소유 검증·보존/필요 삭제는 LEGAL-001 후속이다. [2026-10-12 I 일괄 승인](product-decisions.md#review-20261012-i-batch).
 
 2026-10-12 사용자 확정: Trainer의 회원 검색/조회 대상은 본인이 담당 Trainer로 지정된 Pass의 Member와 개별 허용된 지원 수업 대상 Member만이다. 같은 지점/Organization 소속만으로 전체 회원 목록·검색·직접 ID 상세를 허용하지 않는다. Backend가 검증된 Trainer 연결/Organization Scope와 대상별 담당·지원 허용 사실을 확인한다. 관리자의 별도 승인된 회원 관리 Scope는 유지하며 조회 필드·담당 관계 인정 조건/지원 지정 주체·기간·철회/절차는 후속이다(BR-OPS-005, PR-029/030, MB-001/002/003/005·LEGAL-001).
 

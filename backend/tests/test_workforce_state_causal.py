@@ -18,8 +18,8 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
 
 from tests.legacy_helpers import legacy_database  # noqa: F401
+from tests.membership_seed import password_downgrade_guard
 from tests.password_helpers import call, password_app  # noqa: F401
-from tests.pt_catalog_seed import password_downgrade_guard
 from tests.test_iam import ORIGIN, SyntheticSecret, csrf
 from tests.test_iam_trainer import TrainerScene, source, trainer  # noqa: F401
 from tests.test_iam_trainer_roles_causal import role_connections
@@ -430,7 +430,7 @@ def test_downgrade_waits_for_actual_state_writer_and_preserves_history(
             with t.base.db.session() as reader:
                 assert (
                     reader.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                    == "0022_pt_product_catalog"
+                    == "0023_membership_basics"
                 )
                 assert (
                     reader.execute(text("SELECT active FROM workforce_trainers")).scalar_one()

@@ -14,8 +14,8 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
 from tests.legacy_helpers import legacy_database  # noqa: F401
+from tests.membership_seed import password_downgrade_guard
 from tests.password_helpers import call, password_app  # noqa: F401
-from tests.pt_catalog_seed import password_downgrade_guard
 from tests.test_iam import ORIGIN, SyntheticSecret, csrf
 from tests.test_iam_trainer import TrainerScene, counts, source, trainer  # noqa: F401
 from tests.test_workforce import scene  # noqa: F401
@@ -408,7 +408,7 @@ def test_downgrade_waits_for_actual_issue_then_preserves_history(
             with t.base.db.session() as reader:
                 assert (
                     reader.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                    == "0022_pt_product_catalog"
+                    == "0023_membership_basics"
                 )
             assert t.complete(source(issued)).status_code == 204
         finally:

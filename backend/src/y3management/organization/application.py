@@ -9,6 +9,7 @@ from y3management.organization.public import (
     AssignmentCandidate,
     Branch,
     BranchPage,
+    MemberBranchFact,
     ScopedBranchFact,
 )
 
@@ -73,3 +74,23 @@ class Organization:
         return self._repo.assignment_candidates(
             caller.organization_id, self._scope(caller), offset, limit
         )
+
+    def lock_member_branch(self, caller: Caller, ident: UUID) -> MemberBranchFact:
+        if not (caller.master or caller.branch_id or caller.operator):
+            raise Rejected(403, "forbidden")
+        if not (
+            caller.master
+            or caller.branch_id == ident
+            or (caller.operator and caller.operator.branch_id == ident)
+        ):
+            raise Rejected(404, "not_found")
+        return self._repo.member_branch(caller.organization_id, ident)
+
+    def member_assignment_candidates(
+        self, caller: Caller, offset: int, limit: int
+    ) -> tuple[AssignmentCandidate, ...]:
+        if not (caller.master or caller.branch_id or caller.operator):
+            raise Rejected(403, "forbidden")
+        if offset < 0 or not 1 <= limit <= 100:
+            raise Rejected(422, "invalid_request")
+        return self._repo.member_candidates(caller, offset, limit)

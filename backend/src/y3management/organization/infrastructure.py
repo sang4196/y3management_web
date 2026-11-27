@@ -6,10 +6,12 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from y3management.contracts import Rejected
+from y3management.iam.public import Caller
 from y3management.organization.public import (
     AssignmentCandidate,
     Branch,
     BranchPage,
+    MemberBranchFact,
     ScopedBranchFact,
 )
 
@@ -103,5 +105,33 @@ class Organization:
                 "ORDER BY id OFFSET :off LIMIT :lim"
             ),
             {"o": org, "b": branch, "off": offset, "lim": limit},
+        )
+        return tuple(AssignmentCandidate(*row) for row in rows)
+
+    def member_branch(self, org: UUID, ident: UUID) -> MemberBranchFact:
+        row = self.s.execute(
+            text("""SELECT organization_id,id,active,row_version,name
+          FROM organization_branches WHERE organization_id=:o AND id=:i FOR SHARE"""),
+            {"o": org, "i": ident},
+        ).first()
+        if row is None:
+            raise Rejected(404, "not_found")
+        return MemberBranchFact(*row)
+
+    def member_candidates(
+        self, caller: Caller, offset: int, limit: int
+    ) -> tuple[AssignmentCandidate, ...]:
+        rows = self.s.execute(
+            text("""SELECT id,code,name,row_version FROM organization_branches
+          WHERE organization_id=:o AND active AND (:master OR id=CAST(:ba AS uuid)
+          OR id=CAST(:op AS uuid)) ORDER BY id OFFSET :off LIMIT :lim"""),
+            {
+                "o": caller.organization_id,
+                "master": caller.master,
+                "ba": caller.branch_id,
+                "op": caller.operator.branch_id if caller.operator else None,
+                "off": offset,
+                "lim": limit,
+            },
         )
         return tuple(AssignmentCandidate(*row) for row in rows)
