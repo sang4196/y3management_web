@@ -292,7 +292,7 @@ def test_downgrade_waits_for_actual_role_change_and_preserves_committed_history(
             with t.base.db.session() as reader:
                 assert (
                     reader.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                    == "0023_membership_basics"
+                    == "0024_membership_home_move"
                 )
                 assert (
                     reader.execute(

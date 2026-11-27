@@ -95,6 +95,12 @@ class MemberUpdateInput(Input):
     phone: str = Field(strict=True, repr=False)
 
 
+class MemberHomeInput(Input):
+    operation_id: UUID
+    expected_member_version: int = Field(strict=True, ge=1, le=9223372036854775807)
+    target_home_branch_id: UUID
+
+
 class MemberStateInput(Input):
     operation_id: UUID
     expected_member_version: int = Field(strict=True, ge=1, le=9223372036854775807)
@@ -379,6 +385,9 @@ def attach(app: FastAPI, settings: Settings) -> None:
     async def validation_error(request: Request, error: RequestValidationError) -> Response:
         if request.url.path.startswith(
             (
+                "/api/v1/admin/members",
+                "/api/v1/admin/member-operations",
+                "/api/v1/admin/member-home-operations",
                 "/api/v1/admin/products",
                 "/api/v1/admin/product-operations",
                 "/api/v1/admin/trainers",
@@ -1363,6 +1372,54 @@ p,li{overflow-wrap:anywhere}h1{font-size:1.6rem}""",
     def product_script(request: Request) -> Response:
         read(request)
         return Response(PRODUCT_SCRIPT, media_type="application/javascript")
+
+    @router.get("/admin/members/{ident}/home-candidates")
+    def member_home_candidates(
+        request: Request,
+        ident: UUID,
+        expected_actor: ExpectedOperatorActor,
+        offset: int = 0,
+        limit: int = 25,
+    ) -> object:
+        workforce_query(request, {"offset", "limit"})
+        return [
+            {"id": str(b.id), "name": b.name, "version": b.version}
+            for b in service(request).member_home_candidates(
+                read(request), ident, offset, limit, expected_actor=expected_actor
+            )
+        ]
+
+    @router.post("/admin/members/{ident}/home")
+    def move_member_home(
+        request: Request, ident: UUID, body: MemberHomeInput, expected_actor: ExpectedOperatorActor
+    ) -> object:
+        workforce_query(request, set())
+        auth, nonce = write(request)
+        return asdict(
+            service(request).move_member_home(
+                auth,
+                nonce,
+                MemberCommand(
+                    body.operation_id,
+                    "move_home",
+                    ident,
+                    body.expected_member_version,
+                    home_branch_id=body.target_home_branch_id,
+                ),
+                expected_actor=expected_actor,
+            )
+        )
+
+    @router.get("/admin/member-home-operations/{operation}")
+    def member_home_operation(
+        request: Request, operation: UUID, expected_actor: ExpectedOperatorActor
+    ) -> object:
+        workforce_query(request, set())
+        return asdict(
+            service(request).member_home_operation(
+                read(request), operation, expected_actor=expected_actor
+            )
+        )
 
     @router.get("/admin/member-branches")
     def member_branches(
@@ -3544,9 +3601,14 @@ placeholder="010-2000-0000">
 </form>
 <button id="deactivate">비활성화</button>
 <button id="reactivate">재활성화</button>
+<section id="home-panel" hidden>
+<label>소속을 변경할 Home Branch<select id="move-home"></select></label>
+<button id="move-home-save" type="button">소속 지점 변경</button>
+</section>
 <p id="operation">
 </p>
 <button id="reconcile">저장 결과 확인</button>
+<button id="home-uncertain" hidden>결과 불명 확인 후 현재 목록으로</button>
 <p id="message" role="status">
 </p>
 <script src="/members.js" defer>
@@ -3560,7 +3622,7 @@ const $=id=>document.getElementById(id);
 
 let owner=null,nonce=null,invalid=false,generation=0,selected=null,pending=null;
 
-let busy=false,ready=false,offset=0,total=0,canState=false,roles=[];
+let busy=false,ready=false,offset=0,total=0,canState=false,roles=[],homeReady=false;
 
 function scope(me){return JSON.stringify([me.account_id,me.organization_id,
  me.roles.filter(r=>r.role==='ADMIN'||r.role==='OPERATOR')]);
@@ -3575,7 +3637,8 @@ e.detail=value.detail;
 throw e;
 }return value;
 }
-function clearSelection(){selected=null;
+function clearSelection(){homeReady=false;$('move-home').replaceChildren();
+ $('home-panel').hidden=true;selected=null;
 ready=false;
 $('form').reset();
 $('selection').textContent='';
@@ -3643,7 +3706,7 @@ $('save').textContent=selected?'저장':'등록';
  $('home').disabled=!!selected||locked;
 
  $('new').disabled=locked;
-$('refresh').disabled=locked;
+$('refresh').disabled=invalid||busy||(!!pending&&pending.kind!=='move_home');
 $('prev').disabled=locked||offset===0;
 $('next').disabled=locked||offset+25>=total;
 
@@ -3651,9 +3714,14 @@ $('next').disabled=locked||offset+25>=total;
 
  $('reactivate').hidden=!selected||!canState||selected.active;
 
+ $('home-panel').hidden=!selected||!canState;
+ $('move-home-save').disabled=locked||!homeReady||!selected;
+ $('move-home').disabled=locked||!homeReady;
  $('deactivate').disabled=locked;
 $('reactivate').disabled=locked;
 $('reconcile').disabled=invalid||busy||!pending;
+ $('home-uncertain').hidden=pending?.kind!=='move_home';
+ $('home-uncertain').disabled=invalid||busy;
 
 }
 function publish(member){
@@ -3675,6 +3743,19 @@ $('phone').value=member.values.phone;
  controls();
 return true;
 }
+async function homeCandidates(member,g){homeReady=false;controls();
+ if(!canState)return;
+ const rows=[];
+ for(let start=0;;start+=100){
+ const page=await api('/members/'+member.id+'/home-candidates?offset='+start+'&limit=100');
+ await actor();
+ if(g!==generation||selected?.id!==member.id||selected.version!==member.version||invalid)return;
+ rows.push(...page);if(page.length<100)break;
+ }
+ $('move-home').replaceChildren(new Option('목적 Home Branch 선택',''),
+ ...rows.map(b=>new Option(b.name+(b.id===member.home_branch_id?' (현재)':''),b.id)));
+ homeReady=rows.length>0;controls();
+}
 async function detail(id){const g=++generation;
 clearSelection();
 controls();
@@ -3685,6 +3766,7 @@ if(g!==generation||invalid)return false;
 
  publish(member);
 await actor();
+await homeCandidates(member,g);
 controls();
 return true;
 }
@@ -3736,6 +3818,9 @@ controls();
 }
 function failure(e){if(e.message==='actor')return;
 
+ if(e.status===404&&pending?.kind==='move_home'){
+ $('message').textContent='저장 결과가 불명확합니다. 현재 권한으로 확인할 수 없습니다. '+
+ '현재 관리 목록을 갱신해 주세요.';controls();return;}
  if(e.status===401||e.status===403){invalidate();
 return;
 }
@@ -3754,7 +3839,9 @@ async function fresh(result){const g=++generation;
 await actor();
 if(g!==generation||invalid)return false;
 
- return publish(member);
+ const shown=publish(member);
+ if(shown)await homeCandidates(member,g);
+ return shown;
 }
 async function rejected(original){await actor();
 if(pending!==original||invalid)return;
@@ -3779,7 +3866,8 @@ controls();
 if(!owner||original.stamp!==owner.stamp)throw Error('actor');
 
  let result;
-try{result=await api('/member-operations/'+original.body.operation_id);
+try{const prefix=original.kind==='move_home'?'/member-home-operations/':'/member-operations/';
+ result=await api(prefix+original.body.operation_id);
 }
  catch(e){if(e.status!==404)throw e;
 
@@ -3791,6 +3879,7 @@ return;
  await actor();
 if(pending!==original||invalid)return;
 
+ if(original.kind==='move_home'){await moved(original,result);return;}
  if(await fresh(result)){pending=null;
 $('operation').textContent='';
 $('message').textContent='원래 저장 결과를 확인하고 현재값을 조회했습니다.';
@@ -3845,6 +3934,38 @@ $('message').textContent=result.changed?'저장했습니다.':'변경된 정보�
 }finally{busy=false;
 controls();
 }}
+async function moved(original,result){await actor();if(pending!==original||invalid)return;
+ pending=null;$('operation').textContent='';clearSelection();await list();
+ $('message').textContent=(result.changed?'소속 지점을 변경했습니다. ':
+ '동일한 소속으로 변경이 없습니다. ')+
+ '현재 관리 범위의 목록을 갱신했습니다.';controls();
+}
+async function submitHome(){if(busy||pending||invalid||!selected||!homeReady)return;
+ const snap=selected,target=$('move-home').value;if(!target)return;
+ busy=true;controls();
+ try{await actor();if(!canState||invalid||!owner)return;
+ const body={operation_id:crypto.randomUUID(),expected_member_version:snap.version,
+ target_home_branch_id:target};
+ const original={kind:'move_home',body,path:'/members/'+snap.id+'/home',
+ id:snap.id,stamp:owner.stamp};
+ pending=original;clearSelection();$('members').replaceChildren();$('page').textContent='';
+ $('operation').textContent='작업번호: '+body.operation_id;
+ let result;
+ try{result=await api(original.path,body);
+ }catch(e){if(known(e)){await rejected(original);return;}throw e;}
+ await moved(original,result);
+ }catch(e){failure(e);
+ }finally{busy=false;controls();}
+}
+$('move-home-save').onclick=submitHome;
+$('home-uncertain').onclick=async()=>{if(busy||invalid||pending?.kind!=='move_home')return;
+ const original=pending;busy=true;controls();
+ try{await actor();if(pending!==original||invalid)return;
+ pending=null;generation++;clearSelection();await list();
+ $('message').textContent='이전 소속 변경 결과는 불명입니다. 작업번호를 유지합니다. '+
+ '현재 관리 목록에서 업무를 계속할 수 있습니다.';
+ }catch(e){failure(e);}finally{busy=false;controls();}
+};
 $('form').onsubmit=e=>{e.preventDefault();
 submit(selected?'update':'create');
 };

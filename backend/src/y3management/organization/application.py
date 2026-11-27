@@ -94,3 +94,26 @@ class Organization:
         if offset < 0 or not 1 <= limit <= 100:
             raise Rejected(422, "invalid_request")
         return self._repo.member_candidates(caller, offset, limit)
+
+    def _member_home_admin(self, caller: Caller, source: UUID) -> None:
+        if not caller.master and caller.branch_id != source:
+            raise Rejected(404, "not_found")
+
+    def member_home_candidates(
+        self, caller: Caller, source: UUID, offset: int, limit: int
+    ) -> tuple[AssignmentCandidate, ...]:
+        self._member_home_admin(caller, source)
+        if offset < 0 or not 1 <= limit <= 100:
+            raise Rejected(422, "invalid_request")
+        self._repo.member_branch(caller.organization_id, source)
+        return self._repo.assignment_candidates(caller.organization_id, None, offset, limit)
+
+    def lock_member_home_pair(
+        self, caller: Caller, source: UUID, target: UUID
+    ) -> tuple[MemberBranchFact, MemberBranchFact]:
+        self._member_home_admin(caller, source)
+        facts = {
+            ident: self._repo.member_branch(caller.organization_id, ident)
+            for ident in sorted({source, target}, key=str)
+        }
+        return facts[source], facts[target]

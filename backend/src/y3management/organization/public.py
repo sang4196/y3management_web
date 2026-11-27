@@ -32,6 +32,13 @@ class MemberBranchFact:
 
 
 class OrganizationPort(Protocol):
+    def member_home_candidates(
+        self, caller: Caller, source: UUID, offset: int, limit: int
+    ) -> tuple[AssignmentCandidate, ...]: ...
+    def lock_member_home_pair(
+        self, caller: Caller, source: UUID, target: UUID
+    ) -> tuple[MemberBranchFact, MemberBranchFact]: ...
+
     def lock_member_branch(self, caller: Caller, ident: UUID) -> MemberBranchFact: ...
     def member_assignment_candidates(
         self, caller: Caller, offset: int, limit: int

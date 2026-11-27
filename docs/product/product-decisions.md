@@ -1,5 +1,15 @@
 # Product Decisions — 승인 반영
 
+<a id="review-20261127-membership-home-inactive"></a>
+## 2026-11-27 승인 — 비활성 회원의 일반 소속 지점 이동
+
+사용자는 1번(비활성 Member도 일반 Home Branch 이동 허용, 비활성 상태 유지)을 선택했다.
+BR-OPS-007/G5의 동일 Organization Master 또는 변경 전 현재 Home 관리 Branch Admin만 허용하고,
+활성 동일 조직 목적지·비활성 출발 허용·저장 완료 즉시 적용·별도 받는 지점 승인/새 사유 없음은 유지한다.
+Member 상태·이름/전화·UUID와 기존 다른 데이터/관계/이력은 보존한다. Operator/Trainer 단독에는 이동 권한이 없다.
+이동 후 후속 인가는 실제 현재 Home으로 판단하며 이전 BA에 사후 조회 권한을 추가하지 않는다.
+다른 Product OPEN·역사 소속 정정/Pass/PT/정산·전역 PROPOSED/ADR은 변경하지 않는다.
+
 <a id="review-20261127-membership-basics"></a>
 ## 2026-11-27 승인 — 회원 기본관리 MEM-1 / MEM-2
 

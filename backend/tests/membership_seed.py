@@ -19,6 +19,15 @@ def prepare_revision_guard(connection: Connection, target: str) -> None:
     context = MigrationContext.configure(connection)
     if context.get_current_revision() == target:
         return
+    if context.get_current_revision() == "0024_membership_home_move":
+        scripts = ScriptDirectory.from_config(Config("alembic.ini"))
+        script = scripts.get_revision("0024_membership_home_move")
+        assert script is not None
+        with Operations.context(context):
+            script.module.downgrade()
+            context.stamp(scripts, "0023_membership_basics")
+    if context.get_current_revision() == target:
+        return
     if context.get_current_revision() == "0023_membership_basics":
         scripts = ScriptDirectory.from_config(Config("alembic.ini"))
         script = scripts.get_revision("0023_membership_basics")

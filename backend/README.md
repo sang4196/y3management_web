@@ -653,14 +653,23 @@ BA(A)+Operator(B)는 각 일치 역할로 두 범위를 사용한다. 상태 변
 Member/기존 Home 비활성에도 이름·전화 수정은 허용하고 각각의 상태를 유지한다. 새 비활성 Home 배정은 불가다.
 
 이름·전화·단일 Home은 필수다. 전화는 국내010 휴대전화와 같은 국내번호의 +82 표기를 canonical11자리로 정규화한다.
-번호 중복을 허용하며 각각 다른 Member UUID로 식별한다. 자동 병합·Member 로그인·Home 이동/타 지점 발급용 검색은 없다.
+번호 중복을 허용하며 각각 다른 Member UUID로 식별한다. 자동 병합·Member 로그인·타 지점 발급용 검색은 없다. Home 이동은 아래 후속 증분을 따른다.
 `/api/v1/admin/members` GET/POST, `/{id}` GET/POST, `/{id}/deactivate`·`/reactivate` POST,
 `/api/v1/admin/member-operations/{uuid}` GET와 `/api/v1/admin/member-branches` GET을 사용한다.
 현재 Actor UUID 헤더와 쓰기의 Origin/CSRF가 필요하며 version CAS·원 Actor/명령 전체의 operation receipt로 결과를 대사한다.
 원래 확정 사실과 fresh 현재값은 다르다. 읽기/no-op/replay는 활동을 갱신하지 않는다.
 
-현재 앱은 정확0023에서만 인증 업무를 실행한다. 원래0001–0022·정책2/target14와 모든 기존 업무 행을 보존한다.
+현재 앱은 정확0024에서만 인증 업무를 실행한다. 원래0001–0022·정책2/target14와 모든 기존 업무 행을 보존한다.
 Membership가 비어 있을 때만22로 lossless inverse를 허용하며 receipt/no-op 등 새 사실도 파괴 downgrade를 막는다.
 검사는 기존 fast와 전용PG fixture를 사용한다. 새 파일은 `test_membership_policy.py`, `test_membership.py`,
 `test_membership_storage.py`, `test_membership_browser.py`이며 native는 기존90초 runner의 독립 Membership/경합/Scope profile이다.
 실제 실행/실패·미실행/독립 인수 경계는 [결과](../docs/architecture/membership-001-basic-management-results.md)를 따른다.
+
+### 일반 Member Home 이동 (0024, 독립 검증 대기)
+
+`POST /api/v1/admin/members/{id}/home`은 원 Actor·operation UUID·현재 Member version·목적 Home을 묶는다.
+현재 Home BA/동일 조직 Master만, 활성 동일 조직 목적지로 이동한다. 비활성 Member/출발 Home도 허용하며 상태와 다른 값을 유지한다.
+별도 `/home-candidates`는 해당 현재 관리 Member의 최소 목적지 후보만 제공한다. 기존 IAM/신규 배정 Scope는 그대로다.
+초기 성공은 PII 없는 최소 ACK, `/admin/member-home-operations/{uuid}`와 replay는 원 Actor+현재 Home 관리자 인가다.
+이동으로 권한을 잃은 출발 BA는 ACK 유실 후404를 실패로 확정하지 않고 UI의 명시 확인을 통해 현재 목록으로 복귀한다.
+활성 동일 Home은 CAS no-op이며 버전/Audit/touch가 없다. 0024는 기존23 행/column을 변경하지 않고 이동/no-op 이력이 있으면23 downgrade를 거부한다.

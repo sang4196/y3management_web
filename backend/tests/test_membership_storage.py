@@ -37,7 +37,7 @@ def test_actual22_old_rows_catalog_and_both_runtime_heads_empty_inverse(
         pytest.raises(ValueError, match="APPLICATION_STARTUP_FAILED"),
         TestClient(create_app(settings)),
     ):
-        pytest.fail("Current23 accepted22")
+        pytest.fail("Current24 accepted22")
     old = archive_backend(tmp_path, PARENT)
     private = old / "seed-input.json"
     private.write_text(json.dumps({"password": password}))
@@ -163,18 +163,12 @@ def test_each_new_membership_fact_blocks_lossy_inverse(scene: Scene, kind: str) 
 @pytest.mark.parametrize("damage", ["head", "policy"])
 def test_exact_head_policy_preflight_has_no_ddl(scene: Scene, damage: str) -> None:
     db = scene.db
-    with db.engine.begin() as conn:
-        if damage == "head":
-            conn.execute(text("UPDATE alembic_version SET version_num='0022_pt_product_catalog'"))
-        else:
-            conn.execute(
-                text("UPDATE iam_policy_transitions SET target_schema_revision='invalid-target'")
-            )
     before = projected(db)
+    before_shape = shape(db)
     scripts = ScriptDirectory.from_config(Config("alembic.ini"))
     revision = scripts.get_revision("0023_membership_basics")
     assert revision is not None
-    observed = []
+    observed: list[str] = []
 
     def observe(_conn: Any, _cursor: Any, sql: str, *args: Any) -> None:
         if sql.lstrip().upper().startswith(("CREATE ", "ALTER ", "DROP ")):
@@ -182,20 +176,38 @@ def test_exact_head_policy_preflight_has_no_ddl(scene: Scene, damage: str) -> No
 
     with db.engine.connect() as conn:
         tx = conn.begin()
-        event.listen(conn, "before_cursor_execute", observe)
         try:
-            with pytest.raises(
-                ValueError,
-                match="MEMBERSHIP_SCHEMA_MISMATCH"
-                if damage == "head"
-                else "MEMBERSHIP_POLICY_MISMATCH",
-            ):
-                with Operations.context(MigrationContext.configure(conn)):
-                    revision.module.downgrade()
+            prepare_revision_guard(conn, "0023_membership_basics")
+            assert (
+                MigrationContext.configure(conn).get_current_revision() == "0023_membership_basics"
+            )
+            if damage == "head":
+                conn.execute(
+                    text("UPDATE alembic_version SET version_num='0022_pt_product_catalog'")
+                )
+            else:
+                conn.execute(
+                    text(
+                        "UPDATE iam_policy_transitions SET target_schema_revision='invalid-target'"
+                    )
+                )
+            event.listen(conn, "before_cursor_execute", observe)
+            try:
+                with pytest.raises(
+                    ValueError,
+                    match="MEMBERSHIP_SCHEMA_MISMATCH"
+                    if damage == "head"
+                    else "MEMBERSHIP_POLICY_MISMATCH",
+                ):
+                    with Operations.context(MigrationContext.configure(conn)):
+                        revision.module.downgrade()
+            finally:
+                event.remove(conn, "before_cursor_execute", observe)
+            assert not observed
         finally:
-            event.remove(conn, "before_cursor_execute", observe)
             tx.rollback()
-    assert not observed and projected(db) == before
+    assert projected(db) == before
+    assert shape(db) == before_shape
 
 
 def test_empty23_adapter_preserves_actual22_catalog_guard_before_target_ddl(scene: Scene) -> None:

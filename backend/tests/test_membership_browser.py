@@ -28,3 +28,10 @@ def test_membership_scope_native(
 ) -> None:
     settings, _, password = password_app
     run_browser(settings, password, tmp_path, membership_scope=True)
+
+
+def test_membership_home_native(
+    password_app: tuple[Settings, Database, str], tmp_path: Path
+) -> None:
+    settings, _, password = password_app
+    run_browser(settings, password, tmp_path, membership_home=True)

@@ -1,0 +1,16 @@
+[
+  "trusted_https",
+  "ba_move_candidates_without_assignment_scope_expansion",
+  "mobile_390",
+  "source_ba_minimal_ack",
+  "source_ba_pii_cleared",
+  "inactive_state_values_preserved",
+  "source_receipt404_other_actor404",
+  "old_receipt_home_metadata_not_mislabeled",
+  "ack_loss_clears_pii_keeps_uuid",
+  "receipt404_same_uuid_replay404_is_uncertain",
+  "explicit_uncertainty_ack_returns_to_current_work",
+  "no_automatic_new_command",
+  "same_home_noop_message_and_version",
+  "late_destination_candidates_do_not_overwrite_selection"
+]

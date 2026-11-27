@@ -55,7 +55,13 @@ from y3management.iam.public import (
     TrainerRoleResult,
     TrainerRoleState,
 )
-from y3management.membership.public import Member, MemberCommand, MemberPage, MemberResult
+from y3management.membership.public import (
+    Member,
+    MemberCommand,
+    MemberMoveAck,
+    MemberPage,
+    MemberResult,
+)
 from y3management.organization.public import AssignmentCandidate, Branch, BranchPage
 from y3management.pt_operations.public import CatalogCommand, CatalogResult, Product, ProductPage
 from y3management.uow import UnitOfWork, Work
@@ -1987,3 +1993,37 @@ class Service:
             w.membership.confirm(a.caller, result)
             clock = w.roles.confirm_actor(actor, self_change=False, touch=mutation is not None)
             return w.membership.seal(a.caller, result, clock)
+
+    def member_home_candidates(
+        self, auth: str | None, ident: UUID, offset: int, limit: int, *, expected_actor: UUID
+    ) -> tuple[AssignmentCandidate, ...]:
+        with self.uow.open() as w:
+            a = self._member_actor(w, auth, expected_actor)
+            actor = w.roles.snapshot(a)
+            result = w.membership.home_candidates(a.caller, ident, offset, limit)
+            w.roles.confirm_actor(actor, self_change=False)
+            return result
+
+    def member_home_operation(
+        self, auth: str | None, operation: UUID, *, expected_actor: UUID
+    ) -> MemberMoveAck:
+        with self.uow.open() as w:
+            a = self._member_actor(w, auth, expected_actor)
+            actor = w.roles.snapshot(a)
+            result = w.membership.move_operation(a.caller, operation)
+            w.roles.confirm_actor(actor, self_change=False)
+            return result
+
+    def move_member_home(
+        self, auth: str | None, nonce: str | None, command: MemberCommand, *, expected_actor: UUID
+    ) -> MemberMoveAck:
+        with self.uow.open() as w:
+            a = self._member_actor(w, auth, expected_actor)
+            w.iam.csrf(a, nonce)
+            actor = w.roles.snapshot(a)
+            ack, mutation, proof = w.membership.move_home(a.caller, command)
+            if mutation is not None:
+                w.audit.append_member(MemberEvent(**asdict(mutation)))
+            w.membership.confirm_move(a.caller, ack, proof)
+            clock = w.roles.confirm_actor(actor, self_change=False, touch=mutation is not None)
+            return w.membership.seal_move(a.caller, ack, clock)

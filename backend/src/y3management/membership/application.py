@@ -14,12 +14,14 @@ from y3management.membership.infrastructure import Repository
 from y3management.membership.public import (
     Member,
     MemberCommand,
+    MemberMoveAck,
+    MemberMoveProof,
     MemberMutation,
     MemberPage,
     MemberResult,
     MemberValues,
 )
-from y3management.organization.public import OrganizationPort
+from y3management.organization.public import AssignmentCandidate, OrganizationPort
 
 
 def normalize(values: MemberValues) -> MemberValues:
@@ -87,11 +89,21 @@ class Membership:
         if row is None or row[1] != caller.account_id:
             raise Rejected(404, "not_found")
         result = row[0]
+        if result.kind == "move_home":
+            raise Rejected(404, "not_found")
         current = self._current(caller, result.current_member.id, result.kind)
         committed = replace(
             result.committed_member,
-            home_branch_name=current.home_branch_name,
-            home_active=current.home_active,
+            home_branch_name=(
+                current.home_branch_name
+                if result.committed_member.home_branch_id == current.home_branch_id
+                else None
+            ),
+            home_active=(
+                current.home_active
+                if result.committed_member.home_branch_id == current.home_branch_id
+                else None
+            ),
         )
         return replace(result, current_member=current, committed_member=committed)
 
@@ -178,3 +190,120 @@ class Membership:
     def seal(self, caller: Caller, result: MemberResult, clock: datetime) -> MemberResult:
         self.repo.seal(caller.organization_id, result.operation_id, clock)
         return result
+
+    def home_candidates(
+        self, caller: Caller, ident: UUID, offset: int, limit: int
+    ) -> tuple[AssignmentCandidate, ...]:
+        member = self._current(caller, ident, "move_home")
+        return self.organization.member_home_candidates(
+            caller, member.home_branch_id, offset, limit
+        )
+
+    def _move_ack(self, result: MemberResult) -> MemberMoveAck:
+        return MemberMoveAck(
+            result.operation_id,
+            result.changed,
+            result.committed_member.id,
+            result.committed_member.version,
+        )
+
+    def move_operation(self, caller: Caller, operation: UUID) -> MemberMoveAck:
+        require_editor(caller)
+        row = self.repo.operation(caller.organization_id, operation)
+        if row is None or row[1] != caller.account_id or row[0].kind != "move_home":
+            raise Rejected(404, "not_found")
+        self._current(caller, row[0].current_member.id, "move_home")
+        return self._move_ack(row[0])
+
+    def move_home(
+        self, caller: Caller, command: MemberCommand
+    ) -> tuple[MemberMoveAck, MemberMutation | None, MemberMoveProof | None]:
+        require_editor(caller)
+        c = command
+        if (
+            c.kind != "move_home"
+            or not isinstance(c.operation_id, UUID)
+            or not isinstance(c.member_id, UUID)
+            or not isinstance(c.home_branch_id, UUID)
+            or type(c.expected_member_version) is not int
+            or not 1 <= c.expected_member_version <= 9223372036854775807
+            or c.values is not None
+        ):
+            raise Rejected(422, "invalid_request")
+        fingerprint = hashlib.sha256(
+            json.dumps(
+                {
+                    **asdict(c),
+                    "actor_id": caller.account_id,
+                    "organization_id": caller.organization_id,
+                    "canonical_version": 1,
+                },
+                sort_keys=True,
+                default=str,
+                separators=(",", ":"),
+            ).encode()
+        ).digest()
+        old = self.repo.operation(caller.organization_id, c.operation_id)
+        if old is not None:
+            # Current Member authorization precedes revealing even an own command conflict.
+            ack = self.move_operation(caller, c.operation_id)
+            if old[2] != fingerprint:
+                raise Rejected(409, "operation_conflict")
+            return ack, None, None
+        source_id = self.repo.home(caller.organization_id, c.member_id)
+        selected_role, branch = role(caller, source_id, "move_home")
+        source, target = self.organization.lock_member_home_pair(
+            caller, source_id, c.home_branch_id
+        )
+        before = self.repo.get(caller.organization_id, c.member_id)
+        if before.home_branch_id != source_id or before.version != c.expected_member_version:
+            raise Rejected(409, "conflict")
+        if not target.active:
+            raise Rejected(409, "branch_inactive")
+        changed = source.branch_id != target.branch_id
+        if changed and before.version == 9223372036854775807:
+            raise Rejected(409, "version_exhausted")
+        result, mutation = self.repo.prepare(
+            caller,
+            c,
+            before,
+            target.branch_id,
+            before.active,
+            selected_role,
+            branch,
+            changed,
+            fingerprint,
+        )
+        return (
+            self._move_ack(result),
+            mutation,
+            MemberMoveProof(result.current_member, source, target),
+        )
+
+    def confirm_move(
+        self, caller: Caller, ack: MemberMoveAck, proof: MemberMoveProof | None
+    ) -> None:
+        if proof is None:
+            if self.move_operation(caller, ack.operation_id) != ack:
+                raise Rejected(409, "conflict")
+            return
+        # Only this in-flight write retains the original source authorization. No later read does.
+        role(caller, proof.source.branch_id, "move_home")
+        source, target = self.organization.lock_member_home_pair(
+            caller, proof.source.branch_id, proof.target.branch_id
+        )
+        if source != proof.source or target != proof.target or not target.active:
+            raise Rejected(409, "conflict")
+        current = self.repo.get(caller.organization_id, ack.member_id)
+        row = self.repo.operation(caller.organization_id, ack.operation_id)
+        if (
+            current != proof.after
+            or row is None
+            or row[1] != caller.account_id
+            or self._move_ack(row[0]) != ack
+        ):
+            raise Rejected(409, "conflict")
+
+    def seal_move(self, caller: Caller, ack: MemberMoveAck, clock: datetime) -> MemberMoveAck:
+        self.repo.seal(caller.organization_id, ack.operation_id, clock)
+        return ack

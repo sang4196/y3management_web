@@ -6,6 +6,7 @@ from typing import Literal, Protocol
 from uuid import UUID
 
 from y3management.iam.public import Caller
+from y3management.organization.public import AssignmentCandidate, MemberBranchFact
 
 
 @dataclass(frozen=True, repr=False)
@@ -22,8 +23,8 @@ class Member:
     home_branch_id: UUID
     active: bool
     recorded_at: datetime
-    home_branch_name: str = ""
-    home_active: bool = True
+    home_branch_name: str | None = ""
+    home_active: bool | None = True
 
 
 @dataclass(frozen=True, repr=False)
@@ -35,7 +36,7 @@ class MemberPage:
 @dataclass(frozen=True, repr=False)
 class MemberCommand:
     operation_id: UUID
-    kind: Literal["create", "update", "deactivate", "reactivate"]
+    kind: Literal["create", "update", "deactivate", "reactivate", "move_home"]
     member_id: UUID | None = None
     expected_member_version: int | None = None
     home_branch_id: UUID | None = None
@@ -67,7 +68,35 @@ class MemberResult:
     current_member: Member
 
 
+@dataclass(frozen=True, repr=False)
+class MemberMoveAck:
+    operation_id: UUID
+    changed: bool
+    member_id: UUID
+    committed_member_version: int
+    kind: str = "move_home"
+
+
+@dataclass(frozen=True, repr=False)
+class MemberMoveProof:
+    after: Member
+    source: MemberBranchFact
+    target: MemberBranchFact
+
+
 class MembershipPort(Protocol):
+    def home_candidates(
+        self, caller: Caller, ident: UUID, offset: int, limit: int
+    ) -> tuple[AssignmentCandidate, ...]: ...
+    def move_operation(self, caller: Caller, operation: UUID) -> MemberMoveAck: ...
+    def move_home(
+        self, caller: Caller, command: MemberCommand
+    ) -> tuple[MemberMoveAck, MemberMutation | None, MemberMoveProof | None]: ...
+    def confirm_move(
+        self, caller: Caller, ack: MemberMoveAck, proof: MemberMoveProof | None
+    ) -> None: ...
+    def seal_move(self, caller: Caller, ack: MemberMoveAck, clock: datetime) -> MemberMoveAck: ...
+
     def get(self, caller: Caller, ident: UUID) -> Member: ...
     def list(self, caller: Caller, offset: int, limit: int) -> MemberPage: ...
     def operation(self, caller: Caller, ident: UUID) -> MemberResult: ...

@@ -872,6 +872,9 @@ Backend는 이동 요청마다 검증된 Caller의 현재 역할·Organization/�
 
 2026-10-12 G 일괄 승인 반영: G4/G5: Home Branch 비활성 Member도 다른 활성 지점에서 기존 허용 조건으로 수업할 수 있다. Master/변경 전 현재 Home Branch 관리 Branch Admin이 활성 지점으로 명시적 이동할 수 있고 받는 지점 별도 승인 없음/즉시 적용·관계/이력 보존과 이동 후 현재 소속 인가를 유지한다. [2026-10-12 G 일괄 승인](product-decisions.md#review-20261012-g-batch). 다른 상태/신규 배정·역사 사실/구체 계약·경합 등 나머지 게이트로 이 복합 OPEN은 유지한다.
 
+2026-11-27 [1번 승인](product-decisions.md#review-20261127-membership-home-inactive)으로 비활성 Member도
+일반 Home 이동을 허용하고 비활성 상태를 유지한다. 이 대상 상태만 확정하며 복합 OPEN의 나머지 범위는 유지한다.
+
 2026-10-12 J 일괄 승인 반영: J1/J2로 회원 등록/이름·전화번호 수정 및 Member 비활성화/재활성화 Actor·Home Branch Scope를 확정했다(BR-OPS-021/022). J3로 Member 자체 비활성의 새 Pass/비활성 기간 실제 수업 차단·잔여/관계·이력 보존/같은 Member 재활성화 후 조건부 이용을 확정했다. Home Branch 자체 비활성의 G4 타 지점 이용과 구별하고 기존 다른 공개/상태·역사 사실/정정·인가/계약/경합은 남는다. [2026-10-12 J 일괄 승인](product-decisions.md#review-20261012-j-batch). 이 복합 OPEN의 나머지 항목은 유지한다.
 
 2026-10-13 V1=1 부분 해결: Trainer/Member의 이미 기록된 과거 Home 이력 오류는 Master 자기 Organization 전용/사유 필수·원래 이력/감사 보존으로 정정한다. 일반 이동의 즉시 적용/미래 예약 미지원은 유지하고 기존 PT/지급·정산 확정본을 자동 덮어쓰지 않는다. 영향 건은 기존 업무별 권한/정정·필요한 월 확정 해제/동일 월 재확정·이전본 보존을 따른다. 구체 역사 사실/현재 Home 영향·분류가 바뀌는 수업 정정/지급 기준·비용 보고/최소 계약은 남아 Status는 OPEN이다. [V 승인](product-decisions.md#review-20261013-v-batch); BR-OPS-032; V-123 미구성·미실행.

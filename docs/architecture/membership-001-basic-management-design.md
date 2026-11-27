@@ -216,3 +216,36 @@ Root keepalive/공유DB·원본자료·다른 worker 환경을 건드리지 않�
 이전11키 자료는 성적에서 제외하고 최초22개 근거는 검토 중 보존해 동결350/Backend228/보호42·환경 보존을 대조했다.
 최소 SHA/실패 이력은 committed review JSON에 남긴다. 완료 QA 원본은 Root가 commit/push 후 정리할 수 있다.
 PG875 중783·다른 브라우저/운영 배포는 미검증이며 전역 모듈/UoW PROPOSED·ADR/Product OPEN은 유지한다.
+
+## 2026-11-27 후속 증분 — 일반 Home 이동 (로컬 인수)
+
+Parent `21935b70116c30f1add1443f520f3f425af30394`, branch `codex/membership-home-move`.
+위 기본관리의 로컬 인수와 구별하며, [비활성 Member 1번 승인](../product/product-decisions.md#review-20261127-membership-home-inactive)과
+BR-OPS-007/G5에 따라 현재 Home BA/동일 조직 Master만 즉시 이동한다. Operator Scope로 관리자 권한을 보충하지 않는다.
+목적지는 동일 조직 활성 Branch, 출발 Branch/Member 비활성은 허용하고 현재 상태·값·다른 원본과 이력은 보존한다.
+
+기존 Membership/Organization 공개 port와 Outer UoW를 재사용한다. 이동 대상 Member의 현재 Home 관리자에게만
+활성 목적지 `id/name/version` 후보를 제공하며, 일반 IAM 지점 조회/신규 Member 배정 Scope를 넓히지 않는다.
+설치/현재 Actor 잠금 → UUID 정렬 source/target Branch SHARE → Member UPDATE/CAS → 버전/receipt/typed Audit →
+원래 Actor/세션/CSRF와 최초 기한의 최종 proof 순서를 유지한다. 최초 쓰기 최종 확인은 잠근 before Home/버전과
+현재 source 관리자 권한으로 수행해 이동 때문에 BA 자신의 정당한 쓰기를 롤백하지 않는다.
+활성 동일 Home도 현재 CAS를 먼저 확인한 no-op receipt로 처리하고 버전/Audit/touch를 증가시키지 않는다.
+비활성 목적지는 동일 Home이어도 거부한다. 이름/전화·Member 상태는 명령 입력으로 받지 않는다.
+
+최초 응답은 operation UUID/kind/changed/Member UUID/committed version만인 최소 ACK다.
+후속 move receipt/replay는 원 Actor와 실제 현재 Member Home의 관리자 권한을 모두 요구한다.
+출발 BA의 ACK 유실 후 404는 실패 증명이 아니며 원 UUID 재확인만 가능하고 자동 새 명령을 만들지 않는다.
+UI는 옛 PII/선택을 즉시 지우고 불명/작업번호를 표시한다. 명시적 불명 확인으로 현재 허용 목록 업무에 복귀할 수 있다.
+401/403·Actor/세션/Scope 변경은 기존 민감 표시 삭제/차단을 따른다. 정상 no-op은 실제 이동과 구별해 안내한다.
+기존 등록/수정 receipt의 committed Home이 현재 Home과 다르면 역사 지점 이름/active는 `null`이며 현재 지점 메타데이터로 꾸미지 않는다.
+
+새0024만 사용한다. 0001–0023·기존 row/column을 보존하고 기존 kind/actor CHECK 이름 집합을 검사한 뒤 해당8개만
+교체한다. BA move의 actor Branch는 기존 before version/Home FK로 출발 Home에 묶는다. 원 core/nullable-before FK를 유지한다.
+런타임은 정확24/정책2·target14이며 실제23↔24 원본 Member 행/전체 constraint/index/column shape를 비교한다.
+24의 실제 move뿐 아니라 no-op receipt도 24→23 inverse를 막아 이력을 잃지 않는다. 기존 guard adapter는 실제24 inverse 후 실제23/22를 준비한다.
+개발자는 정적/로컬 smoke를, 독립 tester는 실제 PG·trusted HTTPS/390px·늦은 후보 응답/ACK 유실 검증을 수행했다.
+이 일반 Home 이동 증분만 설계자가 로컬 인수했다.
+독립 PG는 실제23↔24 smoke 1개(27.34초)와 본 검증 52개(429.46초), 총 53개이며 fast270/Ruff/mypy154/Import Linter10과
+native4(12/9/9/14)를 통과했고, 검증 종료 시 동결26경로 동일·Git 변경 검토 결함0을 확인했다.
+전체899 PG 중846개는 미선정이며 기존 경고2건(Starlette의 httpx TestClient 사용 및 anyio BlockingPortal alias 폐기 예정)은 남아 있다.
+원본 DB 적용/배포·운영 검증은 범위 밖이며 다른 Product OPEN·전역 모듈/UoW PROPOSED·ADR 상태는 변경하지 않는다.

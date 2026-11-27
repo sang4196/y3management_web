@@ -462,6 +462,10 @@ Traceability: PD-022; PR-002; NFR-005; LEGAL-001; 2026-10-12 사용자 1번 답�
 
 Status: APPROVED
 
+2026-11-27 [사용자 1번 승인](product-decisions.md#review-20261127-membership-home-inactive):
+비활성 Member도 아래 일반 이동을 허용하고 비활성 상태를 유지한다. 비활성 출발 Branch는 재활성화하지 않으며,
+동일 Organization의 활성 목적지만 허용한다. 이동으로 이름/전화·식별자·다른 데이터/관계·과거 이력을 변경하지 않는다.
+
 2026-10-12 사용자 확정(회원 소속 지점 변경 권한 질문의 1번): 동일 Organization 안에서 Member의 Home Branch는 Master Admin 또는 변경 요청 처리 시점 Member의 현재 Home Branch를 관리하는 Branch Admin이 변경할 수 있다. 받는 지점의 별도 승인 없이 처리한다. Master는 Organization 전체 범위이며 Branch Admin은 변경 전 현재 관리 Member만 대상으로 한다. 받는 지점 관리자라는 이유나 과거 소속·이전 변경자/지원 지정자·Pass Issued Branch·수업 Performed Branch 사실만으로 다른 현재 소속 Member를 이동시킬 수 없다. 관리자 권한 없는 Operator·Trainer는 수행할 수 없고 관리자 겸임자는 해당 관리 권한으로 판단한다(BR-OPS-007, PD-004, PR-002/030, MB-002, NFR-001).
 
 기존 결정 적용: 변경된 Home Branch가 반영된 이후의 Member 관리 및 개별 지원 지정/해제는 각 요청의 현재 Home Branch와 관리 Scope를 따른다. 이전 지점 관리자는 이전 소속/처리자라는 사실만으로 Home Branch 기반 관리 권한을 유지하지 않는다. 기존 담당·개별 지원 조회 허용과 별도의 Pass 발급 지점/수업 수행 지점 기준 업무 등 독립적으로 인가되는 권한은 각각 기존 규칙을 적용한다. 이동 자체로 개별 지원 허용을 해제/재지정하지 않고, Pass의 Issued Branch·발급 조건·잔여/담당 정보, Trainer Home Branch와 과거 PT 기록/Performed Branch·확정 지급/정산을 자동 변경하지 않는다(BR-OPS-001/004/005).

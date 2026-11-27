@@ -50,6 +50,7 @@ def run_browser(
     membership: bool = False,
     membership_races: bool = False,
     membership_scope: bool = False,
+    membership_home: bool = False,
     trainer: bool = False,
     trainer_roles: bool = False,
 ) -> None:
@@ -178,7 +179,9 @@ def run_browser(
     shutil.copy(
         Path(__file__).parent
         / (
-            "browser/membership-scope.cjs"
+            "browser/membership-home.cjs"
+            if membership_home
+            else "browser/membership-scope.cjs"
             if membership_scope
             else "browser/membership-races.cjs"
             if membership_races
@@ -207,7 +210,9 @@ def run_browser(
     shutil.copy(
         Path(__file__).parent
         / (
-            "browser/membership-scope-checks.json"
+            "browser/membership-home-checks.json"
+            if membership_home
+            else "browser/membership-scope-checks.json"
             if membership_scope
             else "browser/membership-races-checks.json"
             if membership_races
@@ -433,7 +438,8 @@ def run_browser(
                     {"stage": safe_stage, "diagnostic": json.loads(diagnostic.group(1))},
                 )
         if (
-            membership_scope
+            membership_home
+            or membership_scope
             or membership
             or membership_races
             or catalog
@@ -449,7 +455,9 @@ def run_browser(
             _qa_write(
                 qa_root()
                 / (
-                    "latest-membership-scope-failure.json"
+                    "latest-membership-home-failure.json"
+                    if membership_home
+                    else "latest-membership-scope-failure.json"
                     if membership_scope
                     else "latest-membership-races-failure.json"
                     if membership_races
@@ -498,7 +506,9 @@ def run_browser(
             "browser": version if re.fullmatch(r"\d+(\.\d+){1,3}", version) else "unknown",
             "scope": "actual trusted HTTPS browser",
             "mode": (
-                "membership-scope"
+                "membership-home"
+                if membership_home
+                else "membership-scope"
                 if membership_scope
                 else "membership-races"
                 if membership_races
@@ -517,7 +527,9 @@ def run_browser(
             "run_id": root.parents[2].name,
         }
         evidence = (
-            "latest-membership-scope-browser.json"
+            "latest-membership-home-browser.json"
+            if membership_home
+            else "latest-membership-scope-browser.json"
             if membership_scope
             else "latest-membership-races-browser.json"
             if membership_races
