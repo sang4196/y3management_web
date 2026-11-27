@@ -1,0 +1,15 @@
+[
+  "trusted_https",
+  "admin_management_menu",
+  "invalid_pass_text_not_sent_to_url",
+  "mobile_390_long_name_reason",
+  "unknown_uuid_kept_reason_cleared",
+  "ack_receipt_without_new_post",
+  "success_restores_list_and_same_balance",
+  "release_preserves_issue_original",
+  "receipt404_exact_retry409_fresh_state",
+  "fresh_command_new_uuid_cas",
+  "same_actor_new_session_clears_reason_old_post_zero",
+  "ba_a_operator_b_list_direct_scope",
+  "ba_real_expiration"
+]

@@ -123,3 +123,29 @@ receipt/replay는 원 Actor+현재 Issued Branch 발급 Scope로 읽고 새 발�
 독립 PG는 실제24↔25 smoke1·1차 신규33·교정 native1·잔여32의 고유67개이며 fast279와 native4(16/22/9/14)를 통과했다.
 최초 native 실패는 option의 visible 대기 결함으로 CJS1파일만 교정했고 실제 제품 byte는 불변이며 소유 실행 환경 정리를 완료했다.
 기존 경고2건(Starlette httpx TestClient 사용·anyio BlockingPortal alias 폐기 예정)은 남아 있고 전체 PG 전수검사·원본 DB/운영 검증은 범위 밖이며 다른 Product OPEN·전역 PROPOSED/ADR은 유지한다.
+
+## 2026-11-28 후속 증분 — 이용권 수동 만료/해제 (로컬 인수)
+
+Parent `5d76593d0b2d8cc6fa116c754f277d26a83c8409`, branch `codex/pt-pass-expiration`.
+승인된 BR-OPS-004를 적용하며 현재 Organization Master/Issued Branch BA만 처리한다.
+BA(A)+Operator(B)는 A 발급 Pass만 관리하며 B의 발급 권한을 만료 목록/직접 ID/명령·receipt에 합치지 않는다.
+현재 관할 Pass UUID/상품명/잔여/상태·version의 최소 목록/상세만 제공하고 발급용 Member PII 검색을 전용하지 않는다.
+기존 Pass의 만료/해제는 Branch/Member/Trainer 비활성·상품 판매 중단 때문에 차단하지 않으며 신규 발급의 활성 조건과 구분한다.
+
+PT Ops의 별도 상태 head/append version·명령 receipt·typed Audit를 새0026으로 추가한다.
+최초 미만료 상태는 기존 Pass의 실제 issued_at에 묶고, 새 발급은 원래 seal 뒤 같은 UoW에서 초기화한다.
+필수 사유는 trim nonempty 1..200 Unicode 문자/제어문자 금지이며 DTO repr·오류/로그에 노출하지 않는다.
+현재 관리 Scope·원 Actor/전체 명령 UUID binding·현재 상태 CAS와 최초 인증 기한 최종 proof를 재사용한다.
+실제 변경만 상태 버전/Audit/touch, stale no-op409, 같은 UUID replay는 원 committed/fresh current를 구분하고 재변경하지 않는다.
+상태 순서는 Pass별 version과 nondecreasing 서버 최종 proof 시각/직전 상태 시각으로 보존한다.
+Audit는 사유/전후·Actor/Issued Context와 같은 확정 시각에 결속하며 NULL↔UUID0 역할 별칭도 CHECK/FK로 차단한다.
+발급 원본/원 receipt·최초 잔여·Member/담당 관계는 수정하지 않는다. 잔여의 현재 원천은 아직 변동 기능이 없는 발급 잔여다.
+0026 inverse는 기본 미만료 상태만 손실 없이 제거할 수 있을 때 허용하고 상태 변화 또는 no-op receipt가 있으면 거부한다.
+
+기존 UI/CSP·Actor 세대/nonce·늦은 응답 차단·ACK 대사를 재사용하고 UUID 형식만 직접 조회 URL로 보낸다.
+수동 조정·담당 교체·지원 기능·실제/늦은 PT·정산과 다른 Product OPEN/전역 PROPOSED/ADR은 별도다.
+개발자는 정적/로컬 smoke를, 독립 tester는 동결 뒤 실제25↔26/PG·native를 검증했다.
+이 수동 만료/해제 증분을 설계자가 로컬 인수했다.
+독립 PG는 실제25↔26 smoke1·최초2·교정1·잔여46의 고유50개이며 fast292/정적 검사와 native3(13/16/9)를 통과했다.
+초기 synthetic Scope/login 검사 실패1은 실제 IAM PATCH를 사용하는 테스트1파일만 교정했고 제품 byte는 불변이다.
+전체960 PG 중910개는 미선정이며 기존 경고2건(Starlette httpx TestClient 사용·anyio BlockingPortal alias 폐기 예정)은 남아 있고 원본 DB/운영 검증은 범위 밖이다.

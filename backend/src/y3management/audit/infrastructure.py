@@ -22,6 +22,7 @@ from y3management.audit.public import (
     OperatorAccountEvent,
     OperatorRoleEvent,
     PassIssued,
+    PassStateChanged,
     PasswordEmergencyEvent,
     ProductEvent,
     TrainerHomeEvent,
@@ -349,6 +350,28 @@ class Audit:
             text(
                 "UPDATE audit_pass_issue_events SET recorded_at=:t "
                 "WHERE organization_id=:o AND operation_id=:i"
+            ),
+            {"o": org, "i": operation, "t": clock},
+        )
+
+    def append_pass_state(self, event: PassStateChanged) -> None:
+        columns = tuple(asdict(event))
+        self.s.execute(
+            text(
+                "INSERT INTO audit_pass_state_events(id,"
+                + ",".join(columns)
+                + ") VALUES(:id,"
+                + ",".join(":" + c for c in columns)
+                + ")"
+            ),
+            {"id": uuid4(), **asdict(event)},
+        )
+
+    def seal_pass_state(self, org: UUID, operation: UUID, clock: datetime) -> None:
+        self.s.execute(
+            text(
+                "UPDATE audit_pass_state_events SET recorded_at=:t WHERE "
+                "organization_id=:o AND operation_id=:i"
             ),
             {"o": org, "i": operation, "t": clock},
         )

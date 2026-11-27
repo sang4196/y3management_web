@@ -659,7 +659,7 @@ Member/기존 Home 비활성에도 이름·전화 수정은 허용하고 각각�
 현재 Actor UUID 헤더와 쓰기의 Origin/CSRF가 필요하며 version CAS·원 Actor/명령 전체의 operation receipt로 결과를 대사한다.
 원래 확정 사실과 fresh 현재값은 다르다. 읽기/no-op/replay는 활동을 갱신하지 않는다.
 
-현재 앱은 정확0025에서만 인증 업무를 실행한다. 원래0001–0022·정책2/target14와 모든 기존 업무 행을 보존한다.
+현재 앱은 정확0026에서만 인증 업무를 실행한다. 원래0001–0022·정책2/target14와 모든 기존 업무 행을 보존한다.
 Membership가 비어 있을 때만22로 lossless inverse를 허용하며 receipt/no-op 등 새 사실도 파괴 downgrade를 막는다.
 검사는 기존 fast와 전용PG fixture를 사용한다. 새 파일은 `test_membership_policy.py`, `test_membership.py`,
 `test_membership_storage.py`, `test_membership_browser.py`이며 native는 기존90초 runner의 독립 Membership/경합/Scope profile이다.
@@ -682,3 +682,12 @@ Member 부분검색은 PII가 URL에 남지 않는 POST `/api/v1/admin/pass-issu
 `GET /api/v1/admin/pass-operations/{uuid}`는 현재 Issued Scope의 원 Actor에게 불변 발급 결과만 제공한다.
 초기 담당/상품 조건/최초 잔여/최종 발급 시각은 이후 상태의 현재값이 아니다. 재시도는 같은 UUID로 대사하고 시각/감사/잔여를 바꾸지 않는다.
 Trainer 업무 활성은 Home 활성·계정 로그인 가능 여부와 독립이다. 조정/만료/교체/실제 PT·정산은 별도다.
+
+## 이용권 수동 만료/해제 (0026, 독립 검증 대기)
+
+관리자의 `/pass-management`는 현재 Issued Branch 관할 Pass의 최소 목록/UUID 상세를 제공한다.
+`POST /api/v1/admin/pass-management/passes/{uuid}/expiration`은 필수 사유·현재 상태 version·원 Actor/UUID로
+수동 만료 또는 같은 Pass의 해제를 처리하며 원본/잔여를 유지한다. Operator Scope는 관리자 Scope에 합치지 않는다.
+기존 Pass에는 신규 발급의 Branch/Member/Trainer 활성·상품 판매 조건을 적용하지 않는다.
+별도 상태 버전/시각·typed Audit는 보존하고 `/api/v1/admin/pass-state-operations/{uuid}` 대사는 현재 관할 원 Actor만 허용한다.
+실제 PT/조정/담당 교체·지원·정산은 추가하지 않았다.

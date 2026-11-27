@@ -19,6 +19,15 @@ def prepare_revision_guard(connection: Connection, target: str) -> None:
     context = MigrationContext.configure(connection)
     if context.get_current_revision() == target:
         return
+    if context.get_current_revision() == "0026_pt_pass_expiration":
+        scripts = ScriptDirectory.from_config(Config("alembic.ini"))
+        script = scripts.get_revision("0026_pt_pass_expiration")
+        assert script is not None
+        with Operations.context(context):
+            script.module.downgrade()
+            context.stamp(scripts, "0025_pt_pass_issuance")
+    if context.get_current_revision() == target:
+        return
     if context.get_current_revision() == "0025_pt_pass_issuance":
         scripts = ScriptDirectory.from_config(Config("alembic.ini"))
         script = scripts.get_revision("0025_pt_pass_issuance")

@@ -26,7 +26,12 @@ from y3management.iam.public import (
     TrainerRoleRequest,
 )
 from y3management.membership.public import MemberCommand, MemberValues
-from y3management.pt_operations.public import CatalogCommand, IssueCommand, ProductValues
+from y3management.pt_operations.public import (
+    CatalogCommand,
+    IssueCommand,
+    PassStateCommand,
+    ProductValues,
+)
 from y3management.use_cases import Service
 from y3management.workforce.public import (
     BaseCommand,
@@ -93,6 +98,13 @@ class MemberUpdateInput(Input):
     expected_member_version: int = Field(strict=True, ge=1, le=9223372036854775807)
     name: str = Field(strict=True, repr=False)
     phone: str = Field(strict=True, repr=False)
+
+
+class PassExpirationInput(Input):
+    operation_id: UUID
+    expected_state_version: int = Field(strict=True, ge=1, le=9223372036854775807)
+    desired_expired: bool = Field(strict=True)
+    reason: str = Field(strict=True, min_length=1, max_length=200, repr=False)
 
 
 class PassSearchInput(Input):
@@ -404,6 +416,8 @@ def attach(app: FastAPI, settings: Settings) -> None:
     async def validation_error(request: Request, error: RequestValidationError) -> Response:
         if request.url.path.startswith(
             (
+                "/api/v1/admin/pass-management",
+                "/api/v1/admin/pass-state-operations",
                 "/api/v1/admin/pass-issuance",
                 "/api/v1/admin/pass-operations",
                 "/api/v1/admin/passes",
@@ -1395,6 +1409,61 @@ p,li{overflow-wrap:anywhere}h1{font-size:1.6rem}""",
         read(request)
         return Response(PRODUCT_SCRIPT, media_type="application/javascript")
 
+    @router.get("/admin/pass-management/passes")
+    def managed_passes(
+        request: Request, expected_actor: ExpectedOperatorActor, offset: int = 0, limit: int = 25
+    ) -> object:
+        workforce_query(request, {"offset", "limit"})
+        return asdict(
+            service(request).managed_passes(
+                read(request), offset, limit, expected_actor=expected_actor
+            )
+        )
+
+    @router.get("/admin/pass-management/passes/{ident}")
+    def managed_pass(
+        request: Request, ident: UUID, expected_actor: ExpectedOperatorActor
+    ) -> object:
+        workforce_query(request, set())
+        return asdict(
+            service(request).managed_pass(read(request), ident, expected_actor=expected_actor)
+        )
+
+    @router.post("/admin/pass-management/passes/{ident}/expiration")
+    def change_pass_expiration(
+        request: Request,
+        ident: UUID,
+        body: PassExpirationInput,
+        expected_actor: ExpectedOperatorActor,
+    ) -> object:
+        workforce_query(request, set())
+        auth, nonce = write(request)
+        return asdict(
+            service(request).change_pass_state(
+                auth,
+                nonce,
+                PassStateCommand(
+                    body.operation_id,
+                    ident,
+                    body.expected_state_version,
+                    body.desired_expired,
+                    body.reason,
+                ),
+                expected_actor=expected_actor,
+            )
+        )
+
+    @router.get("/admin/pass-state-operations/{operation}")
+    def pass_state_operation(
+        request: Request, operation: UUID, expected_actor: ExpectedOperatorActor
+    ) -> object:
+        workforce_query(request, set())
+        return asdict(
+            service(request).pass_state_operation(
+                read(request), operation, expected_actor=expected_actor
+            )
+        )
+
     @router.get("/admin/pass-issuance/branches")
     def pass_branches(
         request: Request, expected_actor: ExpectedOperatorActor, offset: int = 0, limit: int = 25
@@ -1628,6 +1697,21 @@ p,li{overflow-wrap:anywhere}h1{font-size:1.6rem}""",
             raise Rejected(403, "forbidden")
         return MEMBER_PAGE
 
+    @app.get("/pass-management")
+    def pass_management_page() -> HTMLResponse:
+        return HTMLResponse(PASS_STATE_PAGE)
+
+    @app.get("/pass-management.js")
+    def pass_management_script() -> Response:
+        return Response(PASS_STATE_SCRIPT, media_type="text/javascript")
+
+    @app.get("/pass-management.css")
+    def pass_management_style() -> Response:
+        return Response(
+            MEMBER_STYLE + "\n#reason{width:100%;max-width:100%;box-sizing:border-box}",
+            media_type="text/css",
+        )
+
     @app.get("/passes")
     def passes_page() -> HTMLResponse:
         return HTMLResponse(PASS_PAGE)
@@ -1729,6 +1813,8 @@ p,li{overflow-wrap:anywhere}h1{font-size:1.6rem}""",
             if caller.master or caller.branch_id or caller.operator
             else ""
         )
+        if caller.master or caller.branch_id:
+            link += '<a id="pass-management-link" href="/pass-management">이용권 만료 관리</a>'
         return page.replace("<h1>내 계정</h1>", "<h1>내 계정</h1>" + link)
 
     @app.get("/trainer-account.js")
@@ -1884,6 +1970,11 @@ if(identity.roles.some(r=>r.role==='ADMIN'||r.role==='OPERATOR')){
  document.getElementById('passes-link')?.remove();
  const passes=document.createElement('a');passes.id='passes-link';passes.href='/passes';
  passes.textContent='이용권 발급';out.after(passes);}
+document.getElementById('pass-management-link')?.remove();
+if(identity.roles.some(r=>r.role==='ADMIN')){
+ const management=document.createElement('a');management.id='pass-management-link';
+ management.href='/pass-management';management.textContent='이용권 만료 관리';
+ out.after(management);}
 const old=document.getElementById('lifecycle-link');if(old)old.remove();
 if(identity.capabilities.includes('accounts:manage')){
  document.getElementById('products-link')?.remove();
@@ -4105,7 +4196,8 @@ controls();
 PASS_PAGE = """<!doctype html><html lang="ko"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>이용권 발급</title><link rel="stylesheet" href="/passes.css">
-<nav><a href="/account">내 계정</a> <a href="/members">회원 관리</a></nav>
+<nav><a href="/account">내 계정</a> <a href="/members">회원 관리</a>
+<a id="pass-management-link" href="/pass-management" hidden>이용권 만료 관리</a></nav>
 <h1>기본 PT 이용권 발급</h1>
 <label>실제 발급 지점<select id="issued"></select></label>
 <form id="search-form"><label>회원 이름 또는 휴대전화 일부
@@ -4147,7 +4239,8 @@ async function actor(){if(invalid)throw Error('actor');
  const n=await json(await fetch('/api/v1/auth/me')),stamp=scope(n);
  if(scope(m)!==stamp||!n.roles.some(r=>r.role==='ADMIN'||r.role==='OPERATOR')||
  (owner&&(owner.stamp!==stamp||nonce!==c.csrf_token))){invalidate();throw Error('actor');}
- owner={id:n.account_id,stamp};nonce=c.csrf_token;roles=n.roles;return owner;
+ owner={id:n.account_id,stamp};nonce=c.csrf_token;roles=n.roles;
+ $('pass-management-link').hidden=!roles.some(r=>r.role==='ADMIN');return owner;
 }
 async function api(path,body){if(!owner||invalid)throw Error('actor');
  return json(await fetch('/api/v1/admin'+path,{method:body?'POST':'GET',
@@ -4255,5 +4348,129 @@ $('acknowledge').onclick=async()=>{if(busy||invalid||!pending)return;
  '작업번호를 확인한 뒤 새 업무를 진행해 주세요.';
  }catch(e){failure(e);}finally{busy=false;controls();}};
 addEventListener('pagehide',invalidate);actor().then(loadBranches).catch(failure);controls();
+})();
+"""
+
+
+PASS_STATE_PAGE = """<!doctype html><html lang="ko"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>이용권 만료 관리</title><link rel="stylesheet" href="/pass-management.css">
+<nav><a href="/account">내 계정</a> <a href="/passes">이용권 발급</a></nav>
+<h1>이용권 만료 관리</h1>
+<p>현재 발급 지점 관리 권한이 있는 이용권의 수동 만료를 처리하거나 해제합니다.
+잔여 횟수는 유지합니다.</p>
+<button id="refresh">목록 새로고침</button>
+<form id="find-form"><label>이용권 식별번호
+<input id="pass-id" maxlength="36" required autocomplete="off"></label>
+<button id="find">조회</button></form><div id="members"></div>
+<button id="prev">이전</button><button id="next">다음</button><p id="page"></p>
+<p id="selection"></p><form id="state-form"><label>처리 사유
+<textarea id="reason" maxlength="200" required rows="3"></textarea></label>
+<button id="expire" type="submit">수동 만료</button>
+<button id="release" type="button">만료 해제</button></form>
+<p id="operation"></p><button id="reconcile">저장 결과 확인</button>
+<button id="acknowledge" hidden>결과 불명 확인 후 현재 목록으로</button>
+<p id="message" role="status"></p><script src="/pass-management.js" defer></script></html>"""
+
+PASS_STATE_SCRIPT = r"""'use strict';
+(()=>{
+const $=id=>document.getElementById(id);
+let owner=null,nonce=null,invalid=false,busy=false,pending=null,selected=null,generation=0;
+let offset=0,total=0;
+const scope=m=>JSON.stringify([m.account_id,m.organization_id,m.roles.filter(r=>r.role==='ADMIN')]);
+async function json(r){let v;try{v=await r.json();}catch{throw Error('network');}
+ if(!r.ok){const e=Error('request');e.status=r.status;e.detail=v.detail;throw e;}return v;}
+function clear(){selected=null;$('selection').textContent='';
+ $('reason').value='';$('pass-id').value='';}
+function invalidate(){invalid=true;generation++;owner=null;nonce=null;pending=null;clear();
+ $('members').replaceChildren();$('page').textContent='';$('operation').textContent='';
+ $('message').textContent='로그인 또는 관리 범위가 변경되었습니다. '+
+ '페이지를 다시 열어 주세요.';controls();}
+async function actor(){if(invalid)throw Error('actor');
+ const m=await json(await fetch('/api/v1/auth/me'));
+ const c=await json(await fetch('/api/v1/auth/csrf',{headers:{'X-Y3-Client':'pass-expiration'}}));
+ const n=await json(await fetch('/api/v1/auth/me')),stamp=scope(n);
+ if(scope(m)!==stamp||!n.roles.some(r=>r.role==='ADMIN')||
+ (owner&&(owner.stamp!==stamp||nonce!==c.csrf_token))){invalidate();throw Error('actor');}
+ owner={id:n.account_id,stamp};nonce=c.csrf_token;return owner;}
+async function api(path,body){if(!owner||invalid)throw Error('actor');
+ return json(await fetch('/api/v1/admin'+path,{method:body?'POST':'GET',
+ headers:{'X-Y3-Expected-Actor':owner.id,...(body?
+ {'Content-Type':'application/json','X-CSRF-Token':nonce}:{})},
+ ...(body?{body:JSON.stringify(body)}:{})}));}
+function controls(){const locked=invalid||busy||!!pending;
+ for(const id of ['refresh','find','pass-id','reason'])$(id).disabled=locked;
+ $('prev').disabled=locked||offset===0;$('next').disabled=locked||offset+25>=total;
+ $('expire').hidden=!selected||selected.manual_expired;$('release').hidden=!selected||!selected.manual_expired;
+ $('expire').disabled=$('release').disabled=locked||!selected;
+ $('reconcile').disabled=invalid||busy||!pending;
+ $('acknowledge').hidden=!pending;$('acknowledge').disabled=invalid||busy;
+ for(const b of $('members').querySelectorAll('button'))b.disabled=locked;}
+function label(s){return s.pass_id+' · '+s.product_name+' · 잔여 '+s.remaining_sessions+'회 · '+
+ (s.manual_expired?'수동 만료':'수동 만료 아님');}
+function publish(s){selected=s;$('selection').textContent=label(s)+' · v'+s.version;
+ $('reason').value='';controls();}
+async function detail(id){const g=++generation;clear();controls();
+ const state=await api('/pass-management/passes/'+id);await actor();
+ if(g!==generation||invalid)return false;publish(state);return true;}
+async function list(){const g=++generation;clear();controls();
+ const page=await api('/pass-management/passes?offset='+offset+'&limit=25');await actor();
+ if(g!==generation||invalid)return false;
+ total=page.total;$('members').replaceChildren();
+ for(const s of page.items){const b=document.createElement('button');b.textContent=label(s);
+ b.onclick=()=>{if(!busy&&!pending)detail(s.pass_id).catch(failure);};$('members').append(b);}
+ $('page').textContent=String(total)+'개 · '+String(offset+1)+'부터';controls();return true;}
+function failure(e){if(e.message==='actor')return;
+ if(e.status===401||e.status===403){invalidate();return;}
+ $('message').textContent=pending?'저장 결과가 불명확합니다. 같은 작업번호로 확인해 주세요.':
+ '현재 관리할 수 있는 이용권을 다시 조회해 주세요.';controls();}
+function known(e){return (e.status===409&&['conflict','operation_conflict','version_exhausted',
+ 'clock_conflict'].includes(e.detail))||e.status===422;}
+async function rejected(original){await actor();if(pending!==original||invalid)return;
+ pending=null;$('operation').textContent='';await detail(original.body.pass_id);
+ $('message').textContent='변경이 적용되지 않았습니다. 현재 상태와 새 사유를 확인해 주세요.';}
+async function complete(original,result){await actor();if(pending!==original||invalid)return;
+ if(!await list())return;
+ const fresh=await detail(result.current_state.pass_id);if(!fresh)return;
+ pending=null;$('operation').textContent='';
+ $('message').textContent=result.changed?'처리했습니다. 잔여 횟수는 유지했습니다.':
+ '이미 요청한 상태여서 변경이 없습니다.';
+ controls();}
+async function submit(desired){if(busy||pending||invalid||!selected)return;
+ const before=selected,reason=$('reason').value;
+ if(!reason.trim()){ $('message').textContent='처리 사유를 입력해 주세요.';return;}
+ busy=true;controls();try{await actor();const original={body:{operation_id:crypto.randomUUID(),
+ pass_id:before.pass_id,expected_state_version:before.version,desired_expired:desired,reason},stamp:owner.stamp};
+ pending=original;clear();$('members').replaceChildren();$('page').textContent='';
+ $('operation').textContent='작업번호: '+original.body.operation_id;
+ let result;try{const {pass_id,...body}=original.body;
+ result=await api('/pass-management/passes/'+pass_id+'/expiration',body);
+ }catch(e){if(known(e)){await rejected(original);return;}throw e;}
+ await complete(original,result);
+ }catch(e){failure(e);}finally{busy=false;controls();}}
+async function reconcile(){if(!pending||busy||invalid)return;const original=pending;
+ busy=true;controls();try{await actor();if(owner.stamp!==original.stamp)throw Error('actor');
+ let result;try{result=await api('/pass-state-operations/'+original.body.operation_id);}catch(e){
+ if(e.status!==404)throw e;
+ try{const {pass_id,...body}=original.body;
+ result=await api('/pass-management/passes/'+pass_id+'/expiration',body);
+ }catch(retry){if(known(retry)){await rejected(original);return;}throw retry;}}
+ await complete(original,result);
+ }catch(e){failure(e);}finally{busy=false;controls();}}
+$('state-form').onsubmit=e=>{e.preventDefault();submit(true);};
+$('release').onclick=()=>submit(false);$('reconcile').onclick=reconcile;
+$('find-form').onsubmit=e=>{e.preventDefault();if(busy||pending||invalid)return;
+ const id=$('pass-id').value.trim();
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)){
+ $('message').textContent='올바른 이용권 식별번호를 입력해 주세요.';return;}
+ detail(id).catch(failure);};
+$('refresh').onclick=()=>list().catch(failure);
+for(const [id,d] of [['prev',-25],['next',25]])$(id).onclick=()=>{if(busy||pending||invalid)return;
+ offset=Math.max(0,offset+d);list().catch(failure);};
+$('acknowledge').onclick=async()=>{if(busy||invalid||!pending)return;
+ busy=true;controls();try{await actor();pending=null;await list();
+ $('message').textContent='이전 결과는 불명입니다. 작업번호를 유지하고 현재 목록으로 돌아왔습니다.';
+ }catch(e){failure(e);}finally{busy=false;controls();}};
+addEventListener('pagehide',invalidate);actor().then(list).catch(failure);controls();
 })();
 """

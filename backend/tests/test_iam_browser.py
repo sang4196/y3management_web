@@ -52,6 +52,7 @@ def run_browser(
     membership_scope: bool = False,
     membership_home: bool = False,
     pass_issuance: bool = False,
+    pass_expiration: bool = False,
     trainer: bool = False,
     trainer_roles: bool = False,
 ) -> None:
@@ -180,7 +181,9 @@ def run_browser(
     shutil.copy(
         Path(__file__).parent
         / (
-            "browser/pass-issuance.cjs"
+            "browser/pass-expiration.cjs"
+            if pass_expiration
+            else "browser/pass-issuance.cjs"
             if pass_issuance
             else "browser/membership-home.cjs"
             if membership_home
@@ -213,7 +216,9 @@ def run_browser(
     shutil.copy(
         Path(__file__).parent
         / (
-            "browser/pass-issuance-checks.json"
+            "browser/pass-expiration-checks.json"
+            if pass_expiration
+            else "browser/pass-issuance-checks.json"
             if pass_issuance
             else "browser/membership-home-checks.json"
             if membership_home
@@ -443,7 +448,8 @@ def run_browser(
                     {"stage": safe_stage, "diagnostic": json.loads(diagnostic.group(1))},
                 )
         if (
-            pass_issuance
+            pass_expiration
+            or pass_issuance
             or membership_home
             or membership_scope
             or membership
@@ -461,7 +467,9 @@ def run_browser(
             _qa_write(
                 qa_root()
                 / (
-                    "latest-pass-issuance-failure.json"
+                    "latest-pass-expiration-failure.json"
+                    if pass_expiration
+                    else "latest-pass-issuance-failure.json"
                     if pass_issuance
                     else "latest-membership-home-failure.json"
                     if membership_home
@@ -514,7 +522,9 @@ def run_browser(
             "browser": version if re.fullmatch(r"\d+(\.\d+){1,3}", version) else "unknown",
             "scope": "actual trusted HTTPS browser",
             "mode": (
-                "pass-issuance"
+                "pass-expiration"
+                if pass_expiration
+                else "pass-issuance"
                 if pass_issuance
                 else "membership-home"
                 if membership_home
@@ -537,7 +547,9 @@ def run_browser(
             "run_id": root.parents[2].name,
         }
         evidence = (
-            "latest-pass-issuance-browser.json"
+            "latest-pass-expiration-browser.json"
+            if pass_expiration
+            else "latest-pass-issuance-browser.json"
             if pass_issuance
             else "latest-membership-home-browser.json"
             if membership_home

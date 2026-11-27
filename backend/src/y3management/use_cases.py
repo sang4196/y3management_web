@@ -19,6 +19,7 @@ from y3management.audit.public import (
     OperatorAccountEvent,
     OperatorRoleEvent,
     PassIssued,
+    PassStateChanged,
     PasswordEmergencyEvent,
     ProductEvent,
     TrainerHomeEvent,
@@ -70,6 +71,10 @@ from y3management.pt_operations.public import (
     CatalogResult,
     IssueCommand,
     IssueResult,
+    PassState,
+    PassStateCommand,
+    PassStatePage,
+    PassStateResult,
     Product,
     ProductPage,
 )
@@ -2151,4 +2156,59 @@ class Service:
             clock = w.roles.confirm_actor(actor, self_change=False, touch=True)
             # The final successful proof time is the immutable issuance-completion time.
             w.audit.seal_pass_issue(a.caller.organization_id, result.operation_id, clock)
-            return w.passes.seal(a.caller, result, clock)
+            sealed = w.passes.seal(a.caller, result, clock)
+            w.pass_states.initialize(a.caller.organization_id, sealed.pass_record.id)
+            return sealed
+
+    def managed_passes(
+        self, auth: str | None, offset: int, limit: int, *, expected_actor: UUID
+    ) -> PassStatePage:
+        with self.uow.open() as w:
+            a = self._member_actor(w, auth, expected_actor)
+            actor = w.roles.snapshot(a)
+            result = w.pass_states.list(a.caller, offset, limit)
+            w.roles.confirm_actor(actor, self_change=False)
+            return result
+
+    def managed_pass(self, auth: str | None, ident: UUID, *, expected_actor: UUID) -> PassState:
+        with self.uow.open() as w:
+            a = self._member_actor(w, auth, expected_actor)
+            actor = w.roles.snapshot(a)
+            result = w.pass_states.get(a.caller, ident)
+            w.roles.confirm_actor(actor, self_change=False)
+            return result
+
+    def pass_state_operation(
+        self, auth: str | None, ident: UUID, *, expected_actor: UUID
+    ) -> PassStateResult:
+        with self.uow.open() as w:
+            a = self._member_actor(w, auth, expected_actor)
+            actor = w.roles.snapshot(a)
+            result = w.pass_states.operation(a.caller, ident)
+            w.roles.confirm_actor(actor, self_change=False)
+            return result
+
+    def change_pass_state(
+        self,
+        auth: str | None,
+        nonce: str | None,
+        command: PassStateCommand,
+        *,
+        expected_actor: UUID,
+    ) -> PassStateResult:
+        with self.uow.open() as w:
+            a = self._member_actor(w, auth, expected_actor)
+            w.iam.csrf(a, nonce)
+            actor = w.roles.snapshot(a)
+            replay = w.pass_states.replay(a.caller, command)
+            if replay is not None:
+                w.roles.confirm_actor(actor, self_change=False)
+                return replay
+            result, mutation = w.pass_states.change(a.caller, command)
+            if mutation is not None:
+                w.audit.append_pass_state(PassStateChanged(**asdict(mutation)))
+            w.pass_states.confirm(a.caller, result)
+            clock = w.roles.confirm_actor(actor, self_change=False, touch=mutation is not None)
+            if mutation is not None:
+                w.audit.seal_pass_state(a.caller.organization_id, result.operation_id, clock)
+            return w.pass_states.seal(a.caller, result, clock)

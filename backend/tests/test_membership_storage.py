@@ -37,7 +37,7 @@ def test_actual22_old_rows_catalog_and_both_runtime_heads_empty_inverse(
         pytest.raises(ValueError, match="APPLICATION_STARTUP_FAILED"),
         TestClient(create_app(settings)),
     ):
-        pytest.fail("Current25 accepted22")
+        pytest.fail("Current26 accepted22")
     old = archive_backend(tmp_path, PARENT)
     private = old / "seed-input.json"
     private.write_text(json.dumps({"password": password}))

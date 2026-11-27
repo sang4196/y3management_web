@@ -136,3 +136,70 @@ class PassPort(Protocol):
     ) -> tuple[IssueResult, PassIssueEvent]: ...
     def confirm(self, caller: Caller, result: IssueResult) -> None: ...
     def seal(self, caller: Caller, result: IssueResult, clock: datetime) -> IssueResult: ...
+
+
+@dataclass(frozen=True)
+class PassState:
+    pass_id: UUID
+    member_id: UUID
+    product_name: str
+    issued_branch_id: UUID
+    remaining_sessions: str
+    version: int
+    manual_expired: bool
+    recorded_at: datetime
+
+
+@dataclass(frozen=True)
+class PassStatePage:
+    items: tuple[PassState, ...]
+    total: int
+
+
+@dataclass(frozen=True, repr=False)
+class PassStateCommand:
+    operation_id: UUID
+    pass_id: UUID
+    expected_state_version: int
+    desired_expired: bool
+    reason: str
+
+
+@dataclass(frozen=True)
+class PassStateResult:
+    operation_id: UUID
+    changed: bool
+    committed_state: PassState
+    current_state: PassState
+
+
+@dataclass(frozen=True, repr=False)
+class PassStateEvent:
+    organization_id: UUID
+    operation_id: UUID
+    pass_id: UUID
+    issued_branch_id: UUID
+    actor_id: UUID
+    actor_role: str
+    actor_branch: UUID | None
+    kind: str
+    reason: str
+    before_version: int
+    after_version: int
+    before_expired: bool
+    after_expired: bool
+    before_recorded_at: datetime
+    recorded_at: datetime
+
+
+class PassStatePort(Protocol):
+    def initialize(self, org: UUID, ident: UUID) -> None: ...
+    def get(self, caller: Caller, ident: UUID) -> PassState: ...
+    def list(self, caller: Caller, offset: int, limit: int) -> PassStatePage: ...
+    def operation(self, caller: Caller, ident: UUID) -> PassStateResult: ...
+    def replay(self, caller: Caller, command: PassStateCommand) -> PassStateResult | None: ...
+    def change(
+        self, caller: Caller, command: PassStateCommand
+    ) -> tuple[PassStateResult, PassStateEvent | None]: ...
+    def confirm(self, caller: Caller, result: PassStateResult) -> None: ...
+    def seal(self, caller: Caller, result: PassStateResult, clock: datetime) -> PassStateResult: ...

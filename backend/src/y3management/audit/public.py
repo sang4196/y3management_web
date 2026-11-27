@@ -83,6 +83,9 @@ class OperatorAccountEvent:
 
 
 class AuditPort(Protocol):
+    def append_pass_state(self, event: PassStateChanged) -> None: ...
+    def seal_pass_state(self, org: UUID, operation: UUID, clock: datetime) -> None: ...
+
     def append_pass_issue(self, event: PassIssued) -> None: ...
     def seal_pass_issue(self, org: UUID, operation: UUID, clock: datetime) -> None: ...
 
@@ -363,4 +366,23 @@ class PassIssued:
     actor_id: UUID
     actor_role: str
     actor_branch: UUID | None
+    recorded_at: datetime
+
+
+@dataclass(frozen=True, repr=False)
+class PassStateChanged:
+    organization_id: UUID
+    operation_id: UUID
+    pass_id: UUID
+    issued_branch_id: UUID
+    actor_id: UUID
+    actor_role: str
+    actor_branch: UUID | None
+    kind: str
+    reason: str
+    before_version: int
+    after_version: int
+    before_expired: bool
+    after_expired: bool
+    before_recorded_at: datetime
     recorded_at: datetime
